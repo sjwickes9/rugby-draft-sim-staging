@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!-- Google Tag Manager -->
+        <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+        new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+        j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+        'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+        })(window,document,'script','dataLayer','GTM-KBVM69FK');</script>
+        <!-- End Google Tag Manager -->
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <meta name="description" content="Build your ultimate XV from every Rugby World Cup squad in history. Draft players across 10 tournaments, then simulate the 2023 World Cup.">
+            <title>Rugby XV Draft</title>
+            <link rel="stylesheet" href="style.css">
+ 
+<link rel="icon" type="image/x-icon" href="favicon.ico">
+</head>
+<body>
+    <!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-KBVM69FK"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+    <header>
+        <h1>Rugby XV Draft</h1>
+        <div class="utility-controls">
+            <button id="theme-toggle">Light Mode</button>
+            <button class="abort-reset-btn">Reset App</button>
+        </div>
+    </header>
+    <main>
+        <!-- SCREEN 1: SETUP -->
+        <div id="setup-card" class="card-container">
+
+            <div class="setup-title">
+                <h2>Rugby XV Draft</h2>
+            </div>
+
+            <div class="explainer-box">
+                <div class="explainer-lead">Build the ultimate rugby team from history then take them to the World Cup.</div>
+                <div class="explainer-body">Each turn, a random nation and year is spun — from the 1987 World Cup to 2023. Pick one player from that squad and place them on your pitch. Build a full XV across 15 spins, choosing wisely each time.</div>
+                <div class="explainer-body">Your XV replaces a real team in the 2023 bracket. Once your squad is complete, simulate the tournament and see how far they go.</div>
+                <div class="explainer-rules">
+                    <div class="explainer-rule">5,700+ players across all 10 World Cups</div>
+                    <div class="explainer-rule">Players can be placed out of position, but with a rating penalty</div>
+                    <div class="explainer-rule">Use respins to reject a squad and draw another</div>
+                    <div class="explainer-rule">Career Peak mode rates players at their all-time best</div>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>Replace Which Team</label>
+                <select id="team-select" class="team-select"></select>
+                <p class="control-hint">Your XV takes this team's place in the 2023 World Cup bracket.</p>
+            </div>
+
+            <div class="control-group">
+                <label>Rating Mode</label>
+                <div id="variant-slider-track" class="slider-track">
+                    <div id="variant-handle" class="slider-handle"></div>
+                    <div class="slider-options">
+                        <div id="variant-comp" class="slider-opt active">Tournament Rating</div>
+                        <div id="variant-career" class="slider-opt">Career Peak</div>
+                    </div>
+                </div>
+                <p class="control-hint" id="variant-hint">Players are rated as they were at that year's World Cup.</p>
+            </div>
+
+            <div class="control-group">
+                <label>Rating Visibility</label>
+                <div id="rating-slider-track" class="slider-track">
+                    <div id="rating-handle" class="slider-handle"></div>
+                    <div class="slider-options">
+                        <div id="lbl-reveal" class="slider-opt active">Show Ratings</div>
+                        <div id="lbl-knowledge" class="slider-opt">Hide Ratings</div>
+                    </div>
+                </div>
+                <p class="control-hint">Hide Ratings tests your rugby knowledge — pick players without seeing their scores.</p>
+            </div>
+
+            <div class="control-group">
+                <label>Difficulty</label>
+                <div class="radio-options">
+                    <div class="radio-box">
+                        <input type="radio" name="difficulty" value="easy" id="diff-easy">
+                        <label for="diff-easy" class="radio-label">Easy<br><span style="font-size:0.75rem;font-weight:normal;opacity:0.8;">3 Respins</span></label>
+                    </div>
+                    <div class="radio-box">
+                        <input type="radio" name="difficulty" value="normal" id="diff-normal" checked>
+                        <label for="diff-normal" class="radio-label">Normal<br><span style="font-size:0.75rem;font-weight:normal;opacity:0.8;">1 Respin</span></label>
+                    </div>
+                    <div class="radio-box">
+                        <input type="radio" name="difficulty" value="hard" id="diff-hard">
+                        <label for="diff-hard" class="radio-label">Hardcore<br><span style="font-size:0.75rem;font-weight:normal;opacity:0.8;">No Respins</span></label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>Simulation Speed</label>
+                <div class="radio-options">
+                    <div class="radio-box">
+                        <input type="radio" name="sim-speed" value="slow" id="speed-slow">
+                        <label for="speed-slow" class="radio-label">Slow<br><span style="font-size:0.75rem;font-weight:normal;opacity:0.8;">Read every line</span></label>
+                    </div>
+                    <div class="radio-box">
+                        <input type="radio" name="sim-speed" value="medium" id="speed-medium" checked>
+                        <label for="speed-medium" class="radio-label">Medium<br><span style="font-size:0.75rem;font-weight:normal;opacity:0.8;">Default pace</span></label>
+                    </div>
+                    <div class="radio-box">
+                        <input type="radio" name="sim-speed" value="fast" id="speed-fast">
+                        <label for="speed-fast" class="radio-label">Fast<br><span style="font-size:0.75rem;font-weight:normal;opacity:0.8;">Quick results</span></label>
+                    </div>
+                </div>
+                <p class="control-hint">Controls how long each match result and scorer line stays on screen during the World Cup simulation.</p>
+            </div>
+
+            <button id="start-game-btn" class="btn-primary btn-full">Start Drafting</button>
+        </div>
+
+        <!-- SCREEN 2: DRAFT DASHBOARD -->
+        <div id="draft-dashboard" class="dashboard-grid hidden">
+            <div class="left-panel">
+                <div class="panel-card">
+                    <div class="stats-row">
+                        <div class="stat-box"><div id="avg-global-ovr" class="stat-val">--</div><div class="stat-lbl">Global OVR</div></div>
+                        <div class="stat-box"><div id="avg-forward-ovr" class="stat-val">--</div><div class="stat-lbl">Forwards</div></div>
+                        <div class="stat-box"><div id="avg-back-ovr" class="stat-val">--</div><div class="stat-lbl">Backs</div></div>
+                    </div>
+                </div>
+                <div class="panel-card">
+                    <div class="action-cluster">
+                        <button id="spin-btn" class="btn-primary">Spin Team</button>
+                        <button id="respin-btn" class="disabled" disabled>Respin (<span id="respin-count">1</span>)</button>
+                    </div>
+                    <div class="status-feed-box">
+                        <div id="flag-indicator" class="flag-wrapper"></div>
+                        <div id="status-text">Click "Spin Team" to draw a squad from World Cup history.</div>
+                    </div>
+                </div>
+                <div class="panel-card roster-panel">
+                    <div class="roster-scroll-boundary" id="roster-container"></div>
+                </div>
+                <button class="abort-reset-btn abandon-btn">Abandon Campaign</button>
+            </div>
+
+            <div class="panel-card pitch-card">
+                <div class="rugby-pitch-canvas">
+                    <div class="pitch-line-marking line-dead-top"></div>
+                    <div class="pitch-line-marking line-10m-top"></div>
+                    <div class="pitch-line-marking line-22m-top"></div>
+                    <div class="pitch-line-marking line-halfway"></div>
+                    <div class="pitch-line-marking line-22m-bottom"></div>
+                    <div class="pitch-line-marking line-10m-bottom"></div>
+                    <div class="pitch-line-marking line-dead-base"></div>
+                    <div class="pitch-row-tier">
+                        <div class="pitch-circle" data-pos="Loosehead Prop" data-num="1" data-label="PROP"></div>
+                        <div class="pitch-circle" data-pos="Hooker" data-num="2" data-label="HOOKER"></div>
+                        <div class="pitch-circle" data-pos="Tighthead Prop" data-num="3" data-label="PROP"></div>
+                    </div>
+                    <div class="pitch-row-tier">
+                        <div class="pitch-circle" data-pos="Lock 4" data-num="4" data-label="LOCK"></div>
+                        <div class="pitch-circle" data-pos="Lock 5" data-num="5" data-label="LOCK"></div>
+                    </div>
+                    <div class="pitch-row-tier">
+                        <div class="pitch-circle" data-pos="Blindside Flanker" data-num="6" data-label="FLANKER"></div>
+                        <div class="pitch-circle" data-pos="Number 8" data-num="8" data-label="NUMBER 8"></div>
+                        <div class="pitch-circle" data-pos="Openside Flanker" data-num="7" data-label="FLANKER"></div>
+                    </div>
+                    <div class="pitch-row-tier">
+                        <div class="pitch-circle" data-pos="Scrum-half" data-num="9" data-label="SCRUM-HALF"></div>
+                        <div class="pitch-circle" data-pos="Fly-half" data-num="10" data-label="FLY-HALF"></div>
+                    </div>
+                    <div class="pitch-row-tier">
+                        <div class="pitch-circle" data-pos="Left Wing" data-num="11" data-label="WING"></div>
+                        <div class="pitch-circle" data-pos="Inside Centre" data-num="12" data-label="CENTRE"></div>
+                        <div class="pitch-circle" data-pos="Outside Centre" data-num="13" data-label="CENTRE"></div>
+                        <div class="pitch-circle" data-pos="Right Wing" data-num="14" data-label="WING"></div>
+                    </div>
+                    <div class="pitch-row-tier">
+                        <div class="pitch-circle" data-pos="Fullback" data-num="15" data-label="FULLBACK"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SCREEN 3: SIMULATION -->
+        <div id="sim-dashboard" class="sim-layout-container hidden">
+            <div class="panel-card" id="manifest-team-box" style="overflow-y:auto;max-height:520px;"></div>
+            <div class="panel-card">
+                <div id="pre-kickoff-summary" class="prekick-box"></div>
+                <div class="terminal-window-shell">
+                    <div class="terminal-header-bar">
+                        <div class="terminal-title">Match Simulation Processor</div>
+                        <button id="run-sim-btn" class="btn-primary">Kick Off Tournament</button>
+                    </div>
+                    <div id="sim-results" class="terminal-logs-viewport">Ready to begin simulation...</div>
+                </div>
+                <button id="restart-btn" class="btn-primary hidden">Play Again</button>
+            </div>
+        </div>
+    </main>
+    <script src="data.js"></script>
+    <script src="app.js"></script>
+<div style="text-align: center;">
+    <a href="https://ko-fi.com/U1R321MVNC" target="_blank">
+        <img
+            src="https://storage.ko-fi.com/cdn/kofi2.png?v=6"
+            alt="Buy Me a Coffee at ko-fi.com"
+            height="36"
+            style="border:0; height:36px;"
+        >
+    </a>
+</div>
+</body>
+ 
+</html>
