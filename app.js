@@ -199,6 +199,9 @@ let respinsLeft        = 0;
 let isKnowledgeMode    = false;
 let isCareerMode       = false;
 let simSpeedMultiplier = 1; // 1 = medium (default); read from the speed radio when Kick Off Tournament is clicked
+let selectedTournamentYear = "2023"; // which World Cup is being simulated this run
+let activePoolStandings = poolStandingsByYear[selectedTournamentYear];
+let activeTeamStrengths = teamStrengthsByYear[selectedTournamentYear];
 let spotsFilledCount   = 0;
 let playerSelectedFromCurrentPool = false;
 let globalDraftedNames = new Set();
@@ -225,18 +228,27 @@ const manifestTeamBox = document.getElementById("manifest-team-box");
 // ============================================================
 document.addEventListener("DOMContentLoaded", () => {
     const teamSelect = document.getElementById("team-select");
-    if (teamSelect) {
-        Object.keys(allSquads).sort().forEach(t => {
+    const yearSelect = document.getElementById("tournament-year-select");
+
+    function populateTeamSelect(year) {
+        if (!teamSelect) return;
+        const pools = poolStandingsByYear[year];
+        if (!pools) return;
+        const nations = Object.values(pools).flat().sort();
+        teamSelect.innerHTML = "";
+        nations.forEach(t => {
             const opt = document.createElement("option");
             opt.value = t; opt.textContent = t;
             teamSelect.appendChild(opt);
         });
-        //  Hidden dev mode — appears at bottom of list
-        // const devOpt = document.createElement("option");
-        // devOpt.value = "Cymru"; devOpt.textContent = "Cymru (Dev Mode)";
-        // teamSelect.appendChild(devOpt);
-        teamSelect.value = "England";
+        // Prefer England if it's competing that year, otherwise just take the first nation
+        teamSelect.value = nations.includes("England") ? "England" : nations[0];
     }
+
+    if (yearSelect) {
+        yearSelect.addEventListener("change", () => populateTeamSelect(yearSelect.value));
+    }
+    populateTeamSelect(yearSelect ? yearSelect.value : "2023");
 
     document.getElementById("start-game-btn").addEventListener("click", e => {
         e.preventDefault();
@@ -244,6 +256,11 @@ document.addEventListener("DOMContentLoaded", () => {
         const setting = diff ? diff.value : "normal";
         respinsLeft = setting === "easy" ? 3 : setting === "normal" ? 1 : 0;
         if (respinCountText) respinCountText.textContent = respinsLeft;
+
+        selectedTournamentYear = yearSelect ? yearSelect.value : "2023";
+        activePoolStandings = poolStandingsByYear[selectedTournamentYear];
+        activeTeamStrengths = teamStrengthsByYear[selectedTournamentYear];
+
         replacedTeam = teamSelect ? teamSelect.value : "England";
 
         if (replacedTeam === "Cymru") {
@@ -317,7 +334,7 @@ function activateCymruMode() {
         await addLog("=== FINAL ===", "var(--brand-gold)");
         await addLog("WIN  vs South Africa  21-18", "#4ade80");
         await addLog("", null);
-        await addLog("WORLD CHAMPIONS! Your Hybrid XV wins the 2023 Rugby World Cup!", "var(--brand-gold)");
+        await addLog("WORLD CHAMPIONS! Your Hybrid XV wins the " + selectedTournamentYear + " Rugby World Cup!", "var(--brand-gold)");
         await addLog("", null);
         await addLog("But the challenge doesn't end here...", "var(--text-muted)");
         await addLog("Three legendary teams await. Do you dare face them?", "var(--text-muted)");
@@ -1223,8 +1240,8 @@ function oddsText(prob) {
 // OPPOSITION LINEUPS — best 2023 player per position, per nation
 // ============================================================
 function getOppositionLineup(nationName) {
-    if (!allSquads[nationName] || !allSquads[nationName]["2023"]) return null;
-    const squad = allSquads[nationName]["2023"];
+    if (!allSquads[nationName] || !allSquads[nationName][selectedTournamentYear]) return null;
+    const squad = allSquads[nationName][selectedTournamentYear];
 
     const lineup = {};
     const usedNames = new Set();
@@ -1541,7 +1558,7 @@ async function addLog(msg, colour) {
 async function runTournamentSimulation() {
     const userR = getUserRating();
     const pool = getPoolFor(replacedTeam);
-    const poolTeams = rwc2023PoolStandings[pool].filter(t => t !== replacedTeam);
+    const poolTeams = activePoolStandings[pool].filter(t => t !== replacedTeam);
 
     await addLog("=== POOL STAGE — Pool " + pool + " ===", "var(--brand-gold)");
     await addLog("Your Hybrid XV (avg: " + userR + ") replaces " + replacedTeam, null);
@@ -1568,7 +1585,7 @@ async function runTournamentSimulation() {
 
     // ── Run user's pool matches ──
     for (const opp of poolTeams) {
-        const res = simulateMatch(userR, teamStrengths[opp] || 72);
+        const res = simulateMatch(userR, activeTeamStrengths[opp] || 72);
         const icon = res.won ? "WIN " : "LOSS";
         const colour = res.won ? "#4ade80" : "#f87171";
         await addLog(icon + "  vs " + opp + "  " + res.userScore + "-" + res.oppScore + "  (" + (res.pts>0?"+":"") + res.pts + " pts)", colour);
@@ -1583,7 +1600,7 @@ async function runTournamentSimulation() {
     for (let i = 0; i < poolTeams.length; i++) {
         for (let j = i+1; j < poolTeams.length; j++) {
             const t1 = poolTeams[i], t2 = poolTeams[j];
-            const res = simulateMatch(teamStrengths[t1]||72, teamStrengths[t2]||72);
+            const res = simulateMatch(activeTeamStrengths[t1]||72, activeTeamStrengths[t2]||72);
             const ptsT1 = res.won ? (res.margin>21?5:4) : (res.margin<=7?1:0);
             const ptsT2 = res.won ? (res.margin<=7?1:0) : (res.margin>21?5:4);
             applyResult(t1, res.userScore, t2, res.oppScore, ptsT1, ptsT2);
@@ -1639,7 +1656,7 @@ async function runTournamentSimulation() {
     // ── Quarter-final ──
     await addLog("", null);
     await addLog("=== QUARTER-FINAL vs " + qfOpp + " ===", "var(--brand-gold)");
-    const qfOppR = teamStrengths[qfOpp]||80;
+    const qfOppR = activeTeamStrengths[qfOpp]||80;
     const qfProb = winProbability(effectiveR, qfOppR);
     await addLog(oddsText(qfProb) + " (" + qfProb + "% chance of winning)", "var(--text-muted)");
     const qf = simulateMatch(effectiveR, qfOppR);
@@ -1655,23 +1672,23 @@ async function runTournamentSimulation() {
 
     // Simulate the other QF in the same semi bracket → SF opponent
     const otherQFSameSide = qfPairings.find(qf2 => qf2.sf === userSF && qf2.id !== userQF.id);
-    const oqRes = simulateMatch(teamStrengths[otherQFSameSide.home]||80, teamStrengths[otherQFSameSide.away]||80);
+    const oqRes = simulateMatch(activeTeamStrengths[otherQFSameSide.home]||80, activeTeamStrengths[otherQFSameSide.away]||80);
     const sfOpp = oqRes.won ? otherQFSameSide.home : otherQFSameSide.away;
 
     // Simulate both QFs on the other side → final opponent and 3rd place opponent
     const otherSideQFs = qfPairings.filter(qf2 => qf2.sf !== userSF);
-    const os0Res = simulateMatch(teamStrengths[otherSideQFs[0].home]||80, teamStrengths[otherSideQFs[0].away]||80);
-    const os1Res = simulateMatch(teamStrengths[otherSideQFs[1].home]||80, teamStrengths[otherSideQFs[1].away]||80);
+    const os0Res = simulateMatch(activeTeamStrengths[otherSideQFs[0].home]||80, activeTeamStrengths[otherSideQFs[0].away]||80);
+    const os1Res = simulateMatch(activeTeamStrengths[otherSideQFs[1].home]||80, activeTeamStrengths[otherSideQFs[1].away]||80);
     const otherSF_A = os0Res.won ? otherSideQFs[0].home : otherSideQFs[0].away;
     const otherSF_B = os1Res.won ? otherSideQFs[1].home : otherSideQFs[1].away;
-    const otherSFRes = simulateMatch(teamStrengths[otherSF_A]||86, teamStrengths[otherSF_B]||86);
+    const otherSFRes = simulateMatch(activeTeamStrengths[otherSF_A]||86, activeTeamStrengths[otherSF_B]||86);
     const finOpp  = otherSFRes.won ? otherSF_A : otherSF_B;
     const tpOpp   = otherSFRes.won ? otherSF_B : otherSF_A;
 
     // ── Semi-final ──
     await addLog("", null);
     await addLog("=== SEMI-FINAL vs " + sfOpp + " ===", "var(--brand-gold)");
-    const sfOppR = teamStrengths[sfOpp]||86;
+    const sfOppR = activeTeamStrengths[sfOpp]||86;
     const sfProb = winProbability(effectiveR, sfOppR);
     await addLog(oddsText(sfProb) + " (" + sfProb + "% chance of winning)", "var(--text-muted)");
     const sf = simulateMatch(effectiveR, sfOppR);
@@ -1682,14 +1699,14 @@ async function runTournamentSimulation() {
     if (!sf.won) {
         await addLog("", null);
         await addLog("=== THIRD-PLACE PLAY-OFF vs " + tpOpp + " ===", "var(--brand-gold)");
-        const tpOppR = teamStrengths[tpOpp]||84;
+        const tpOppR = activeTeamStrengths[tpOpp]||84;
         const tpProb = winProbability(effectiveR, tpOppR);
         await addLog(oddsText(tpProb) + " (" + tpProb + "% chance of winning)", "var(--text-muted)");
         const tp = simulateMatch(effectiveR, tpOppR);
         await addLog((tp.won?"WIN ":"LOSS") + "  " + tp.userScore + "-" + tp.oppScore, tp.won?"#4ade80":"#f87171");
         matchHistory.push({ stage:"3rd Place", opponent:tpOpp, userScore:tp.userScore, oppScore:tp.oppScore, won:tp.won });
         await addScoreBreakdownLog(userTeam, tp.userScore, tpOpp, tp.oppScore);
-        await addLog(tp.won ? "BRONZE — 3rd place at the 2023 Rugby World Cup!" : "4th place — agonisingly close.", tp.won?"#4ade80":"#c5a059");
+        await addLog(tp.won ? ("BRONZE — 3rd place at the " + selectedTournamentYear + " Rugby World Cup!") : "4th place — agonisingly close.", tp.won?"#4ade80":"#c5a059");
         await showResultsSummary();
         showShareButton(tp.won ? "Bronze Medal — 3rd Place" : "4th Place Finish", tp.won?"#4ade80":"#c5a059");
         restartBtn.classList.remove("hidden"); return;
@@ -1698,7 +1715,7 @@ async function runTournamentSimulation() {
     // ── Final ──
     await addLog("", null);
     await addLog("=== FINAL vs " + finOpp + " ===", "var(--brand-gold)");
-    const finOppR = teamStrengths[finOpp]||90;
+    const finOppR = activeTeamStrengths[finOpp]||90;
     const finProb = winProbability(effectiveR, finOppR);
     await addLog(oddsText(finProb) + " (" + finProb + "% chance of winning)", "var(--text-muted)");
     const fin = simulateMatch(effectiveR, finOppR);
@@ -1706,7 +1723,7 @@ async function runTournamentSimulation() {
     matchHistory.push({ stage:"Final", opponent:finOpp, userScore:fin.userScore, oppScore:fin.oppScore, won:fin.won });
     await addScoreBreakdownLog(userTeam, fin.userScore, finOpp, fin.oppScore);
     if (fin.won) {
-        await addLog("WORLD CHAMPIONS! Your Hybrid XV wins the 2023 Rugby World Cup!", "var(--brand-gold)");
+        await addLog("WORLD CHAMPIONS! Your Hybrid XV wins the " + selectedTournamentYear + " Rugby World Cup!", "var(--brand-gold)");
         await addLog("", null);
         await addLog("But the challenge doesn't end here...", "var(--text-muted)");
         await addLog("Three legendary teams await. Do you dare face them?", "var(--text-muted)");
@@ -1740,12 +1757,12 @@ async function runTournamentSimulation() {
 // Simulate all four pool round-robins, return ordered standings {A:[1st,2nd,...], ...}
 function simulateAllPools() {
     const standings = {};
-    for (const [p, teams] of Object.entries(rwc2023PoolStandings)) {
+    for (const [p, teams] of Object.entries(activePoolStandings)) {
         const pts = {};
         teams.forEach(t => { pts[t] = 0; });
         for (let i = 0; i < teams.length; i++) {
             for (let j = i+1; j < teams.length; j++) {
-                const res = simulateMatch(teamStrengths[teams[i]]||65, teamStrengths[teams[j]]||65);
+                const res = simulateMatch(activeTeamStrengths[teams[i]]||65, activeTeamStrengths[teams[j]]||65);
                 pts[teams[i]] += res.won ? (res.margin>21?5:4) : (res.margin<=7?1:0);
                 pts[teams[j]] += res.won ? (res.margin<=7?1:0) : (res.margin>21?5:4);
             }
@@ -1759,7 +1776,7 @@ function simulateAllPools() {
 // BRACKET HELPERS
 // ============================================================
 function getPoolFor(team) {
-    for (const [k,v] of Object.entries(rwc2023PoolStandings)) { if (v.includes(team)) return k; }
+    for (const [k,v] of Object.entries(activePoolStandings)) { if (v.includes(team)) return k; }
     return "A";
 }
 
