@@ -1895,6 +1895,11 @@ function hardReload() {
     // location.reload() can sometimes replay a cached version of the page
     // and its scripts rather than fetching fresh ones. Navigating to the
     // base URL with a cache-busting query param forces a genuine reload.
+    // The sessionStorage flag tells the next page load to skip the
+    // full-screen loading logo, since the user has already seen it once
+    // this session and is just restarting a game, not opening the site
+    // fresh.
+    try { sessionStorage.setItem("hasPlayedBefore", "1"); } catch (e) {}
     const base = location.pathname;
     window.location.href = base + "?_=" + Date.now();
 }
@@ -2098,17 +2103,29 @@ async function runBossStage() {
 // ============================================================
 // LOADING SCREEN
 // ============================================================
-// Shows the logo full-screen while everything else loads, then fades it
-// out. A small minimum display time keeps it from flashing imperceptibly
-// on fast connections, where it would otherwise feel like a glitch rather
-// than an intentional loading moment.
+// Shows the logo full-screen on a genuinely fresh visit, then fades it
+// out after a minimum display time so it registers as intentional rather
+// than a flicker. Skipped entirely on repeat visits within the same
+// session (Play Again / Abandon Campaign trigger a real page reload via
+// hardReload(), which sets the sessionStorage flag below) — the user has
+// already seen it once and is just restarting a game, not opening the
+// site fresh.
 (function () {
+    const screen = document.getElementById("loading-screen");
+    if (!screen) return;
+
+    let hasPlayedBefore = false;
+    try { hasPlayedBefore = sessionStorage.getItem("hasPlayedBefore") === "1"; } catch (e) {}
+
+    if (hasPlayedBefore) {
+        screen.remove();
+        return;
+    }
+
     const MIN_DISPLAY_MS = 1800;
     const shownAt = Date.now();
 
     function dismissLoadingScreen() {
-        const screen = document.getElementById("loading-screen");
-        if (!screen) return;
         const elapsed = Date.now() - shownAt;
         const wait = Math.max(0, MIN_DISPLAY_MS - elapsed);
         setTimeout(() => {
