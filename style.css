@@ -717,8 +717,7 @@ button:disabled, button.disabled { opacity: 0.4; cursor: not-allowed; pointer-ev
 .sim-layout-container {
     max-width: 1000px; margin: 20px auto;
     display: grid; grid-template-columns: 4fr 5fr; gap: 25px;
-    height: calc(65vh - 80px);
-    min-height: 400px;
+    min-height: calc(65vh - 80px);
 }
 .tournament-title-banner {
     flex: 1;
@@ -952,7 +951,7 @@ button:disabled, button.disabled { opacity: 0.4; cursor: not-allowed; pointer-ev
     .left-panel { min-height: unset; }
     .roster-panel { min-height: 300px; }
     .roster-scroll-boundary { max-height: 300px; }
-    .sim-layout-container { grid-template-columns: 1fr; height: auto; min-height: unset; }
+    .sim-layout-container { grid-template-columns: 1fr; min-height: unset; }
     .prekick-box { grid-column: 1; }
     #sim-processor-card { grid-column: 1; grid-row: auto; }
 }
