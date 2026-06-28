@@ -890,7 +890,7 @@ function canUseNativeShare() {
 // ============================================================
 // PAGE SHARE BUTTON (footer) — share the site itself, not a result card
 // ============================================================
-(function () {
+function setupPageShareButton() {
     const shareBtn = document.getElementById("page-share-btn");
     const shareMenu = document.getElementById("page-share-menu");
     if (!shareBtn || !shareMenu) return;
@@ -951,7 +951,13 @@ function canUseNativeShare() {
             }
         });
     });
-})();
+}
+
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", setupPageShareButton);
+} else {
+    setupPageShareButton();
+}
 
 // Renders an end-of-run results summary into the sim log: games played,
 // won, lost, plus the tournament's top points scorer and top try scorer.
