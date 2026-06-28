@@ -1810,7 +1810,7 @@ const allSquads = {
             {name:"Stéphane Castaignède",positions:["Scrum-half"],num:18,rating:80,careerRating:80},
             {name:"Christophe Lamaison",positions:["Fly-half", "Inside Centre"],num:19,rating:84,careerRating:84},
             {name:"Thomas Castaignède",positions:["Fly-half", "Fullback"],num:20,rating:89,careerRating:89},
-            {name:"Émile Ntamack",positions:["Fly-half", "Inside Centre"],num:21,rating:87,careerRating:87},
+            {name:"Émile Ntamack",positions:["Left Wing", "Inside Centre"],num:21,rating:87,careerRating:87},
             {name:"Christophe Dominici",positions:["Left Wing", "Right Wing"],num:22,rating:82,careerRating:91},
             {name:"Philippe Bernat-Salles",positions:["Left Wing", "Right Wing"],num:23,rating:87,careerRating:87},
             {name:"Cédric Desbrosse",positions:["Inside Centre", "Outside Centre"],num:24,rating:82,careerRating:82},
