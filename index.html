@@ -96,25 +96,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                 </div>
             </div>
 
-            <div class="control-group">
-                <label>Simulation Speed</label>
-                <div class="radio-options">
-                    <div class="radio-box">
-                        <input type="radio" name="sim-speed" value="slow" id="speed-slow">
-                        <label for="speed-slow" class="radio-label">Slow<br><span style="font-size:0.75rem;font-weight:normal;opacity:0.8;">Read every line</span></label>
-                    </div>
-                    <div class="radio-box">
-                        <input type="radio" name="sim-speed" value="medium" id="speed-medium" checked>
-                        <label for="speed-medium" class="radio-label">Medium<br><span style="font-size:0.75rem;font-weight:normal;opacity:0.8;">Default pace</span></label>
-                    </div>
-                    <div class="radio-box">
-                        <input type="radio" name="sim-speed" value="fast" id="speed-fast">
-                        <label for="speed-fast" class="radio-label">Fast<br><span style="font-size:0.75rem;font-weight:normal;opacity:0.8;">Quick results</span></label>
-                    </div>
-                </div>
-                <p class="control-hint">Controls how long each match result and scorer line stays on screen during the World Cup simulation.</p>
-            </div>
-
             <button id="start-game-btn" class="btn-primary btn-full">Start Drafting</button>
         </div>
 
@@ -189,6 +170,23 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <div class="panel-card" id="manifest-team-box" style="overflow-y:auto;max-height:520px;"></div>
             <div class="panel-card">
                 <div id="pre-kickoff-summary" class="prekick-box"></div>
+                <div class="sim-speed-row">
+                    <span class="sim-speed-label">Simulation Speed</span>
+                    <div class="radio-options sim-speed-options">
+                        <div class="radio-box">
+                            <input type="radio" name="sim-speed" value="slow" id="speed-slow">
+                            <label for="speed-slow" class="radio-label">Slow</label>
+                        </div>
+                        <div class="radio-box">
+                            <input type="radio" name="sim-speed" value="medium" id="speed-medium" checked>
+                            <label for="speed-medium" class="radio-label">Medium</label>
+                        </div>
+                        <div class="radio-box">
+                            <input type="radio" name="sim-speed" value="fast" id="speed-fast">
+                            <label for="speed-fast" class="radio-label">Fast</label>
+                        </div>
+                    </div>
+                </div>
                 <div class="terminal-window-shell">
                     <div class="terminal-header-bar">
                         <div class="terminal-title">Match Simulation Processor</div>
