@@ -230,6 +230,12 @@ document.addEventListener("DOMContentLoaded", () => {
     const teamSelect = document.getElementById("team-select");
     const yearSelect = document.getElementById("tournament-year-select");
 
+    // Staging-only dev mode: detected by URL pattern so the same app.js
+    // works correctly on both sites without manual edits. The Cymru
+    // option simply won't exist when this file is served from production.
+    const IS_STAGING_ENV = location.hostname.includes("github.io") &&
+        location.pathname.includes("rugby-draft-sim-staging");
+
     function populateTeamSelect(year) {
         if (!teamSelect) return;
         const pools = poolStandingsByYear[year];
@@ -241,6 +247,11 @@ document.addEventListener("DOMContentLoaded", () => {
             opt.value = t; opt.textContent = t;
             teamSelect.appendChild(opt);
         });
+        if (IS_STAGING_ENV) {
+            const devOpt = document.createElement("option");
+            devOpt.value = "Cymru"; devOpt.textContent = "Cymru (Dev Mode)";
+            teamSelect.appendChild(devOpt);
+        }
         // Prefer England if it's competing that year, otherwise just take the first nation
         teamSelect.value = nations.includes("England") ? "England" : nations[0];
     }
