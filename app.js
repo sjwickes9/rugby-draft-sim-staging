@@ -288,6 +288,9 @@ document.addEventListener("DOMContentLoaded", () => {
         setupCard.classList.add("hidden");
         draftDashboard.classList.remove("hidden");
         recalculateDashboardAverages();
+
+        const headerResetBtn = document.getElementById("header-reset-btn");
+        if (headerResetBtn) headerResetBtn.textContent = "Abandon Campaign";
     });
 });
 
@@ -330,6 +333,9 @@ function activateCymruMode() {
     populateManifestPreviewWindow();
     populatePreKickoffSummary();
     populateTournamentTitle();
+
+    const headerResetBtn = document.getElementById("header-reset-btn");
+    if (headerResetBtn) headerResetBtn.textContent = "Abandon Campaign";
 }
 
 
@@ -881,6 +887,72 @@ function canUseNativeShare() {
         navigator.canShare({ files: [new File([""], "test.png", { type: "image/png" })] }));
 }
 
+// ============================================================
+// PAGE SHARE BUTTON (footer) — share the site itself, not a result card
+// ============================================================
+(function () {
+    const shareBtn = document.getElementById("page-share-btn");
+    const shareMenu = document.getElementById("page-share-menu");
+    if (!shareBtn || !shareMenu) return;
+
+    const pageUrl = window.location.href.split("?")[0]; // strip any cache-busting query param
+    const shareText = "Build your ultimate Hybrid XV and simulate the Rugby World Cup!";
+
+    function closeMenu() { shareMenu.classList.add("hidden"); }
+    function openMenu() { shareMenu.classList.remove("hidden"); }
+
+    shareBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        shareMenu.classList.contains("hidden") ? openMenu() : closeMenu();
+    });
+    document.addEventListener("click", (e) => {
+        if (!shareMenu.contains(e.target) && e.target !== shareBtn) closeMenu();
+    });
+
+    async function copyLink() {
+        try {
+            await navigator.clipboard.writeText(pageUrl);
+            shareBtn.querySelector(".share-label").textContent = "Copied!";
+            setTimeout(() => { shareBtn.querySelector(".share-label").textContent = "Share"; }, 1800);
+        } catch (e) {
+            // Clipboard API unavailable — fall back to a prompt the user can copy from manually
+            window.prompt("Copy this link:", pageUrl);
+        }
+    }
+
+    shareMenu.querySelectorAll("button[data-share]").forEach(btn => {
+        btn.addEventListener("click", async () => {
+            const kind = btn.dataset.share;
+            closeMenu();
+
+            if (kind === "email") {
+                window.location.href = "mailto:?subject=" + encodeURIComponent("Rugby XV Draft") +
+                    "&body=" + encodeURIComponent(shareText + "\n\n" + pageUrl);
+            } else if (kind === "sms") {
+                // iOS and Android use slightly different sms: separators, but
+                // a bare sms: with a body param degrades gracefully on both.
+                window.location.href = "sms:?body=" + encodeURIComponent(shareText + " " + pageUrl);
+            } else if (kind === "whatsapp") {
+                window.open("https://wa.me/?text=" + encodeURIComponent(shareText + " " + pageUrl), "_blank");
+            } else if (kind === "instagram") {
+                // Instagram has no public web scheme for sharing an arbitrary
+                // link with pre-filled text. On mobile, try the native OS
+                // share sheet (the user can pick Instagram themselves); on
+                // desktop, copy the link so they can paste it into Instagram.
+                if (navigator.share && isMobileDevice()) {
+                    try { await navigator.share({ title: "Rugby XV Draft", text: shareText, url: pageUrl }); }
+                    catch (e) { /* user cancelled — no action needed */ }
+                } else {
+                    await copyLink();
+                    window.prompt("Link copied — paste this into Instagram:", pageUrl);
+                }
+            } else if (kind === "copy") {
+                await copyLink();
+            }
+        });
+    });
+})();
+
 // Renders an end-of-run results summary into the sim log: games played,
 // won, lost, plus the tournament's top points scorer and top try scorer.
 // Called once at every possible run-ending point, right before the
@@ -959,7 +1031,7 @@ function showShareButton(headline, colour) {
 }
 
 function generateShareGraphic() {
-    const W = 1080, H = 2040; // portrait, social-friendly
+    const W = 1080, H = 2150; // portrait, social-friendly
     const canvas = document.createElement("canvas");
     canvas.width = W; canvas.height = H;
     const ctx = canvas.getContext("2d");
@@ -1022,24 +1094,24 @@ function generateShareGraphic() {
     ctx.strokeStyle = goldFaint;
     ctx.beginPath(); ctx.moveTo(80, recapTop+12); ctx.lineTo(W-80, recapTop+12); ctx.stroke();
 
-    const rowH = 42;
-    let y = recapTop + 55;
+    const rowH = 52;
+    let y = recapTop + 65;
     if (!matchHistory.length) {
         ctx.font = "18px Arial";
         ctx.fillStyle = textMuted;
         ctx.fillText("No matches played.", 80, y);
     } else {
         matchHistory.forEach(m => {
-            ctx.font = "bold 16px Arial";
+            ctx.font = "bold 19px Arial";
             ctx.fillStyle = textMuted;
             ctx.fillText(m.stage.toUpperCase(), 80, y);
 
-            ctx.font = "bold 20px Arial";
+            ctx.font = "bold 24px Arial";
             ctx.fillStyle = white;
             ctx.fillText("vs " + m.opponent, 280, y);
 
             ctx.textAlign = "right";
-            ctx.font = "bold 22px Arial";
+            ctx.font = "bold 26px Arial";
             ctx.fillStyle = m.won ? "#4ade80" : "#f87171";
             ctx.fillText(m.userScore + " — " + m.oppScore, W-80, y);
             ctx.textAlign = "left";
@@ -1181,14 +1253,14 @@ function drawMiniPitch(ctx, cx, cy, w, h) {
         // rather than truncating, so the full name is always readable.
         ctx.fillStyle = "#f3f4f6";
         const name = p ? p.name : "";
-        fitCanvasTextOneLine(ctx, name, maxTextWidth, 14, 9);
-        ctx.fillText(name, x, y + r + 18);
+        fitCanvasTextOneLine(ctx, name, maxTextWidth, 18, 12);
+        ctx.fillText(name, x, y + r + 20);
 
         // Nation and year beneath the name
         ctx.fillStyle = "#9ca39c";
         const nation = p ? p.nation : "";
-        fitCanvasTextOneLine(ctx, nation, maxTextWidth, 12, 9);
-        ctx.fillText(nation, x, y + r + 32);
+        fitCanvasTextOneLine(ctx, nation, maxTextWidth, 15, 11);
+        ctx.fillText(nation, x, y + r + 36);
     });
 }
 
@@ -2022,7 +2094,7 @@ async function runBossStage() {
         alltimexv:  "🏆 BONUS MATCH — ALL TIME WORLD XV"
     };
 
-    for (const bossKey of bossOrder) {
+    for (const [bossIndex, bossKey] of bossOrder.entries()) {
         const boss = BOSS_TEAMS[bossKey];
         const bossR = getBossRating(boss);
 
@@ -2061,7 +2133,7 @@ async function runBossStage() {
             (res.won ? "WIN " : "LOSS") + "  " + res.userScore + "-" + res.oppScore,
             res.won ? "#4ade80" : "#f87171"
         );
-        matchHistory.push({ stage:boss.name, opponent:boss.name, userScore:res.userScore, oppScore:res.oppScore, won:res.won });
+        matchHistory.push({ stage:"Ultimate " + (bossIndex + 1), opponent:boss.name, userScore:res.userScore, oppScore:res.oppScore, won:res.won });
         await addScoreBreakdownLogForBoss(userTeam, res.userScore, bossTeamToLineup(boss), res.oppScore);
 
         if (!res.won) {

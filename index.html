@@ -52,7 +52,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </div>
         <div class="utility-controls">
             <button id="theme-toggle">Light Mode</button>
-            <button class="abort-reset-btn">Reset App</button>
+            <button id="header-reset-btn" class="abort-reset-btn">Reset App</button>
         </div>
     </header>
     <main>
@@ -78,6 +78,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                     <option value="2019">2019 — Japan</option>
                     <option value="2015">2015 — England</option>
                     <option value="2011">2011 — New Zealand</option>
+                    <option value="2007">2007 — France</option>
                 </select>
                 <p class="control-hint">Choose which Rugby World Cup your Hybrid XV will compete in. The pool draw and bracket match what actually happened that year.</p>
             </div>
@@ -156,7 +157,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                 <div class="panel-card roster-panel">
                     <div class="roster-scroll-boundary" id="roster-container"></div>
                 </div>
-                <button class="abort-reset-btn abandon-btn">Abandon Campaign</button>
             </div>
 
             <div class="panel-card pitch-card">
@@ -202,8 +202,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <!-- SCREEN 3: SIMULATION -->
         <div id="sim-dashboard" class="sim-layout-container hidden">
             <div class="panel-card" id="manifest-team-box" style="overflow-y:auto;max-height:520px;"></div>
-            <div class="panel-card">
-                <div id="pre-kickoff-summary" class="prekick-box"></div>
+            <div id="pre-kickoff-summary" class="prekick-box"></div>
+            <div class="panel-card" id="sim-processor-card">
                 <div class="sim-speed-row">
                     <span class="sim-speed-label">Simulation Speed</span>
                     <div id="speed-slider-track" class="speed-slider-track" data-value="medium">
@@ -242,6 +242,19 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             style="border:0; height:36px;"
         >
     </a>
+</div>
+<div id="page-share-wrap">
+    <button id="page-share-btn" aria-label="Share this page" title="Share this page">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+        <span class="share-label">Share</span>
+    </button>
+    <div id="page-share-menu" class="page-share-menu hidden">
+        <button data-share="email">Email</button>
+        <button data-share="sms">Text Message</button>
+        <button data-share="whatsapp">WhatsApp</button>
+        <button data-share="instagram">Instagram</button>
+        <button data-share="copy">Copy Link</button>
+    </div>
 </div>
 <div id="version-footer">v1.2606281645</div>
 </body>
