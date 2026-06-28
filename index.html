@@ -172,18 +172,17 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                 <div id="pre-kickoff-summary" class="prekick-box"></div>
                 <div class="sim-speed-row">
                     <span class="sim-speed-label">Simulation Speed</span>
-                    <div class="radio-options sim-speed-options">
-                        <div class="radio-box">
-                            <input type="radio" name="sim-speed" value="slow" id="speed-slow">
-                            <label for="speed-slow" class="radio-label">Slow</label>
-                        </div>
-                        <div class="radio-box">
-                            <input type="radio" name="sim-speed" value="medium" id="speed-medium" checked>
-                            <label for="speed-medium" class="radio-label">Medium</label>
-                        </div>
-                        <div class="radio-box">
-                            <input type="radio" name="sim-speed" value="fast" id="speed-fast">
-                            <label for="speed-fast" class="radio-label">Fast</label>
+                    <div id="speed-slider-track" class="speed-slider-track" data-value="medium">
+                        <div class="speed-slider-rail"></div>
+                        <div class="speed-slider-stop" data-pos="slow"></div>
+                        <div class="speed-slider-stop" data-pos="medium"></div>
+                        <div class="speed-slider-stop" data-pos="fast"></div>
+                        <div id="speed-slider-handle" class="speed-slider-handle" tabindex="0" role="slider"
+                             aria-label="Simulation speed" aria-valuemin="0" aria-valuemax="2" aria-valuenow="1"></div>
+                        <div class="speed-slider-labels">
+                            <span class="speed-slider-label">Slow</span>
+                            <span class="speed-slider-label">Medium</span>
+                            <span class="speed-slider-label">Fast</span>
                         </div>
                     </div>
                 </div>
