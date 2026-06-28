@@ -2103,7 +2103,7 @@ async function runBossStage() {
 // on fast connections, where it would otherwise feel like a glitch rather
 // than an intentional loading moment.
 (function () {
-    const MIN_DISPLAY_MS = 700;
+    const MIN_DISPLAY_MS = 1800;
     const shownAt = Date.now();
 
     function dismissLoadingScreen() {
