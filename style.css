@@ -717,8 +717,8 @@ button:disabled, button.disabled { opacity: 0.4; cursor: not-allowed; pointer-ev
 .sim-layout-container {
     max-width: 1000px; margin: 20px auto;
     display: grid; grid-template-columns: 4fr 5fr; gap: 25px;
-    height: calc(100vh - 160px);
-    min-height: 600px;
+    height: calc(65vh - 80px);
+    min-height: 400px;
 }
 .tournament-title-banner {
     flex: 1;

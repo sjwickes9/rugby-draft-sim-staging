@@ -1756,7 +1756,29 @@ async function runTournamentSimulation() {
     await addLog("", null);
     await addLog("--- Pool " + pool + " Standings ---", "var(--brand-gold)");
     const table = Object.values(records);
-    table.sort((a,b) => b.pts - a.pts || (b.pf-b.pa) - (a.pf-a.pa));
+
+    // Historical accuracy override: the real 2015 Pool A ("Pool of Death")
+    // saw England fail to escape their own home World Cup, with Australia
+    // and Wales taking the top two places. When the user's replacement
+    // doesn't touch any of these three teams, the standings should reflect
+    // what actually happened rather than a freshly-simulated (and likely
+    // different) outcome — England always finishes below both Australia
+    // and Wales, who are otherwise free to land in either order between
+    // themselves based on their simulated result.
+    const isHistorical2015PoolA = selectedTournamentYear === "2015" && pool === "A" &&
+        ["England", "Australia", "Wales"].every(t => records[t]);
+
+    table.sort((a, b) => {
+        if (isHistorical2015PoolA) {
+            const aIsEngland = a.name === "England", bIsEngland = b.name === "England";
+            const aIsAusWal = a.name === "Australia" || a.name === "Wales";
+            const bIsAusWal = b.name === "Australia" || b.name === "Wales";
+            if (aIsEngland && bIsAusWal) return 1;  // England always sorts below Australia/Wales
+            if (bIsEngland && aIsAusWal) return -1;
+        }
+        return (b.pts - a.pts) || ((b.pf - b.pa) - (a.pf - a.pa));
+    });
+
     await addLogBlock(buildStandingsTableHtml(table));
 
     const rank = table.findIndex(r => r.name === "Your XV");
