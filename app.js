@@ -799,7 +799,6 @@ function populateTournamentTitle() {
     const host = meta ? meta.host : "";
     box.innerHTML = `
         <div class="tt-line1">Rugby World Cup ${selectedTournamentYear}${host ? " — " + host : ""}</div>
-        <div class="tt-line2">${selectedTournamentYear}${host ? " — " + host : ""}</div>
     `;
 }
 
