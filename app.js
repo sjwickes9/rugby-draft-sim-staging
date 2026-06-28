@@ -287,85 +287,45 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 function activateCymruMode() {
-    // Fill userTeam with 99-rated Welsh legends
+    // Fill userTeam with 99-rated Welsh (and Lions) legends — every field
+    // matches the real shape the draft produces, so the rest of the app
+    // (pitch rendering, manifest, score breakdowns, standings) treats this
+    // exactly like a genuinely-drafted squad.
     const cymruSquad = [
-        { pos:"Loosehead Prop",    name:"Gethin Jenkins",    nation:"WAL '11" },
-        { pos:"Hooker",            name:"Ken Owens",          nation:"WAL '19" },
-        { pos:"Tighthead Prop",    name:"Adam Jones",         nation:"WAL '11" },
-        { pos:"Lock 4",            name:"Alun Wyn Jones",     nation:"WAL '19" },
-        { pos:"Lock 5",            name:"Paul O'Connell",     nation:"IRE '11" },
-        { pos:"Blindside Flanker", name:"Sam Warburton",      nation:"WAL '11" },
-        { pos:"Openside Flanker",  name:"Justin Tipuric",     nation:"WAL '19" },
-        { pos:"Number 8",          name:"Taulupe Faletau",    nation:"WAL '19" },
-        { pos:"Scrum-half",        name:"Gareth Edwards",     nation:"Lions"   },
-        { pos:"Fly-half",          name:"Barry John",         nation:"Lions"   },
-        { pos:"Left Wing",         name:"Shane Williams",     nation:"WAL '07" },
-        { pos:"Inside Centre",     name:"Brian O'Driscoll",   nation:"IRE '11" },
-        { pos:"Outside Centre",    name:"Scott Gibbs",        nation:"WAL '99" },
-        { pos:"Right Wing",        name:"Gerald Davies",      nation:"WAL '71" },
-        { pos:"Fullback",          name:"JPR Williams",       nation:"WAL '71" },
+        { pos:"Loosehead Prop",    name:"Gethin Jenkins",   nation:"WAL '11" },
+        { pos:"Hooker",            name:"Bobby Windsor",    nation:"WAL '78" },
+        { pos:"Tighthead Prop",    name:"Graham Price",     nation:"WAL '78" },
+        { pos:"Lock 4",            name:"Alun Wyn Jones",   nation:"WAL '19" },
+        { pos:"Lock 5",            name:"RH Williams",      nation:"WAL '60" },
+        { pos:"Blindside Flanker", name:"Dai Morris",       nation:"WAL '71" },
+        { pos:"Openside Flanker",  name:"Sam Warburton",    nation:"WAL '11" },
+        { pos:"Number 8",          name:"Mervyn Davies",    nation:"WAL '76" },
+        { pos:"Scrum-half",        name:"Gareth Edwards",   nation:"Lions"   },
+        { pos:"Fly-half",          name:"Barry John",       nation:"Lions"   },
+        { pos:"Left Wing",         name:"Shane Williams",   nation:"WAL '07" },
+        { pos:"Inside Centre",     name:"Scott Gibbs",      nation:"WAL '99" },
+        { pos:"Outside Centre",    name:"Bleddyn Williams", nation:"WAL '53" },
+        { pos:"Right Wing",        name:"Gerald Davies",    nation:"WAL '71" },
+        { pos:"Fullback",          name:"JPR Williams",     nation:"WAL '71" },
     ];
     cymruSquad.forEach(p => {
-        userTeam[p.pos] = { name: p.name, score: 99, nation: p.nation, outOfPosition: false };
+        userTeam[p.pos] = {
+            name: p.name, score: 99, nation: p.nation,
+            outOfPosition: false, penalty: 0, originalRating: 99
+        };
     });
     replacedTeam = "Wales";  // replaces Wales in the bracket
 
-    // Skip straight to simulation screen and boss stage
+    // Move straight to the simulation screen, exactly as a real draft would
+    // once the 15th player is placed — nothing downstream is faked, this
+    // runs through the same runTournamentSimulation() as a normal game.
     setupCard.classList.add("hidden");
     draftDashboard.classList.add("hidden");
     simDashboard.classList.remove("hidden");
-
-    // Run a fake world cup win then launch boss
-    (async () => {
-        matchHistory = [
-            { stage:"Pool", opponent:"Fiji",         userScore:45, oppScore:0,  won:true },
-            { stage:"Pool", opponent:"Australia",    userScore:38, oppScore:7,  won:true },
-            { stage:"Pool", opponent:"Georgia",       userScore:52, oppScore:3,  won:true },
-            { stage:"Pool", opponent:"Portugal",      userScore:61, oppScore:0,  won:true },
-            { stage:"QF",   opponent:"Argentina",     userScore:33, oppScore:18, won:true },
-            { stage:"SF",   opponent:"Ireland",        userScore:27, oppScore:24, won:true },
-            { stage:"Final",opponent:"South Africa",  userScore:21, oppScore:18, won:true },
-        ];
-        await addLog("*** CYMRU DEV MODE ACTIVATED ***", "var(--brand-gold)");
-        await addLog("Skipping to boss stage with a 99-rated side...", "var(--text-muted)");
-        await addLog("", null);
-        await addLog("=== POOL C — RESULTS ===", "var(--brand-gold)");
-        await addLog("WIN  vs Fiji        45-0", "#4ade80");
-        await addLog("WIN  vs Australia   38-7", "#4ade80");
-        await addLog("WIN  vs Georgia     52-3", "#4ade80");
-        await addLog("WIN  vs Portugal    61-0", "#4ade80");
-        await addLog("QUALIFIED — 1st in Pool C", "#4ade80");
-        await addLog("", null);
-        await addLog("=== QUARTER-FINAL ===", "var(--brand-gold)");
-        await addLog("WIN  vs Argentina   33-18", "#4ade80");
-        await addLog("", null);
-        await addLog("=== SEMI-FINAL ===", "var(--brand-gold)");
-        await addLog("WIN  vs Ireland     27-24", "#4ade80");
-        await addLog("", null);
-        await addLog("=== FINAL ===", "var(--brand-gold)");
-        await addLog("WIN  vs South Africa  21-18", "#4ade80");
-        await addLog("", null);
-        await addLog("WORLD CHAMPIONS! Your Hybrid XV wins the " + selectedTournamentYear + " Rugby World Cup!", "var(--brand-gold)");
-        await addLog("", null);
-        await addLog("But the challenge doesn't end here...", "var(--text-muted)");
-        await addLog("Three legendary teams await. Do you dare face them?", "var(--text-muted)");
-        await addLog("", null);
-
-        const bossBtn = document.createElement("button");
-        bossBtn.textContent = "Accept the Ultimate Challenge";
-        bossBtn.className = "btn-primary btn-full";
-        bossBtn.style.cssText = "margin:12px 0;display:block;width:100%;";
-        document.getElementById("sim-results").appendChild(bossBtn);
-        document.getElementById("sim-results").scrollTop = document.getElementById("sim-results").scrollHeight;
-
-        bossBtn.addEventListener("click", async () => {
-            bossBtn.remove();
-            await runBossStage();
-        }, { once: true });
-
-        restartBtn.classList.remove("hidden");
-    })();
+    populateManifestPreviewWindow();
+    populatePreKickoffSummary();
 }
+
 
 // ============================================================
 // SLIDERS
@@ -906,7 +866,11 @@ function canUseNativeShare() {
 // won, lost, plus the tournament's top points scorer and top try scorer.
 // Called once at every possible run-ending point, right before the
 // share/download button appears.
-async function showResultsSummary() {
+// Computes the played/won/lost record and the tournament's top points
+// scorer and top try scorer from the current run's accumulated stats.
+// Shared by showResultsSummary() (in-app log) and generateShareGraphic()
+// (the downloadable card), so both always agree with each other.
+function computeTournamentSummary() {
     const played = matchHistory.length;
     const won = matchHistory.filter(m => m.won).length;
     const lost = played - won;
@@ -918,6 +882,12 @@ async function showResultsSummary() {
     const topTryScorer = statEntries.length
         ? statEntries.reduce((best, cur) => cur[1].tries > best[1].tries ? cur : best)
         : null;
+
+    return { played, won, lost, topScorer, topTryScorer };
+}
+
+async function showResultsSummary() {
+    const { played, won, lost, topScorer, topTryScorer } = computeTournamentSummary();
 
     let html = '<div class="results-summary">';
     html += '<div class="results-summary-title">Tournament Summary</div>';
@@ -970,7 +940,7 @@ function showShareButton(headline, colour) {
 }
 
 function generateShareGraphic() {
-    const W = 1080, H = 1750; // portrait, social-friendly
+    const W = 1080, H = 1910; // portrait, social-friendly
     const canvas = document.createElement("canvas");
     canvas.width = W; canvas.height = H;
     const ctx = canvas.getContext("2d");
@@ -1006,11 +976,14 @@ function generateShareGraphic() {
     ctx.fillStyle = lastResultColour;
     wrapCanvasText(ctx, lastResultHeadline || "Campaign complete", W/2, 200, W-160, 44);
 
+    // ── Tournament summary: played/won/lost + top scorers ──
+    drawTournamentSummary(ctx, W, 250);
+
     // ── Full-width pitch diagram with ratings + nation/year per player ──
-    drawMiniPitch(ctx, W/2, 720, 920, 900);
+    drawMiniPitch(ctx, W/2, 880, 920, 900);
 
     // ── Results recap (replaces the old duplicate squad list) ──
-    const recapTop = 1230;
+    const recapTop = 1390;
     ctx.textAlign = "left";
     ctx.font = "bold 24px Georgia, serif";
     ctx.fillStyle = gold;
@@ -1054,6 +1027,58 @@ function generateShareGraphic() {
 }
 
 // Draws a simplified rugby pitch with each position circle and player name
+// Draws the Played/Won/Lost stat row and the top scorer/try scorer lines
+// onto the share card canvas, using exactly the same data the in-app
+// results summary shows (via computeTournamentSummary), so the card never
+// disagrees with what the player already saw during the run.
+function drawTournamentSummary(ctx, W, top) {
+    const { played, won, lost, topScorer, topTryScorer } = computeTournamentSummary();
+    const textMuted = "#9ca39c";
+    const white = "#f3f4f6";
+
+    const cols = [
+        { label: "Played", value: played, colour: white },
+        { label: "Won",    value: won,    colour: "#4ade80" },
+        { label: "Lost",   value: lost,   colour: "#f87171" },
+    ];
+    const colWidth = (W - 160) / 3;
+    cols.forEach((col, i) => {
+        const cx = 80 + colWidth * i + colWidth / 2;
+        ctx.textAlign = "center";
+        ctx.font = "bold 40px Arial";
+        ctx.fillStyle = col.colour;
+        ctx.fillText(String(col.value), cx, top + 40);
+        ctx.font = "13px Arial";
+        ctx.fillStyle = textMuted;
+        ctx.fillText(col.label.toUpperCase(), cx, top + 62);
+    });
+
+    let leaderY = top + 100;
+    ctx.font = "16px Arial";
+    if (topScorer && topScorer[1].points > 0) {
+        ctx.textAlign = "right";
+        ctx.fillStyle = textMuted;
+        ctx.fillText("Top Points Scorer", W/2 - 10, leaderY);
+        ctx.textAlign = "left";
+        ctx.fillStyle = white;
+        ctx.font = "bold 16px Arial";
+        ctx.fillText(topScorer[0] + " — " + topScorer[1].points + " pts", W/2 + 10, leaderY);
+        leaderY += 26;
+    }
+    if (topTryScorer && topTryScorer[1].tries > 0) {
+        ctx.textAlign = "right";
+        ctx.fillStyle = textMuted;
+        ctx.font = "16px Arial";
+        ctx.fillText("Top Try Scorer", W/2 - 10, leaderY);
+        ctx.textAlign = "left";
+        ctx.fillStyle = white;
+        ctx.font = "bold 16px Arial";
+        const tries = topTryScorer[1].tries;
+        ctx.fillText(topTryScorer[0] + " — " + tries + (tries === 1 ? " try" : " tries"), W/2 + 10, leaderY);
+    }
+    ctx.textAlign = "center"; // reset for subsequent drawing
+}
+
 function drawMiniPitch(ctx, cx, cy, w, h) {
     const left = cx - w/2, top = cy - h/2;
     const gold = "#c5a059";
@@ -1745,8 +1770,8 @@ async function runTournamentSimulation() {
         // Show boss challenge button — appended to sim-results (the terminal viewport)
         const bossBtn = document.createElement("button");
         bossBtn.textContent = "Accept the Ultimate Challenge";
-        bossBtn.className = "btn-primary btn-full";
-        bossBtn.style.cssText = "margin:12px 0;display:block;width:100%;";
+        bossBtn.className = "btn-primary";
+        bossBtn.style.cssText = "margin:12px 0;display:block;width:100%;padding:8px 14px;font-size:0.9rem;";
         document.getElementById("sim-results").appendChild(bossBtn);
         document.getElementById("sim-results").scrollTop = document.getElementById("sim-results").scrollHeight;
 
