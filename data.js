@@ -5995,7 +5995,7 @@ const allSquads = {
             {name:"Gareth Thomas",positions:["Fullback", "Right Wing"],num:27,rating:90,careerRating:92},
             {name:"Iestyn Harris",positions:["Inside Centre", "Fly-half"],num:28,rating:85,careerRating:85},
             {name:"Kevin Morgan",positions:["Fullback", "Left Wing"],num:29,rating:84,careerRating:88},
-            {name:"Rhys Williams",positions:["Right Wing",Fullback"],num:30,rating:85,careerRating:85}
+            {name:"Rhys Williams",positions:["Right Wing","Fullback"],num:30,rating:85,careerRating:85}
         ],
         "2007": [
             {name:"Duncan Jones",positions:["Loosehead Prop", "Tighthead Prop"],num:1,rating:83,careerRating:83},
