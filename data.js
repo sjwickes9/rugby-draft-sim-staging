@@ -284,7 +284,7 @@ const allSquads = {
             {name:"Alfredo Lalanne",positions:["Scrum-half"],num:18,rating:83,careerRating:83},
             {name:"Nicolás Vergallo",positions:["Scrum-half"],num:19,rating:85,careerRating:85},
             {name:"Felipe Contepomi",positions:["Fly-half", "Inside Centre"],num:20,rating:91,careerRating:92},
-            {name:"Marcelo Bosch",positions:["Fly-half", "Inside Centre"],num:21,rating:80,careerRating:84},
+            {name:"Marcelo Bosch",positions:["Inside Centre", "Fullback"],num:21,rating:80,careerRating:84},
             {name:"Nicolás Sánchez",positions:["Fly-half"],num:22,rating:80,careerRating:91},
             {name:"Santiago Fernández",positions:["Fly-half"],num:23,rating:85,careerRating:85},
             {name:"Lucas Borges",positions:["Left Wing", "Right Wing"],num:24,rating:85,careerRating:85},
