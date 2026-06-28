@@ -36,6 +36,12 @@ const poolStandingsByYear = {
         B: ["New Zealand","South Africa","Italy","Namibia","Canada"],
         C: ["England","France","Argentina","USA","Tonga"],
         D: ["Australia","Wales","Georgia","Fiji","Uruguay"]
+    },
+    "2015": {
+        A: ["England","Australia","Wales","Fiji","Uruguay"],
+        B: ["South Africa","Scotland","Japan","Samoa","USA"],
+        C: ["New Zealand","Argentina","Georgia","Tonga","Namibia"],
+        D: ["France","Ireland","Italy","Canada","Romania"]
     }
 };
 
@@ -52,6 +58,12 @@ const teamStrengthsByYear = {
         "New Zealand":92,"South Africa":90,"Italy":78,"Namibia":60,"Canada":65,
         "England":90,"France":88,"Argentina":86,"USA":65,"Tonga":63,
         "Australia":91,"Wales":86,"Georgia":72,"Fiji":80,"Uruguay":62
+    },
+    "2015": {
+        "England":88,"Australia":90,"Wales":85,"Fiji":78,"Uruguay":61,
+        "South Africa":90,"Scotland":84,"Japan":80,"Samoa":77,"USA":63,
+        "New Zealand":93,"Argentina":85,"Georgia":72,"Tonga":65,"Namibia":60,
+        "France":89,"Ireland":86,"Italy":79,"Canada":65,"Romania":67
     }
 };
 
@@ -59,7 +71,8 @@ const teamStrengthsByYear = {
 // year-selector UI and to pick the correct simulation/points logic.
 const tournamentMeta = {
     "2023": { teams:20, poolsOf:5, bonusPoints:true,  host:"France" },
-    "2019": { teams:20, poolsOf:5, bonusPoints:true,  host:"Japan" }
+    "2019": { teams:20, poolsOf:5, bonusPoints:true,  host:"Japan" },
+    "2015": { teams:20, poolsOf:5, bonusPoints:true,  host:"England" }
 };
 
 // Backwards-compatible aliases for any code not yet updated to the
