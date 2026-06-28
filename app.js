@@ -385,8 +385,10 @@ function setupSpeedSlider() {
     function applyIndex(i, fireChange) {
         index = Math.max(0, Math.min(2, i));
         const value = SPEED_POSITIONS[index];
-        const pct = index === 0 ? 0 : index === 1 ? 50 : 100;
-        handle.style.left = pct + "%";
+        // Matches the stop dots' positions exactly: 14px inset on each side,
+        // not a plain 0%/50%/100% of the full track width.
+        const left = index === 0 ? "14px" : index === 1 ? "50%" : "calc(100% - 14px)";
+        handle.style.left = left;
         track.dataset.value = value;
         handle.setAttribute("aria-valuenow", index);
         if (fireChange) applySpeedSetting(value);
