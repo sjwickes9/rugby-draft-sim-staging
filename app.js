@@ -324,6 +324,7 @@ function activateCymruMode() {
     simDashboard.classList.remove("hidden");
     populateManifestPreviewWindow();
     populatePreKickoffSummary();
+    populateTournamentTitle();
 }
 
 
@@ -718,6 +719,7 @@ pitchCircles.forEach(node => {
                 simDashboard.classList.remove("hidden");
                 populateManifestPreviewWindow();
                 populatePreKickoffSummary();
+                populateTournamentTitle();
             }, 800);
         }
     });
@@ -781,6 +783,19 @@ function populateManifestPreviewWindow() {
         </div>`;
     });
     manifestTeamBox.innerHTML = html;
+}
+
+// Shows "Rugby World Cup" + "[year] — [host]" above the simulation panels,
+// using the tournament the user actually selected on the setup screen.
+function populateTournamentTitle() {
+    const box = document.getElementById("tournament-title");
+    if (!box) return;
+    const meta = tournamentMeta[selectedTournamentYear];
+    const host = meta ? meta.host : "";
+    box.innerHTML = `
+        <div class="tt-line1">Rugby World Cup</div>
+        <div class="tt-line2">${selectedTournamentYear}${host ? " — " + host : ""}</div>
+    `;
 }
 
 // ============================================================
@@ -940,7 +955,7 @@ function showShareButton(headline, colour) {
 }
 
 function generateShareGraphic() {
-    const W = 1080, H = 1910; // portrait, social-friendly
+    const W = 1080, H = 1930; // portrait, social-friendly
     const canvas = document.createElement("canvas");
     canvas.width = W; canvas.height = H;
     const ctx = canvas.getContext("2d");
@@ -966,24 +981,29 @@ function generateShareGraphic() {
     ctx.fillStyle = textMuted;
     ctx.fillText("replacing " + (replacedTeam || "—"), W/2, 118);
 
+    const tmeta = tournamentMeta[selectedTournamentYear];
+    ctx.font = "18px Arial";
+    ctx.fillStyle = textMuted;
+    ctx.fillText("Rugby World Cup " + selectedTournamentYear + (tmeta ? " — " + tmeta.host : ""), W/2, 144);
+
     // Divider
     ctx.strokeStyle = goldFaint;
     ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(80, 145); ctx.lineTo(W-80, 145); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(80, 165); ctx.lineTo(W-80, 165); ctx.stroke();
 
     // ── Result headline ──
     ctx.font = "bold 38px Georgia, serif";
     ctx.fillStyle = lastResultColour;
-    wrapCanvasText(ctx, lastResultHeadline || "Campaign complete", W/2, 200, W-160, 44);
+    wrapCanvasText(ctx, lastResultHeadline || "Campaign complete", W/2, 220, W-160, 44);
 
     // ── Tournament summary: played/won/lost + top scorers ──
-    drawTournamentSummary(ctx, W, 250);
+    drawTournamentSummary(ctx, W, 270);
 
     // ── Full-width pitch diagram with ratings + nation/year per player ──
-    drawMiniPitch(ctx, W/2, 880, 920, 900);
+    drawMiniPitch(ctx, W/2, 900, 920, 900);
 
     // ── Results recap (replaces the old duplicate squad list) ──
-    const recapTop = 1390;
+    const recapTop = 1410;
     ctx.textAlign = "left";
     ctx.font = "bold 24px Georgia, serif";
     ctx.fillStyle = gold;

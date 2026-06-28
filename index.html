@@ -22,7 +22,10 @@
 height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <!-- End Google Tag Manager (noscript) -->
     <header>
-        <h1>Rugby XV Draft</h1>
+        <div class="site-logo">
+            <img src="assets/logo-dark.png" alt="Rugby Draft" class="logo-img logo-dark">
+            <img src="assets/logo-light.png" alt="Rugby Draft" class="logo-img logo-light">
+        </div>
         <div class="utility-controls">
             <button id="theme-toggle">Light Mode</button>
             <button class="abort-reset-btn">Reset App</button>
@@ -31,10 +34,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <main>
         <!-- SCREEN 1: SETUP -->
         <div id="setup-card" class="card-container">
-
-            <div class="setup-title">
-                <h2>Rugby XV Draft</h2>
-            </div>
 
             <div class="explainer-box">
                 <div class="explainer-lead">Build the ultimate rugby team from history then take them to the World Cup.</div>
@@ -54,6 +53,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                     <option value="2023">2023 — France</option>
                     <option value="2019">2019 — Japan</option>
                     <option value="2015">2015 — England</option>
+                    <option value="2011">2011 — New Zealand</option>
                 </select>
                 <p class="control-hint">Choose which Rugby World Cup your Hybrid XV will compete in. The pool draw and bracket match what actually happened that year.</p>
             </div>
@@ -177,6 +177,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
         <!-- SCREEN 3: SIMULATION -->
         <div id="sim-dashboard" class="sim-layout-container hidden">
+            <div id="tournament-title" class="tournament-title-banner"></div>
             <div class="panel-card" id="manifest-team-box" style="overflow-y:auto;max-height:520px;"></div>
             <div class="panel-card">
                 <div id="pre-kickoff-summary" class="prekick-box"></div>

@@ -51,6 +51,16 @@ header {
 }
 .utility-controls { display: flex; gap: 10px; }
 
+/* Site logo: two images stacked, only one shown depending on theme */
+.site-logo { display: flex; align-items: center; height: 56px; }
+.logo-img { height: 56px; width: auto; display: block; }
+.logo-img.logo-light { display: none; }
+.light-theme .logo-img.logo-dark { display: none; }
+.light-theme .logo-img.logo-light { display: block; }
+@media (max-width: 600px) {
+    .site-logo, .logo-img { height: 44px; }
+}
+
 /* ── Buttons ── */
 button, .btn {
     background: var(--bg-card);
@@ -598,6 +608,23 @@ button:disabled, button.disabled { opacity: 0.4; cursor: not-allowed; pointer-ev
 .sim-layout-container {
     max-width: 1000px; margin: 20px auto;
     display: grid; grid-template-columns: 4fr 5fr; gap: 25px;
+}
+.tournament-title-banner {
+    grid-column: 1 / -1;
+    text-align: center;
+    margin-bottom: -5px;
+}
+.tournament-title-banner .tt-line1 {
+    font-family: Georgia, serif;
+    font-weight: 700;
+    font-size: 1.3rem;
+    color: var(--brand-gold);
+    letter-spacing: 0.02em;
+}
+.tournament-title-banner .tt-line2 {
+    font-size: 0.95rem;
+    color: var(--text-muted);
+    margin-top: 2px;
 }
 .terminal-window-shell {
     background: #07080a;
