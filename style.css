@@ -13,7 +13,7 @@
     --brand-gold-hover: #e0b86d;
     --pitch-green: #1b4329;
     --pitch-lines: rgba(255, 255, 255, 0.25);
-    --terminal-bg: #07080a;
+    --terminal-bg: #030c1f;
     --terminal-text: #e5e7eb;
 }
 
@@ -537,13 +537,13 @@ button:disabled, button.disabled { opacity: 0.4; cursor: not-allowed; pointer-ev
 /* Wingers: top aligns with midpoint of outside centre (so offset = 1.5x circle height from row top) */
 .pitch-circle[data-num="11"],
 .pitch-circle[data-num="14"] { margin-top: calc(var(--circle-size, 68px) * 1.5); }
-.pitch-card { display: flex; justify-content: center; align-items: center; padding: 20px; }
+.pitch-card { display: flex; justify-content: center; align-items: center; padding: 10px; }
 .rugby-pitch-canvas {
     width: 100%;
-    max-width: 580px;
+    max-width: 720px;
     aspect-ratio: 1 / 1.35;
     background-color: var(--pitch-green);
-    border: 4px solid #ffffff;
+    border: 2px solid #ffffff;
     border-radius: 12px;
     position: relative;
     display: flex;
@@ -668,14 +668,14 @@ button:disabled, button.disabled { opacity: 0.4; cursor: not-allowed; pointer-ev
 .tournament-title-banner .tt-line1 {
     font-family: Georgia, serif;
     font-weight: 700;
-    font-size: 1.1rem;
+    font-size: 1.6rem;
     color: var(--brand-gold);
     letter-spacing: 0.02em;
 }
 .tournament-title-banner .tt-line2 {
-    font-size: 0.8rem;
+    font-size: 1.05rem;
     color: var(--text-muted);
-    margin-top: 1px;
+    margin-top: 2px;
 }
 @media (max-width: 700px) {
     .tournament-title-banner { display: none; }
