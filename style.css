@@ -951,9 +951,19 @@ button:disabled, button.disabled { opacity: 0.4; cursor: not-allowed; pointer-ev
     .left-panel { min-height: unset; }
     .roster-panel { min-height: 300px; }
     .roster-scroll-boundary { max-height: 300px; }
-    .sim-layout-container { grid-template-columns: 1fr; min-height: unset; }
+    .sim-layout-container { grid-template-columns: 1fr; height: auto; min-height: unset; }
     .prekick-box { grid-column: 1; }
-    #sim-processor-card { grid-column: 1; grid-row: auto; }
+    #sim-processor-card {
+        grid-column: 1;
+        grid-row: auto;
+        flex: none;
+        min-height: unset;
+    }
+    .terminal-window-shell {
+        flex: none;
+        height: 420px;
+        min-height: unset;
+    }
 }
 
 @media (max-width: 700px) {
@@ -1003,7 +1013,6 @@ button:disabled, button.disabled { opacity: 0.4; cursor: not-allowed; pointer-ev
 
     /* Sim screen */
     .sim-layout-container { margin: 8px auto; gap: 12px; }
-    .terminal-window-shell { height: 350px; }
     .manifest-row { font-size: 0.76rem; gap: 5px; }
 }
 
