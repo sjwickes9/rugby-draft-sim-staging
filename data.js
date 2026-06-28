@@ -19,20 +19,53 @@ function getFlagEmbed(country) {
     return code ? `<img src="https://flagcdn.com/w40/${code}.png" alt="${country}" style="width:32px;vertical-align:middle;border-radius:2px;border:1px solid rgba(255,255,255,0.15);">` : '<span style="font-size:1.8rem;">&#127987;</span>';
 }
 
-const rwc2023PoolStandings = {
-    A: ["France","New Zealand","Italy","Uruguay","Namibia"],
-    B: ["Ireland","South Africa","Scotland","Tonga","Romania"],
-    C: ["Wales","Fiji","Australia","Georgia","Portugal"],
-    D: ["England","Argentina","Japan","Samoa","Chile"]
+// Pool draws and team strengths, keyed by tournament year. Team strengths
+// are derived from each year's actual squad data (average player rating,
+// compressed below a 78 midpoint to reflect that weaker squads' depth
+// drops off faster than their best players suggest) rather than hand-set,
+// so they extend naturally as more tournament years are added.
+const poolStandingsByYear = {
+    "2023": {
+        A: ["France","New Zealand","Italy","Uruguay","Namibia"],
+        B: ["Ireland","South Africa","Scotland","Tonga","Romania"],
+        C: ["Wales","Fiji","Australia","Georgia","Portugal"],
+        D: ["England","Argentina","Japan","Samoa","Chile"]
+    },
+    "2019": {
+        A: ["Ireland","Scotland","Japan","Russia","Samoa"],
+        B: ["New Zealand","South Africa","Italy","Namibia","Canada"],
+        C: ["England","France","Argentina","USA","Tonga"],
+        D: ["Australia","Wales","Georgia","Fiji","Uruguay"]
+    }
 };
 
-const teamStrengths = {
-    "France":91,"New Zealand":90,"South Africa":93,"Ireland":92,
-    "England":85,"Argentina":84,"Wales":80,"Fiji":82,
-    "Australia":79,"Scotland":81,"Italy":76,"Japan":74,
-    "Samoa":71,"Georgia":68,"Uruguay":66,"Tonga":65,
-    "Portugal":64,"Romania":58,"Namibia":54,"Chile":52
+const teamStrengthsByYear = {
+    "2023": {
+        "France":91,"New Zealand":90,"South Africa":93,"Ireland":92,
+        "England":85,"Argentina":84,"Wales":80,"Fiji":82,
+        "Australia":79,"Scotland":81,"Italy":76,"Japan":74,
+        "Samoa":71,"Georgia":68,"Uruguay":66,"Tonga":65,
+        "Portugal":64,"Romania":58,"Namibia":54,"Chile":52
+    },
+    "2019": {
+        "Ireland":87,"Scotland":86,"Japan":78,"Russia":61,"Samoa":76,
+        "New Zealand":92,"South Africa":90,"Italy":78,"Namibia":60,"Canada":65,
+        "England":90,"France":88,"Argentina":86,"USA":65,"Tonga":63,
+        "Australia":91,"Wales":86,"Georgia":72,"Fiji":80,"Uruguay":62
+    }
 };
+
+// Tournament metadata: format, points system, host. Used to drive the
+// year-selector UI and to pick the correct simulation/points logic.
+const tournamentMeta = {
+    "2023": { teams:20, poolsOf:5, bonusPoints:true,  host:"France" },
+    "2019": { teams:20, poolsOf:5, bonusPoints:true,  host:"Japan" }
+};
+
+// Backwards-compatible aliases for any code not yet updated to the
+// multi-year structure (default to 2023, the original baked-in year).
+const rwc2023PoolStandings = poolStandingsByYear["2023"];
+const teamStrengths = teamStrengthsByYear["2023"];
 
 const positionFamilyMap = {
     "Loosehead Prop":"Props","Tighthead Prop":"Props","Hooker":"Hookers",
@@ -976,7 +1009,7 @@ const allSquads = {
             {name:"Giuseppe du Toit",positions:["Inside Centre", "Outside Centre"],num:27,rating:71,careerRating:71},
             {name:"Jeff Hassler",positions:["Inside Centre", "Left Wing"],num:28,rating:70,careerRating:70},
             {name:"Kainoa Lloyd",positions:["Inside Centre", "Left Wing"],num:29,rating:67,careerRating:67},
-            {name:"Luke Campbell",positions:["Inside Centre", "Left Wing"],num:30,rating:67,careerRating:67},
+            {name:"Luke Campbell",positions:["Number 8"],num:30,rating:67,careerRating:67},
             {name:"Nick Blevins",positions:["Inside Centre", "Outside Centre"],num:31,rating:74,careerRating:74},
             {name:"Andrew Coe",positions:["Fullback", "Left Wing"],num:32,rating:69,careerRating:69},
             {name:"D. T. H. van der Merwe",positions:["Fullback", "Inside Centre"],num:33,rating:72,careerRating:72},
@@ -2115,7 +2148,7 @@ const allSquads = {
             {name:"Shalva Mamukashvili",positions:["Hooker"],num:5,rating:82,careerRating:83},
             {name:"Vano Karkadze",positions:["Hooker"],num:6,rating:67,careerRating:68},
             {name:"Beka Gigashvili",positions:["Tighthead Prop", "Loosehead Prop"],num:7,rating:76,careerRating:79},
-            {name:"Guram Gogichashvili",positions:["Tighthead Prop", "Loosehead Prop"],num:8,rating:78,careerRating:78},
+            {name:"Guram Gogichashvili",positions:["Tighthead Prop", "Loosehead Prop"],num:8,rating:82,careerRating:84},
             {name:"Giorgi Nemsadze",positions:["Lock"],num:9,rating:82,careerRating:82},
             {name:"Konstantin Mikautadze",positions:["Lock"],num:10,rating:81,careerRating:81},
             {name:"Giorgi Tkhilaishvili",positions:["Openside Flanker", "Blindside Flanker"],num:11,rating:72,careerRating:72},
@@ -2149,7 +2182,7 @@ const allSquads = {
             {name:"Tengiz Zamtaradze",positions:["Hooker"],num:6,rating:67,careerRating:67},
             {name:"Vano Karkadze",positions:["Hooker"],num:7,rating:68,careerRating:68},
             {name:"Beka Gigashvili",positions:["Tighthead Prop", "Loosehead Prop"],num:8,rating:79,careerRating:79},
-            {name:"Guram Gogichashvili",positions:["Tighthead Prop", "Loosehead Prop"],num:9,rating:78,careerRating:78},
+            {name:"Guram Gogichashvili",positions:["Tighthead Prop", "Loosehead Prop"],num:9,rating:84,careerRating:84},
             {name:"Guram Papidze",positions:["Tighthead Prop"],num:10,rating:67,careerRating:67},
             {name:"Luka Japaridze",positions:["Tighthead Prop"],num:11,rating:69,careerRating:69},
             {name:"Konstantin Mikautadze",positions:["Lock"],num:12,rating:80,careerRating:81},
@@ -3128,7 +3161,7 @@ const allSquads = {
             {name:"Ataata Moeakiola",positions:["Number 8", "Fly-half"],num:14,rating:74,careerRating:74},
             {name:"Hendrik Tui",positions:["Number 8", "Openside Flanker"],num:15,rating:79,careerRating:79},
             {name:"James Moore",positions:["Number 8", "Openside Flanker"],num:16,rating:75,careerRating:78},
-            {name:"Kazuki Himeno",positions:["Number 8", "Openside Flanker"],num:17,rating:75,careerRating:76},
+            {name:"Kazuki Himeno",positions:["Number 8", "Openside Flanker"],num:17,rating:79,careerRating:81},
             {name:"Lappies Labuschagné",positions:["Number 8", "Openside Flanker"],num:18,rating:72,careerRating:75},
             {name:"Michael Leitch",positions:["Number 8", "Openside Flanker"],num:19,rating:91,careerRating:91},
             {name:"Yoshitaka Tokunaga",positions:["Number 8", "Openside Flanker"],num:20,rating:76,careerRating:76},
@@ -3151,7 +3184,7 @@ const allSquads = {
             {name:"Shinnosuke Kakinaga",positions:["Loosehead Prop", "Tighthead Prop"],num:4,rating:75,careerRating:75},
             {name:"Atsushi Sakate",positions:["Hooker"],num:5,rating:80,careerRating:80},
             {name:"Kosuke Horikoshi",positions:["Hooker"],num:6,rating:74,careerRating:74},
-            {name:"Shota Fukui",positions:["Hooker", "Blindside Flanker"],num:7,rating:72,careerRating:72},
+            {name:"Shota Fukui",positions:["Blindside Flanker", "Number 8"],num:7,rating:72,careerRating:72},
             {name:"Shota Horie",positions:["Hooker"],num:8,rating:81,careerRating:82},
             {name:"Asaeli Ai Valu",positions:["Tighthead Prop", "Number 8"],num:9,rating:78,careerRating:78},
             {name:"Amanaki Saumaki",positions:["Lock"],num:10,rating:70,careerRating:70},
@@ -3161,7 +3194,7 @@ const allSquads = {
             {name:"Ben Gunter",positions:["Number 8", "Openside Flanker"],num:14,rating:72,careerRating:72},
             {name:"Jack Cornelsen",positions:["Number 8", "Openside Flanker"],num:15,rating:77,careerRating:77},
             {name:"James Moore",positions:["Number 8", "Openside Flanker"],num:16,rating:78,careerRating:78},
-            {name:"Kazuki Himeno",positions:["Number 8", "Openside Flanker"],num:17,rating:76,careerRating:76},
+            {name:"Kazuki Himeno",positions:["Number 8", "Openside Flanker"],num:17,rating:81,careerRating:81},
             {name:"Lappies Labuschagné",positions:["Number 8", "Openside Flanker"],num:18,rating:75,careerRating:75},
             {name:"Michael Leitch",positions:["Number 8", "Openside Flanker"],num:19,rating:80,careerRating:91},
             {name:"Sione Halasili",positions:["Number 8", "Openside Flanker"],num:20,rating:74,careerRating:74},
@@ -3342,7 +3375,7 @@ const allSquads = {
             {name:"Danie van Wyk",positions:["Inside Centre", "Outside Centre"],num:26,rating:65,careerRating:65},
             {name:"Darryl de la Harpe",positions:["Inside Centre", "Outside Centre"],num:27,rating:69,careerRating:71},
             {name:"JC Greyling",positions:["Inside Centre", "Outside Centre"],num:28,rating:63,careerRating:68},
-            {name:"Johan Deysel",positions:["Inside Centre", "Outside Centre"],num:29,rating:64,careerRating:67},
+            {name:"Johan Deysel",positions:["Inside Centre", "Outside Centre"],num:29,rating:72,careerRating:78},
             {name:"Chrysander Botha",positions:["Fullback"],num:30,rating:68,careerRating:68},
             {name:"Russell van Wyk",positions:["Fullback", "Left Wing"],num:31,rating:60,careerRating:60}
         ],
@@ -3376,7 +3409,7 @@ const allSquads = {
             {name:"Darryl de la Harpe",positions:["Inside Centre", "Outside Centre"],num:27,rating:71,careerRating:71},
             {name:"JC Greyling",positions:["Inside Centre", "Right Wing"],num:28,rating:67,careerRating:68},
             {name:"Janry du Toit",positions:["Inside Centre", "Outside Centre"],num:29,rating:64,careerRating:64},
-            {name:"Johan Deysel",positions:["Inside Centre", "Outside Centre"],num:30,rating:66,careerRating:67},
+            {name:"Johan Deysel",positions:["Inside Centre", "Outside Centre"],num:30,rating:76,careerRating:78},
             {name:"Justin Newman",positions:["Inside Centre", "Left Wing"],num:31,rating:65,careerRating:65}
         ],
         "2023": [
@@ -3410,7 +3443,7 @@ const allSquads = {
             {name:"Damian Stevens",positions:["Left Wing", "Right Wing"],num:28,rating:69,careerRating:70},
             {name:"Danco Burger",positions:["Inside Centre", "Outside Centre"],num:29,rating:64,careerRating:64},
             {name:"JC Greyling",positions:["Inside Centre", "Right Wing"],num:30,rating:68,careerRating:68},
-            {name:"Johan Deysel",positions:["Inside Centre", "Outside Centre"],num:31,rating:67,careerRating:67},
+            {name:"Johan Deysel",positions:["Inside Centre", "Outside Centre"],num:31,rating:78,careerRating:78},
             {name:"Le Roux Malan",positions:["Inside Centre", "Outside Centre"],num:32,rating:61,careerRating:61},
             {name:"Alcino Izaacs",positions:["Fullback", "Left Wing"],num:33,rating:63,careerRating:63},
             {name:"Divan Rossouw",positions:["Fullback"],num:34,rating:61,careerRating:61},
@@ -5583,7 +5616,7 @@ const allSquads = {
             {name:"Phil Thiel",positions:["Hooker", "Loosehead Prop"],num:5,rating:70,careerRating:70},
             {name:"Zach Fenoglio",positions:["Hooker"],num:6,rating:71,careerRating:71},
             {name:"Chris Baumann",positions:["Tighthead Prop", "Loosehead Prop"],num:7,rating:63,careerRating:63},
-            {name:"Titi Lamositele",positions:["Tighthead Prop"],num:8,rating:68,careerRating:70},
+            {name:"Titi Lamositele",positions:["Tighthead Prop"],num:8,rating:72,careerRating:80},
             {name:"Greg Peterson",positions:["Lock"],num:9,rating:69,careerRating:73},
             {name:"Hayden Smith",positions:["Lock"],num:10,rating:72,careerRating:72},
             {name:"Andrew Durutalo",positions:["Openside Flanker", "Blindside Flanker"],num:11,rating:67,careerRating:67},
@@ -5617,7 +5650,7 @@ const allSquads = {
             {name:"James Hilterbrand",positions:["Hooker", "Loosehead Prop"],num:6,rating:68,careerRating:68},
             {name:"Joe Taufete'e",positions:["Hooker", "Loosehead Prop"],num:7,rating:67,careerRating:67},
             {name:"Paul Mullen",positions:["Tighthead Prop", "Loosehead Prop"],num:8,rating:70,careerRating:70},
-            {name:"Titi Lamositele",positions:["Tighthead Prop"],num:9,rating:70,careerRating:70},
+            {name:"Titi Lamositele",positions:["Tighthead Prop"],num:9,rating:80,careerRating:80},
             {name:"Ben Landry",positions:["Lock"],num:10,rating:68,careerRating:68},
             {name:"Greg Peterson",positions:["Lock"],num:11,rating:73,careerRating:73},
             {name:"Nick Civetta",positions:["Lock"],num:12,rating:71,careerRating:71},
@@ -6103,38 +6136,38 @@ const allSquads = {
         "2023": [
             {name:"Corey Domachowski",positions:["Loosehead Prop", "Tighthead Prop"],num:1,rating:80,careerRating:80},
             {name:"Nicky Smith",positions:["Loosehead Prop", "Tighthead Prop"],num:2,rating:85,careerRating:85},
-            {name:"Dewi Lake",positions:["Hooker"],num:3,rating:81,careerRating:81},
-            {name:"Elliot Dee",positions:["Hooker"],num:4,rating:89,careerRating:89},
-            {name:"Ryan Elias",positions:["Hooker"],num:5,rating:86,careerRating:86},
+            {name:"Dewi Lake",positions:["Hooker"],num:3,rating:88,careerRating:88},
+            {name:"Elliot Dee",positions:["Hooker"],num:4,rating:82,careerRating:82},
+            {name:"Ryan Elias",positions:["Hooker"],num:5,rating:84,careerRating:84},
             {name:"Dillon Lewis",positions:["Tighthead Prop", "Loosehead Prop"],num:6,rating:86,careerRating:86},
             {name:"Henry Thomas",positions:["Tighthead Prop"],num:7,rating:81,careerRating:81},
             {name:"Tomas Francis",positions:["Tighthead Prop", "Loosehead Prop"],num:8,rating:88,careerRating:88},
-            {name:"Adam Beard",positions:["Lock"],num:9,rating:89,careerRating:89},
-            {name:"Christ Tshiunza",positions:["Lock", "Blindside Flanker"],num:10,rating:82,careerRating:82},
-            {name:"Dafydd Jenkins",positions:["Lock"],num:11,rating:79,careerRating:79},
-            {name:"Will Rowlands",positions:["Lock"],num:12,rating:84,careerRating:84},
-            {name:"Dan Lydiate",positions:["Blindside Flanker"],num:13,rating:89,careerRating:89},
-            {name:"Jac Morgan",positions:["Openside Flanker", "Blindside Flanker"],num:14,rating:80,careerRating:80},
+            {name:"Adam Beard",positions:["Lock"],num:9,rating:84,careerRating:84},
+            {name:"Christ Tshiunza",positions:["Lock", "Blindside Flanker"],num:10,rating:79,careerRating:79},
+            {name:"Dafydd Jenkins",positions:["Lock"],num:11,rating:83,careerRating:83},
+            {name:"Will Rowlands",positions:["Lock"],num:12,rating:80,careerRating:80},
+            {name:"Dan Lydiate",positions:["Blindside Flanker"],num:13,rating:83,careerRating:89},
+            {name:"Jac Morgan",positions:["Openside Flanker", "Blindside Flanker"],num:14,rating:89,careerRating:89},
             {name:"Tommy Reffell",positions:["Openside Flanker", "Blindside Flanker"],num:15,rating:83,careerRating:83},
             {name:"Aaron Wainwright",positions:["Number 8", "Openside Flanker"],num:16,rating:85,careerRating:85},
-            {name:"Taine Basham",positions:["Number 8", "Openside Flanker"],num:17,rating:83,careerRating:83},
-            {name:"Taulupe Faletau",positions:["Number 8", "Blindside Flanker"],num:18,rating:92,careerRating:92},
+            {name:"Taine Basham",positions:["Number 8", "Openside Flanker"],num:17,rating:79,careerRating:79},
+            {name:"Taulupe Faletau",positions:["Number 8", "Blindside Flanker"],num:18,rating:86,careerRating:92},
             {name:"Gareth Davies",positions:["Scrum-half"],num:19,rating:87,careerRating:88},
             {name:"Kieran Hardy",positions:["Scrum-half"],num:20,rating:82,careerRating:82},
             {name:"Tomos Williams",positions:["Scrum-half"],num:21,rating:89,careerRating:89},
             {name:"Dan Biggar",positions:["Fly-half"],num:22,rating:90,careerRating:91},
             {name:"Gareth Anscombe",positions:["Fly-half", "Fullback"],num:23,rating:83,careerRating:83},
-            {name:"Sam Costelow",positions:["Fly-half"],num:24,rating:79,careerRating:79},
+            {name:"Sam Costelow",positions:["Fly-half"],num:24,rating:75,careerRating:75},
             {name:"George North",positions:["Left Wing", "Outside Centre"],num:25,rating:90,careerRating:97},
             {name:"Louis Rees-Zammit",positions:["Left Wing", "Right Wing"],num:26,rating:89,careerRating:89},
             {name:"Rio Dyer",positions:["Left Wing", "Right Wing"],num:27,rating:80,careerRating:80},
             {name:"Johnny Williams",positions:["Inside Centre", "Outside Centre"],num:28,rating:81,careerRating:81},
             {name:"Mason Grady",positions:["Inside Centre", "Left Wing"],num:29,rating:78,careerRating:78},
             {name:"Nick Tompkins",positions:["Inside Centre", "Outside Centre"],num:30,rating:82,careerRating:82},
-            {name:"Josh Adams",positions:["Right Wing", "Outside Centre"],num:31,rating:88,careerRating:88},
-            {name:"Gareth Thomas",positions:["Loosehead Prop", "Tighthead Prop"],num:32,rating:84,careerRating:84},
-            {name:"Leigh Halfpenny",positions:["Fullback", "Left Wing"],num:33,rating:91,careerRating:91},
-            {name:"Liam Williams",positions:["Fullback", "Left Wing"],num:34,rating:90,careerRating:90}
+            {name:"Josh Adams",positions:["Right Wing", "Outside Centre"],num:31,rating:84,careerRating:88},
+            {name:"Gareth Thomas",positions:["Loosehead Prop", "Tighthead Prop"],num:32,rating:81,careerRating:81},
+            {name:"Leigh Halfpenny",positions:["Fullback", "Left Wing"],num:33,rating:86,careerRating:91},
+            {name:"Liam Williams",positions:["Fullback", "Left Wing"],num:34,rating:86,careerRating:90}
         ]
     },
     "Zimbabwe": {
