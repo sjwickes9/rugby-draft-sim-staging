@@ -23,6 +23,20 @@
         <img src="assets/logo-dark.png" alt="Rugby Draft" class="loading-logo loading-logo-dark">
         <img src="assets/logo-light.png" alt="Rugby Draft" class="loading-logo loading-logo-light">
     </div>
+    <script>
+        // Runs immediately as the browser reaches this point in the markup,
+        // before anything else on the page loads — so a repeat visit within
+        // the same session (Play Again / Abandon Campaign) never shows even
+        // a brief flash of the loading screen. The main dismiss-with-fade
+        // logic for genuinely fresh visits lives in app.js.
+        (function () {
+            try {
+                if (sessionStorage.getItem("hasPlayedBefore") === "1") {
+                    document.getElementById("loading-screen").remove();
+                }
+            } catch (e) {}
+        })();
+    </script>
     <!-- Google Tag Manager (noscript) -->
 <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-KBVM69FK"
 height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
@@ -226,7 +240,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         >
     </a>
 </div>
-<div id="version-footer">v1.2606281343</div>
 </body>
  
 </html>
