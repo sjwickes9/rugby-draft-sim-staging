@@ -198,7 +198,7 @@ let selectedPlayer     = null;
 let respinsLeft        = 0;
 let isKnowledgeMode    = false;
 let isCareerMode       = false;
-let simSpeedMultiplier = 1; // 1 = medium (default); set from the speed radio on Start Drafting
+let simSpeedMultiplier = 1; // 1 = medium (default); read from the speed radio when Kick Off Tournament is clicked
 let spotsFilledCount   = 0;
 let playerSelectedFromCurrentPool = false;
 let globalDraftedNames = new Set();
@@ -245,10 +245,6 @@ document.addEventListener("DOMContentLoaded", () => {
         respinsLeft = setting === "easy" ? 3 : setting === "normal" ? 1 : 0;
         if (respinCountText) respinCountText.textContent = respinsLeft;
         replacedTeam = teamSelect ? teamSelect.value : "England";
-
-        const speedSetting = document.querySelector('input[name="sim-speed"]:checked');
-        const speedValue = speedSetting ? speedSetting.value : "medium";
-        simSpeedMultiplier = speedValue === "slow" ? 1.8 : speedValue === "fast" ? 0.4 : 1;
 
         if (replacedTeam === "Cymru") {
             // Dev mode: skip straight to boss stage with a 99-rated squad
@@ -750,6 +746,11 @@ if (runSimBtn) {
     runSimBtn.addEventListener("click", () => {
         runSimBtn.disabled = true; runSimBtn.classList.add("disabled");
         simResults.innerHTML = "";
+
+        const speedSetting = document.querySelector('input[name="sim-speed"]:checked');
+        const speedValue = speedSetting ? speedSetting.value : "medium";
+        simSpeedMultiplier = speedValue === "slow" ? 1.8 : speedValue === "fast" ? 0.4 : 1;
+
         runTournamentSimulation();
     });
 }
@@ -759,6 +760,12 @@ if (runSimBtn) {
 // ============================================================
 let lastResultHeadline = "";
 let matchHistory = []; // { stage, opponent, userScore, oppScore, won } per match this run
+let playerStats = {}; // { playerName: { tries, points } } accumulated across this tournament run
+
+function getPlayerStat(name) {
+    if (!playerStats[name]) playerStats[name] = { tries: 0, points: 0 };
+    return playerStats[name];
+}
 let lastResultColour   = "#4ade80";
 
 function isMobileDevice() {
@@ -777,6 +784,45 @@ function canUseNativeShare() {
     if (!isMobileDevice()) return false;
     return !!(navigator.share && navigator.canShare &&
         navigator.canShare({ files: [new File([""], "test.png", { type: "image/png" })] }));
+}
+
+// Renders an end-of-run results summary into the sim log: games played,
+// won, lost, plus the tournament's top points scorer and top try scorer.
+// Called once at every possible run-ending point, right before the
+// share/download button appears.
+async function showResultsSummary() {
+    const played = matchHistory.length;
+    const won = matchHistory.filter(m => m.won).length;
+    const lost = played - won;
+
+    const statEntries = Object.entries(playerStats);
+    const topScorer = statEntries.length
+        ? statEntries.reduce((best, cur) => cur[1].points > best[1].points ? cur : best)
+        : null;
+    const topTryScorer = statEntries.length
+        ? statEntries.reduce((best, cur) => cur[1].tries > best[1].tries ? cur : best)
+        : null;
+
+    let html = '<div class="results-summary">';
+    html += '<div class="results-summary-title">Tournament Summary</div>';
+    html += '<div class="results-summary-grid">';
+    html += '<div class="rs-stat"><div class="rs-val">' + played + '</div><div class="rs-lbl">Played</div></div>';
+    html += '<div class="rs-stat"><div class="rs-val rs-good">' + won + '</div><div class="rs-lbl">Won</div></div>';
+    html += '<div class="rs-stat"><div class="rs-val rs-bad">' + lost + '</div><div class="rs-lbl">Lost</div></div>';
+    html += '</div>';
+
+    if (topScorer && topScorer[1].points > 0) {
+        html += '<div class="rs-leader"><span class="rs-leader-lbl">Top Points Scorer</span>' +
+            '<span class="rs-leader-val">' + topScorer[0] + ' — ' + topScorer[1].points + ' pts</span></div>';
+    }
+    if (topTryScorer && topTryScorer[1].tries > 0) {
+        html += '<div class="rs-leader"><span class="rs-leader-lbl">Top Try Scorer</span>' +
+            '<span class="rs-leader-val">' + topTryScorer[0] + ' — ' + topTryScorer[1].tries +
+            (topTryScorer[1].tries === 1 ? ' try' : ' tries') + '</span></div>';
+    }
+    html += '</div>';
+
+    await addLogBlock(html);
 }
 
 function showShareButton(headline, colour) {
@@ -1231,6 +1277,22 @@ function renderScoreBreakdown(userTeamObj, userScore, oppScore, oppLineup) {
     const userBD = buildScoreBreakdown(userScore, userTeamObj);
     const oppBD  = oppLineup ? buildScoreBreakdown(oppScore, oppLineup) : null;
 
+    // Accumulate individual scoring stats across the tournament for the
+    // end-of-run results summary (top points scorer / top try scorer).
+    userBD.tries.forEach(t => {
+        const p = getPlayerStat(t.name);
+        p.tries += t.count;
+        p.points += t.count * 5;
+    });
+    if (userBD.kicker && userBD.conversions) {
+        const p = getPlayerStat(userBD.kicker.name);
+        p.points += userBD.conversions * 2;
+    }
+    if (userBD.kicker && userBD.penalties) {
+        const p = getPlayerStat(userBD.kicker.name);
+        p.points += userBD.penalties * 3;
+    }
+
     const fmtTries = (bd) => bd.tries.length
         ? bd.tries.map(t => t.count > 1 ? (t.name + " x" + t.count) : t.name).join(", ")
         : "—";
@@ -1296,8 +1358,8 @@ async function addScoreBreakdownBlock(bd) {
     await delay(900 * simSpeedMultiplier);
 }
 
-// Inserts an arbitrary HTML block into the sim log (used for the pool
-// standings table) with the same speed-scaled pacing as addLog.
+// Inserts an arbitrary HTML block into the sim log with the same
+// speed-scaled pacing as addLog — used by the end-of-run results summary.
 async function addLogBlock(html) {
     const wrap = document.createElement("div");
     wrap.className = "sim-log-line";
@@ -1305,28 +1367,6 @@ async function addLogBlock(html) {
     simResults.appendChild(wrap);
     simResults.scrollTop = simResults.scrollHeight;
     await delay(900 * simSpeedMultiplier);
-}
-
-// Builds the HTML for a full pool standings table: P W D L PF PA Pts,
-// with the user's row highlighted.
-function buildStandingsTableHtml(table) {
-    let html = '<table class="standings-table"><thead><tr>' +
-        '<th class="st-pos">#</th><th class="st-team">Team</th>' +
-        '<th>P</th><th>W</th><th>D</th><th>L</th>' +
-        '<th>PF</th><th>PA</th><th>Pts</th>' +
-        '</tr></thead><tbody>';
-    table.forEach((r, i) => {
-        const isUser = r.name === "Your XV";
-        html += '<tr class="' + (isUser ? "st-user-row" : "") + '">' +
-            '<td class="st-pos">' + (i+1) + '</td>' +
-            '<td class="st-team">' + r.name + '</td>' +
-            '<td>' + r.p + '</td><td>' + r.w + '</td><td>' + r.d + '</td><td>' + r.l + '</td>' +
-            '<td>' + r.pf + '</td><td>' + r.pa + '</td>' +
-            '<td class="st-pts">' + r.pts + '</td>' +
-            '</tr>';
-    });
-    html += '</tbody></table>';
-    return html;
 }
 
 function simulateMatch(userR, oppR) {
@@ -1397,59 +1437,49 @@ async function runTournamentSimulation() {
     await addLog("Your Hybrid XV (avg: " + userR + ") replaces " + replacedTeam, null);
     await addLog("", null);
     matchHistory = [];
-
-    // Full record tracking for every team in the pool: played, win, draw,
-    // loss, points for, points against, and competition points.
-    const record = name => ({ name, p:0, w:0, d:0, l:0, pf:0, pa:0, pts:0 });
-    const records = { "Your XV": record("Your XV") };
-    poolTeams.forEach(t => { records[t] = record(t); });
-
-    function applyResult(nameA, scoreA, nameB, scoreB, ptsA, ptsB) {
-        const a = records[nameA], b = records[nameB];
-        a.p++; b.p++;
-        a.pf += scoreA; a.pa += scoreB;
-        b.pf += scoreB; b.pa += scoreA;
-        a.pts += ptsA; b.pts += ptsB;
-        if (scoreA > scoreB) { a.w++; b.l++; }
-        else if (scoreA < scoreB) { b.w++; a.l++; }
-        else { a.d++; b.d++; }
-    }
+    playerStats = {};
 
     // ── Run user's pool matches ──
+    let userPoolPts = 0;
     for (const opp of poolTeams) {
         const res = simulateMatch(userR, teamStrengths[opp] || 72);
+        userPoolPts += res.pts;
         const icon = res.won ? "WIN " : "LOSS";
         const colour = res.won ? "#4ade80" : "#f87171";
         await addLog(icon + "  vs " + opp + "  " + res.userScore + "-" + res.oppScore + "  (" + (res.pts>0?"+":"") + res.pts + " pts)", colour);
         await addScoreBreakdownLog(userTeam, res.userScore, opp, res.oppScore);
         matchHistory.push({ stage:"Pool", opponent:opp, userScore:res.userScore, oppScore:res.oppScore, won:res.won });
-
-        const oppPts = res.won ? (res.margin<=7?1:0) : (res.margin>21?5:4);
-        applyResult("Your XV", res.userScore, opp, res.oppScore, res.pts, oppPts);
     }
 
     // ── Simulate other pool matches ──
+    const otherPtsClean = {};
+    poolTeams.forEach(t => { otherPtsClean[t] = 0; });
     for (let i = 0; i < poolTeams.length; i++) {
         for (let j = i+1; j < poolTeams.length; j++) {
             const t1 = poolTeams[i], t2 = poolTeams[j];
             const res = simulateMatch(teamStrengths[t1]||72, teamStrengths[t2]||72);
-            const ptsT1 = res.won ? (res.margin>21?5:4) : (res.margin<=7?1:0);
-            const ptsT2 = res.won ? (res.margin<=7?1:0) : (res.margin>21?5:4);
-            applyResult(t1, res.userScore, t2, res.oppScore, ptsT1, ptsT2);
+            otherPtsClean[t1] += res.won ? (res.margin>21?5:4) : (res.margin<=7?1:0);
+            otherPtsClean[t2] += res.won ? (res.margin<=7?1:0) : (res.margin>21?5:4);
         }
     }
 
-    // ── Pool standings (full table: P W D L PF PA Pts) ──
+    // ── Pool standings ──
     await addLog("", null);
     await addLog("--- Pool " + pool + " Standings ---", "var(--brand-gold)");
-    const table = Object.values(records);
-    table.sort((a,b) => b.pts - a.pts || (b.pf-b.pa) - (a.pf-a.pa));
-    await addLogBlock(buildStandingsTableHtml(table));
+    const table = [["Your XV", userPoolPts]];
+    poolTeams.forEach(t => table.push([t, otherPtsClean[t]]));
+    table.sort((a,b) => b[1]-a[1]);
+    for (let i = 0; i < table.length; i++) {
+        const isUser = table[i][0] === "Your XV";
+        const marker = ["1st","2nd","3rd","4th","5th"][i] || (i+1)+"th";
+        await addLog(marker + "  " + table[i][0] + "  —  " + table[i][1] + " pts", isUser ? "#f3f4f6" : "var(--text-muted)");
+    }
 
-    const rank = table.findIndex(r => r.name === "Your XV");
+    const rank = table.findIndex(([t]) => t === "Your XV");
     if (rank > 1) {
         await addLog("", null);
         await addLog("ELIMINATED — Your Hybrid XV did not qualify from Pool " + pool + ".", "#ef4444");
+        await showResultsSummary();
         showShareButton("Eliminated at the Pool Stage", "#f87171");
         restartBtn.classList.remove("hidden"); return;
     }
@@ -1462,7 +1492,7 @@ async function runTournamentSimulation() {
     // Then build a bracket from the actual finishes
     const allStandings = simulateAllPools();
     // Overwrite user's pool with the real results from above
-    const userPoolOrder = table.map(r => r.name === "Your XV" ? replacedTeam : r.name);
+    const userPoolOrder = table.map(([t]) => t === "Your XV" ? replacedTeam : t);
     allStandings[pool] = userPoolOrder;
 
     // 2023 QF bracket: A1vD2, B1vC2, C1vB2, D1vA2
@@ -1496,6 +1526,7 @@ async function runTournamentSimulation() {
     await addScoreBreakdownLog(userTeam, qf.userScore, qfOpp, qf.oppScore);
     if (!qf.won) {
         await addLog("KNOCKED OUT at the quarter-final stage.", "#ef4444");
+        await showResultsSummary();
         showShareButton("Knocked Out — Quarter-Final", "#f87171");
         restartBtn.classList.remove("hidden"); return;
     }
@@ -1537,6 +1568,7 @@ async function runTournamentSimulation() {
         matchHistory.push({ stage:"3rd Place", opponent:tpOpp, userScore:tp.userScore, oppScore:tp.oppScore, won:tp.won });
         await addScoreBreakdownLog(userTeam, tp.userScore, tpOpp, tp.oppScore);
         await addLog(tp.won ? "BRONZE — 3rd place at the 2023 Rugby World Cup!" : "4th place — agonisingly close.", tp.won?"#4ade80":"#c5a059");
+        await showResultsSummary();
         showShareButton(tp.won ? "Bronze Medal — 3rd Place" : "4th Place Finish", tp.won?"#4ade80":"#c5a059");
         restartBtn.classList.remove("hidden"); return;
     }
@@ -1557,6 +1589,7 @@ async function runTournamentSimulation() {
         await addLog("But the challenge doesn't end here...", "var(--text-muted)");
         await addLog("Three legendary teams await. Do you dare face them?", "var(--text-muted)");
         await addLog("", null);
+        await showResultsSummary();
         showShareButton("WORLD CHAMPIONS", "#c5a059");
 
         // Show boss challenge button — appended to sim-results (the terminal viewport)
@@ -1576,6 +1609,7 @@ async function runTournamentSimulation() {
         restartBtn.classList.remove("hidden");
     } else {
         await addLog("Runners-up. A magnificent campaign — one step short of glory.", "#c5a059");
+        await showResultsSummary();
         showShareButton("Runners-Up — World Cup Final", "#c5a059");
         restartBtn.classList.remove("hidden");
     }
@@ -1816,12 +1850,15 @@ async function runBossStage() {
             await addLog("", null);
             if (bossKey === "sanzaar") {
                 await addLog("The SANZAAR Barbarians were too strong. A valiant effort against the best of the Southern Hemisphere.", "#c5a059");
+                await showResultsSummary();
                 showShareButton("World Champions — Fell to SANZAAR Barbarians", "#c5a059");
             } else if (bossKey === "lions") {
                 await addLog("The Lions held firm. You pushed the greatest British & Irish players in history to the limit.", "#c5a059");
+                await showResultsSummary();
                 showShareButton("World Champions — Fell to the Lions", "#c5a059");
             } else {
                 await addLog("The All Time XV prevail. No team in history has beaten this side — and yours came closer than most.", "#c5a059");
+                await showResultsSummary();
                 showShareButton("World Champions — Fell to the All Time XV", "#c5a059");
             }
             restartBtn.classList.remove("hidden");
@@ -1836,6 +1873,7 @@ async function runBossStage() {
             await addLog("", null);
             await addLog("THE ALL TIME XV ARE BEATEN.", "var(--brand-gold)");
             await addLog("Your Hybrid XV has done the impossible. World Champions, and conquerors of the greatest teams ever assembled. Legendary.", "var(--brand-gold)");
+            await showResultsSummary();
             showShareButton("LEGENDARY — Beat the All Time XV", "#c5a059");
             restartBtn.classList.remove("hidden");
             return;
