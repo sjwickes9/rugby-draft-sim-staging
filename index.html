@@ -46,6 +46,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <img src="assets/logo-dark.png" alt="Rugby Draft" class="logo-img logo-dark">
             <img src="assets/logo-light.png" alt="Rugby Draft" class="logo-img logo-light">
         </div>
+        <div id="tournament-title" class="tournament-title-banner"></div>
         <div class="utility-controls">
             <button id="theme-toggle">Light Mode</button>
             <button class="abort-reset-btn">Reset App</button>
@@ -132,14 +133,14 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <!-- SCREEN 2: DRAFT DASHBOARD -->
         <div id="draft-dashboard" class="dashboard-grid hidden">
             <div class="left-panel">
-                <div class="panel-card">
+                <div class="panel-card panel-card-compact">
                     <div class="stats-row">
                         <div class="stat-box"><div id="avg-global-ovr" class="stat-val">--</div><div class="stat-lbl">Global OVR</div></div>
                         <div class="stat-box"><div id="avg-forward-ovr" class="stat-val">--</div><div class="stat-lbl">Forwards</div></div>
                         <div class="stat-box"><div id="avg-back-ovr" class="stat-val">--</div><div class="stat-lbl">Backs</div></div>
                     </div>
                 </div>
-                <div class="panel-card">
+                <div class="panel-card panel-card-compact">
                     <div class="action-cluster">
                         <button id="spin-btn" class="btn-primary">Spin Team</button>
                         <button id="respin-btn" class="disabled" disabled>Respin (<span id="respin-count">1</span>)</button>
@@ -197,7 +198,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
         <!-- SCREEN 3: SIMULATION -->
         <div id="sim-dashboard" class="sim-layout-container hidden">
-            <div id="tournament-title" class="tournament-title-banner"></div>
             <div class="panel-card" id="manifest-team-box" style="overflow-y:auto;max-height:520px;"></div>
             <div class="panel-card">
                 <div id="pre-kickoff-summary" class="prekick-box"></div>
@@ -240,6 +240,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         >
     </a>
 </div>
+<div id="version-footer">v1.2606281406</div>
 </body>
  
 </html>
