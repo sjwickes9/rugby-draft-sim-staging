@@ -594,6 +594,48 @@ button:disabled, button.disabled { opacity: 0.4; cursor: not-allowed; pointer-ev
     .score-col-right { border-left: none; padding-left: 0; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 4px; margin-top: 2px; }
 }
 
+/* Full pool standings table: P W D L PF PA Pts */
+.standings-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.78rem;
+    margin: 4px 0 10px 0;
+}
+.standings-table th {
+    text-align: center;
+    color: var(--brand-gold);
+    font-weight: 700;
+    padding: 4px 6px;
+    border-bottom: 1px solid rgba(197,160,89,0.3);
+    white-space: nowrap;
+}
+.standings-table td {
+    text-align: center;
+    color: var(--text-muted);
+    padding: 4px 6px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.standings-table .st-pos { width: 24px; }
+.standings-table .st-team {
+    text-align: left;
+    color: #f3f4f6;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.standings-table .st-pts {
+    color: var(--brand-gold);
+    font-weight: 700;
+}
+.standings-table .st-user-row td {
+    color: #f3f4f6;
+    background: rgba(197,160,89,0.08);
+}
+.standings-table .st-user-row .st-team { color: var(--brand-gold); }
+@media (max-width: 600px) {
+    .standings-table { font-size: 0.7rem; }
+    .standings-table th, .standings-table td { padding: 3px 4px; }
+}
+
 /* End-of-tournament results summary */
 .results-summary {
     margin: 10px 0 14px 0;
