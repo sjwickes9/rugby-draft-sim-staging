@@ -39,6 +39,35 @@ body {
 
 .hidden { display: none !important; }
 
+/* Initial loading screen: large centred logo, fades out once the app
+   is ready, then removed from the layout entirely. */
+#loading-screen {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--bg-main);
+    transition: opacity 0.4s ease;
+}
+#loading-screen.loading-fade-out {
+    opacity: 0;
+    pointer-events: none;
+}
+.loading-logo {
+    width: min(70vw, 420px);
+    height: auto;
+    animation: loading-pulse 1.6s ease-in-out infinite;
+}
+.loading-logo-light { display: none; }
+.light-theme .loading-logo-dark { display: none; }
+.light-theme .loading-logo-light { display: block; }
+@keyframes loading-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.85; transform: scale(0.97); }
+}
+
 /* ── Header ── */
 header {
     display: flex;
@@ -52,13 +81,13 @@ header {
 .utility-controls { display: flex; gap: 10px; }
 
 /* Site logo: two images stacked, only one shown depending on theme */
-.site-logo { display: flex; align-items: center; height: 56px; }
-.logo-img { height: 56px; width: auto; display: block; }
+.site-logo { display: flex; align-items: center; height: 100px; }
+.logo-img { height: 100px; width: auto; display: block; }
 .logo-img.logo-light { display: none; }
 .light-theme .logo-img.logo-dark { display: none; }
 .light-theme .logo-img.logo-light { display: block; }
 @media (max-width: 600px) {
-    .site-logo, .logo-img { height: 44px; }
+    .site-logo, .logo-img { height: 64px; }
 }
 
 /* ── Buttons ── */

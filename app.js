@@ -199,6 +199,11 @@ let respinsLeft        = 0;
 let isKnowledgeMode    = false;
 let isCareerMode       = false;
 let simSpeedMultiplier = 1; // 1 = medium (default); read from the speed radio when Kick Off Tournament is clicked
+
+// Preloaded once at script load so the share card can draw it synchronously
+// without needing to restructure generateShareGraphic() as async.
+const shareCardLogo = new Image();
+shareCardLogo.src = "assets/logo-dark.png";
 let selectedTournamentYear = "2023"; // which World Cup is being simulated this run
 let activePoolStandings = poolStandingsByYear[selectedTournamentYear];
 let activeTeamStrengths = teamStrengthsByYear[selectedTournamentYear];
@@ -955,7 +960,7 @@ function showShareButton(headline, colour) {
 }
 
 function generateShareGraphic() {
-    const W = 1080, H = 1930; // portrait, social-friendly
+    const W = 1080, H = 2040; // portrait, social-friendly
     const canvas = document.createElement("canvas");
     canvas.width = W; canvas.height = H;
     const ctx = canvas.getContext("2d");
@@ -972,38 +977,45 @@ function generateShareGraphic() {
     const textMuted = "#9ca39c";
     const white = "#f3f4f6";
 
+    // ── Logo ──
+    if (shareCardLogo.complete && shareCardLogo.naturalWidth > 0) {
+        const logoH = 90;
+        const logoW = logoH * (shareCardLogo.naturalWidth / shareCardLogo.naturalHeight);
+        ctx.drawImage(shareCardLogo, W/2 - logoW/2, 20, logoW, logoH);
+    }
+
     // ── Header ──
     ctx.textAlign = "center";
     ctx.fillStyle = gold;
     ctx.font = "bold 52px Georgia, serif";
-    ctx.fillText("RUGBY HYBRID XV", W/2, 80);
+    ctx.fillText("RUGBY HYBRID XV", W/2, 190);
     ctx.font = "26px Georgia, serif";
     ctx.fillStyle = textMuted;
-    ctx.fillText("replacing " + (replacedTeam || "—"), W/2, 118);
+    ctx.fillText("replacing " + (replacedTeam || "—"), W/2, 228);
 
     const tmeta = tournamentMeta[selectedTournamentYear];
     ctx.font = "18px Arial";
     ctx.fillStyle = textMuted;
-    ctx.fillText("Rugby World Cup " + selectedTournamentYear + (tmeta ? " — " + tmeta.host : ""), W/2, 144);
+    ctx.fillText("Rugby World Cup " + selectedTournamentYear + (tmeta ? " — " + tmeta.host : ""), W/2, 254);
 
     // Divider
     ctx.strokeStyle = goldFaint;
     ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(80, 165); ctx.lineTo(W-80, 165); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(80, 275); ctx.lineTo(W-80, 275); ctx.stroke();
 
     // ── Result headline ──
     ctx.font = "bold 38px Georgia, serif";
     ctx.fillStyle = lastResultColour;
-    wrapCanvasText(ctx, lastResultHeadline || "Campaign complete", W/2, 220, W-160, 44);
+    wrapCanvasText(ctx, lastResultHeadline || "Campaign complete", W/2, 330, W-160, 44);
 
     // ── Tournament summary: played/won/lost + top scorers ──
-    drawTournamentSummary(ctx, W, 270);
+    drawTournamentSummary(ctx, W, 380);
 
     // ── Full-width pitch diagram with ratings + nation/year per player ──
-    drawMiniPitch(ctx, W/2, 900, 920, 900);
+    drawMiniPitch(ctx, W/2, 1010, 920, 900);
 
     // ── Results recap (replaces the old duplicate squad list) ──
-    const recapTop = 1410;
+    const recapTop = 1520;
     ctx.textAlign = "left";
     ctx.font = "bold 24px Georgia, serif";
     ctx.fillStyle = gold;
@@ -2082,3 +2094,32 @@ async function runBossStage() {
         }
     }
 }
+
+// ============================================================
+// LOADING SCREEN
+// ============================================================
+// Shows the logo full-screen while everything else loads, then fades it
+// out. A small minimum display time keeps it from flashing imperceptibly
+// on fast connections, where it would otherwise feel like a glitch rather
+// than an intentional loading moment.
+(function () {
+    const MIN_DISPLAY_MS = 700;
+    const shownAt = Date.now();
+
+    function dismissLoadingScreen() {
+        const screen = document.getElementById("loading-screen");
+        if (!screen) return;
+        const elapsed = Date.now() - shownAt;
+        const wait = Math.max(0, MIN_DISPLAY_MS - elapsed);
+        setTimeout(() => {
+            screen.classList.add("loading-fade-out");
+            setTimeout(() => screen.remove(), 450); // matches CSS transition duration
+        }, wait);
+    }
+
+    if (document.readyState === "complete") {
+        dismissLoadingScreen();
+    } else {
+        window.addEventListener("load", dismissLoadingScreen);
+    }
+})();
