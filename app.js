@@ -1455,6 +1455,28 @@ async function addLogBlock(html) {
     await delay(900 * simSpeedMultiplier);
 }
 
+// Builds the HTML for a full pool standings table: P W D L PF PA Pts,
+// with the user's row highlighted.
+function buildStandingsTableHtml(table) {
+    let html = '<table class="standings-table"><thead><tr>' +
+        '<th class="st-pos">#</th><th class="st-team">Team</th>' +
+        '<th>P</th><th>W</th><th>D</th><th>L</th>' +
+        '<th>PF</th><th>PA</th><th>Pts</th>' +
+        '</tr></thead><tbody>';
+    table.forEach((r, i) => {
+        const isUser = r.name === "Your XV";
+        html += '<tr class="' + (isUser ? "st-user-row" : "") + '">' +
+            '<td class="st-pos">' + (i+1) + '</td>' +
+            '<td class="st-team">' + r.name + '</td>' +
+            '<td>' + r.p + '</td><td>' + r.w + '</td><td>' + r.d + '</td><td>' + r.l + '</td>' +
+            '<td>' + r.pf + '</td><td>' + r.pa + '</td>' +
+            '<td class="st-pts">' + r.pts + '</td>' +
+            '</tr>';
+    });
+    html += '</tbody></table>';
+    return html;
+}
+
 function simulateMatch(userR, oppR) {
     const diff = userR - oppR;
     const absd = Math.abs(diff);
@@ -1525,43 +1547,55 @@ async function runTournamentSimulation() {
     matchHistory = [];
     playerStats = {};
 
+    // Full record tracking for every team in the pool: played, win, draw,
+    // loss, points for, points against, and competition points.
+    const record = name => ({ name, p:0, w:0, d:0, l:0, pf:0, pa:0, pts:0 });
+    const records = { "Your XV": record("Your XV") };
+    poolTeams.forEach(t => { records[t] = record(t); });
+
+    function applyResult(nameA, scoreA, nameB, scoreB, ptsA, ptsB) {
+        const a = records[nameA], b = records[nameB];
+        a.p++; b.p++;
+        a.pf += scoreA; a.pa += scoreB;
+        b.pf += scoreB; b.pa += scoreA;
+        a.pts += ptsA; b.pts += ptsB;
+        if (scoreA > scoreB) { a.w++; b.l++; }
+        else if (scoreA < scoreB) { b.w++; a.l++; }
+        else { a.d++; b.d++; }
+    }
+
     // ── Run user's pool matches ──
-    let userPoolPts = 0;
     for (const opp of poolTeams) {
         const res = simulateMatch(userR, teamStrengths[opp] || 72);
-        userPoolPts += res.pts;
         const icon = res.won ? "WIN " : "LOSS";
         const colour = res.won ? "#4ade80" : "#f87171";
         await addLog(icon + "  vs " + opp + "  " + res.userScore + "-" + res.oppScore + "  (" + (res.pts>0?"+":"") + res.pts + " pts)", colour);
         await addScoreBreakdownLog(userTeam, res.userScore, opp, res.oppScore);
         matchHistory.push({ stage:"Pool", opponent:opp, userScore:res.userScore, oppScore:res.oppScore, won:res.won });
+
+        const oppPts = res.won ? (res.margin<=7?1:0) : (res.margin>21?5:4);
+        applyResult("Your XV", res.userScore, opp, res.oppScore, res.pts, oppPts);
     }
 
     // ── Simulate other pool matches ──
-    const otherPtsClean = {};
-    poolTeams.forEach(t => { otherPtsClean[t] = 0; });
     for (let i = 0; i < poolTeams.length; i++) {
         for (let j = i+1; j < poolTeams.length; j++) {
             const t1 = poolTeams[i], t2 = poolTeams[j];
             const res = simulateMatch(teamStrengths[t1]||72, teamStrengths[t2]||72);
-            otherPtsClean[t1] += res.won ? (res.margin>21?5:4) : (res.margin<=7?1:0);
-            otherPtsClean[t2] += res.won ? (res.margin<=7?1:0) : (res.margin>21?5:4);
+            const ptsT1 = res.won ? (res.margin>21?5:4) : (res.margin<=7?1:0);
+            const ptsT2 = res.won ? (res.margin<=7?1:0) : (res.margin>21?5:4);
+            applyResult(t1, res.userScore, t2, res.oppScore, ptsT1, ptsT2);
         }
     }
 
-    // ── Pool standings ──
+    // ── Pool standings (full table: P W D L PF PA Pts) ──
     await addLog("", null);
     await addLog("--- Pool " + pool + " Standings ---", "var(--brand-gold)");
-    const table = [["Your XV", userPoolPts]];
-    poolTeams.forEach(t => table.push([t, otherPtsClean[t]]));
-    table.sort((a,b) => b[1]-a[1]);
-    for (let i = 0; i < table.length; i++) {
-        const isUser = table[i][0] === "Your XV";
-        const marker = ["1st","2nd","3rd","4th","5th"][i] || (i+1)+"th";
-        await addLog(marker + "  " + table[i][0] + "  —  " + table[i][1] + " pts", isUser ? "#f3f4f6" : "var(--text-muted)");
-    }
+    const table = Object.values(records);
+    table.sort((a,b) => b.pts - a.pts || (b.pf-b.pa) - (a.pf-a.pa));
+    await addLogBlock(buildStandingsTableHtml(table));
 
-    const rank = table.findIndex(([t]) => t === "Your XV");
+    const rank = table.findIndex(r => r.name === "Your XV");
     if (rank > 1) {
         await addLog("", null);
         await addLog("ELIMINATED — Your Hybrid XV did not qualify from Pool " + pool + ".", "#ef4444");
@@ -1578,7 +1612,7 @@ async function runTournamentSimulation() {
     // Then build a bracket from the actual finishes
     const allStandings = simulateAllPools();
     // Overwrite user's pool with the real results from above
-    const userPoolOrder = table.map(([t]) => t === "Your XV" ? replacedTeam : t);
+    const userPoolOrder = table.map(r => r.name === "Your XV" ? replacedTeam : r.name);
     allStandings[pool] = userPoolOrder;
 
     // 2023 QF bracket: A1vD2, B1vC2, C1vB2, D1vA2
@@ -1770,8 +1804,15 @@ document.addEventListener("click", e => {
 
 // MISC
 // ============================================================
-if (restartBtn) restartBtn.addEventListener("click", () => location.reload());
-document.querySelectorAll(".abort-reset-btn").forEach(b => b.addEventListener("click", () => location.reload()));
+function hardReload() {
+    // location.reload() can sometimes replay a cached version of the page
+    // and its scripts rather than fetching fresh ones. Navigating to the
+    // base URL with a cache-busting query param forces a genuine reload.
+    const base = location.pathname;
+    window.location.href = base + "?_=" + Date.now();
+}
+if (restartBtn) restartBtn.addEventListener("click", hardReload);
+document.querySelectorAll(".abort-reset-btn").forEach(b => b.addEventListener("click", hardReload));
 document.getElementById("theme-toggle").addEventListener("click", () => {
     document.body.classList.toggle("light-theme");
     document.getElementById("theme-toggle").textContent =
