@@ -369,6 +369,96 @@ function setupSlider(trackId, handleId, onChange) {
     });
 }
 
+// Draggable 3-position speed slider (Slow / Medium / Fast) used on the
+// simulation screen. Supports drag, click-anywhere-to-snap, and keyboard
+// left/right arrows. Greys out and stops responding once the tournament
+// has started (re-enabled on Play Again via resetSpeedSlider()).
+const SPEED_POSITIONS = ["slow", "medium", "fast"];
+
+function setupSpeedSlider() {
+    const track = document.getElementById("speed-slider-track");
+    const handle = document.getElementById("speed-slider-handle");
+    if (!track || !handle) return;
+
+    let index = 1; // medium by default
+
+    function applyIndex(i, fireChange) {
+        index = Math.max(0, Math.min(2, i));
+        const value = SPEED_POSITIONS[index];
+        const pct = index === 0 ? 0 : index === 1 ? 50 : 100;
+        handle.style.left = pct + "%";
+        track.dataset.value = value;
+        handle.setAttribute("aria-valuenow", index);
+        if (fireChange) applySpeedSetting(value);
+    }
+
+    function pointerToIndex(clientX) {
+        const rect = track.getBoundingClientRect();
+        const usableLeft = rect.left + 14;
+        const usableWidth = rect.width - 28;
+        const fraction = Math.max(0, Math.min(1, (clientX - usableLeft) / usableWidth));
+        return Math.round(fraction * 2);
+    }
+
+    let dragging = false;
+
+    function startDrag(e) {
+        if (track.classList.contains("disabled")) return;
+        dragging = true;
+        e.preventDefault();
+    }
+
+    function moveDrag(e) {
+        if (!dragging) return;
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        applyIndex(pointerToIndex(clientX), true);
+    }
+
+    function endDrag() { dragging = false; }
+
+    handle.addEventListener("mousedown", startDrag);
+    handle.addEventListener("touchstart", startDrag, { passive: false });
+    document.addEventListener("mousemove", moveDrag);
+    document.addEventListener("touchmove", moveDrag, { passive: false });
+    document.addEventListener("mouseup", endDrag);
+    document.addEventListener("touchend", endDrag);
+
+    // Click anywhere on the track (not just the handle) snaps to that position
+    track.addEventListener("click", (e) => {
+        if (track.classList.contains("disabled")) return;
+        if (e.target === handle) return; // handled by drag logic
+        applyIndex(pointerToIndex(e.clientX), true);
+    });
+
+    handle.addEventListener("keydown", (e) => {
+        if (track.classList.contains("disabled")) return;
+        if (e.key === "ArrowLeft")  { applyIndex(index - 1, true); e.preventDefault(); }
+        if (e.key === "ArrowRight") { applyIndex(index + 1, true); e.preventDefault(); }
+    });
+
+    applyIndex(1, true); // initialise at medium
+}
+
+function applySpeedSetting(value) {
+    simSpeedMultiplier = value === "slow" ? 1.8 : value === "fast" ? 0.4 : 1;
+}
+
+function disableSpeedSlider() {
+    const track = document.getElementById("speed-slider-track");
+    const handle = document.getElementById("speed-slider-handle");
+    if (track) track.classList.add("disabled");
+    if (handle) handle.setAttribute("tabindex", "-1");
+}
+
+function resetSpeedSlider() {
+    const track = document.getElementById("speed-slider-track");
+    const handle = document.getElementById("speed-slider-handle");
+    if (track) track.classList.remove("disabled");
+    if (handle) handle.setAttribute("tabindex", "0");
+}
+
+setupSpeedSlider();
+
 // ============================================================
 // SPIN / RESPIN
 // ============================================================
@@ -746,11 +836,7 @@ if (runSimBtn) {
     runSimBtn.addEventListener("click", () => {
         runSimBtn.disabled = true; runSimBtn.classList.add("disabled");
         simResults.innerHTML = "";
-
-        const speedSetting = document.querySelector('input[name="sim-speed"]:checked');
-        const speedValue = speedSetting ? speedSetting.value : "medium";
-        simSpeedMultiplier = speedValue === "slow" ? 1.8 : speedValue === "fast" ? 0.4 : 1;
-
+        disableSpeedSlider();
         runTournamentSimulation();
     });
 }
