@@ -54,6 +54,12 @@ const poolStandingsByYear = {
         B: ["Australia","Fiji","Wales","Canada","Japan"],
         C: ["New Zealand","Scotland","Italy","Portugal","Romania"],
         D: ["France","Ireland","Argentina","Georgia","Namibia"]
+    },
+    "2003": {
+        A: ["Australia","Argentina","Ireland","Namibia","Romania"],
+        B: ["France","Scotland","Fiji","Japan","USA"],
+        C: ["England","South Africa","Samoa","Georgia","Uruguay"],
+        D: ["New Zealand","Wales","Canada","Italy","Tonga"]
     }
 };
 
@@ -88,6 +94,12 @@ const teamStrengthsByYear = {
         "Australia":88,"Fiji":74,"Wales":85,"Canada":62,"Japan":73,
         "New Zealand":92,"Scotland":83,"Italy":79,"Portugal":59,"Romania":65,
         "France":89,"Ireland":85,"Argentina":84,"Georgia":68,"Namibia":57
+    },
+    "2003": {
+        "Australia":87,"Argentina":85,"Ireland":84,"Namibia":54,"Romania":60,
+        "France":88,"Scotland":83,"Fiji":78,"Japan":74,"USA":61,
+        "England":89,"South Africa":86,"Samoa":74,"Georgia":64,"Uruguay":59,
+        "New Zealand":88,"Wales":83,"Canada":62,"Italy":75,"Tonga":61
     }
 };
 
@@ -98,7 +110,8 @@ const tournamentMeta = {
     "2019": { teams:20, poolsOf:5, bonusPoints:true,  host:"Japan" },
     "2015": { teams:20, poolsOf:5, bonusPoints:true,  host:"England" },
     "2011": { teams:20, poolsOf:5, bonusPoints:true,  host:"New Zealand" },
-    "2007": { teams:20, poolsOf:5, bonusPoints:true,  host:"France" }
+    "2007": { teams:20, poolsOf:5, bonusPoints:true,  host:"France" },
+    "2003": { teams:20, poolsOf:5, bonusPoints:true,  host:"Australia" }
 };
 
 // Backwards-compatible aliases for any code not yet updated to the
