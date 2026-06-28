@@ -49,9 +49,18 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             </div>
 
             <div class="control-group">
+                <label>Which World Cup?</label>
+                <select id="tournament-year-select" class="team-select">
+                    <option value="2023">2023 — France</option>
+                    <option value="2019">2019 — Japan</option>
+                </select>
+                <p class="control-hint">Choose which Rugby World Cup your Hybrid XV will compete in. The pool draw and bracket match what actually happened that year.</p>
+            </div>
+
+            <div class="control-group">
                 <label>Replace Which Team</label>
                 <select id="team-select" class="team-select"></select>
-                <p class="control-hint">Your XV takes this team's place in the 2023 World Cup bracket.</p>
+                <p class="control-hint" id="team-select-hint">Your XV takes this team's place in the World Cup bracket.</p>
             </div>
 
             <div class="control-group">
