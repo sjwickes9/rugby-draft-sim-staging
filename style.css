@@ -247,12 +247,12 @@ button:disabled, button.disabled { opacity: 0.4; cursor: not-allowed; pointer-ev
     color: var(--brand-gold);
 }
 
-/* Compact horizontal speed selector on the sim dashboard */
+/* Speed selector row on the sim dashboard */
 .sim-speed-row {
     display: flex;
     align-items: center;
-    gap: 12px;
-    margin-bottom: 14px;
+    gap: 14px;
+    margin-bottom: 18px;
     flex-wrap: wrap;
 }
 .sim-speed-label {
@@ -261,22 +261,93 @@ button:disabled, button.disabled { opacity: 0.4; cursor: not-allowed; pointer-ev
     color: var(--text-muted);
     white-space: nowrap;
 }
-.sim-speed-options {
-    flex-direction: row;
-    gap: 6px;
+
+/* Draggable 3-position speed slider */
+.speed-slider-track {
+    position: relative;
     flex: 1 1 auto;
+    min-width: 180px;
+    max-width: 320px;
+    height: 42px;
+    margin-top: 4px;
+    cursor: pointer;
+    user-select: none;
 }
-.sim-speed-options .radio-box { width: auto; flex: 0 0 auto; }
-.sim-speed-options .radio-label {
-    padding: 6px 14px;
-    font-size: 0.8rem;
-    border-radius: 6px;
+.speed-slider-rail {
+    position: absolute;
+    top: 18px;
+    left: 14px;
+    right: 14px;
+    height: 6px;
+    background: rgba(0,0,0,0.25);
+    border: 1px solid var(--border-color);
+    border-radius: 3px;
 }
+.speed-slider-stop {
+    position: absolute;
+    top: 16px;
+    width: 10px;
+    height: 10px;
+    background: rgba(255,255,255,0.15);
+    border-radius: 50%;
+    transform: translateX(-50%);
+}
+.speed-slider-stop[data-pos="slow"]   { left: 14px; }
+.speed-slider-stop[data-pos="medium"] { left: 50%; }
+.speed-slider-stop[data-pos="fast"]   { left: calc(100% - 14px); }
+
+.speed-slider-handle {
+    position: absolute;
+    top: 7px;
+    left: 14px;
+    width: 28px;
+    height: 28px;
+    background: var(--brand-gold);
+    border: 2px solid #000;
+    border-radius: 50%;
+    transform: translateX(-50%);
+    transition: left 0.18s cubic-bezier(0.4,0,0.2,1), background 0.2s, opacity 0.2s;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+    cursor: grab;
+    z-index: 2;
+}
+.speed-slider-handle:active { cursor: grabbing; }
+.speed-slider-handle:focus { outline: 2px solid var(--brand-gold); outline-offset: 2px; }
+
+.speed-slider-labels {
+    position: absolute;
+    top: 28px;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: space-between;
+    pointer-events: none;
+}
+.speed-slider-label {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    font-weight: 600;
+}
+.speed-slider-track[data-value="medium"] .speed-slider-label:nth-child(2),
+.speed-slider-track[data-value="slow"] .speed-slider-label:nth-child(1),
+.speed-slider-track[data-value="fast"] .speed-slider-label:nth-child(3) {
+    color: var(--brand-gold);
+}
+
+/* Greyed-out / disabled state once the tournament starts */
+.speed-slider-track.disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+}
+.speed-slider-track.disabled .speed-slider-handle {
+    cursor: not-allowed;
+    background: var(--text-muted);
+    border-color: rgba(0,0,0,0.4);
+}
+
 @media (max-width: 600px) {
-    .sim-speed-row { flex-direction: column; align-items: flex-start; }
-    .sim-speed-options { width: 100%; }
-    .sim-speed-options .radio-box { flex: 1 1 0; }
-    .sim-speed-options .radio-label { text-align: center; padding: 8px 6px; }
+    .sim-speed-row { flex-direction: column; align-items: flex-start; gap: 6px; }
+    .speed-slider-track { width: 100%; max-width: none; }
 }
 
 /* ── Draft dashboard layout ── */
