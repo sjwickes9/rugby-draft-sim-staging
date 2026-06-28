@@ -5574,7 +5574,7 @@ const allSquads = {
             {name:"Takudzwa Ngwenya",positions:["Right Wing", "Left Wing"],num:34,rating:63,careerRating:70},
             {name:"Andrew Osborne",positions:["Fullback", "Left Wing"],num:35,rating:65,careerRating:65},
             {name:"Chris Wyles",positions:["Fullback", "Inside Centre"],num:36,rating:66,careerRating:75},
-            {name:"Francois Viljoen",positions:["Fullback"],num:37,rating:69,careerRating:69}
+            {name:"Francois Viljoen",positions:["Fullback"],num:37,rating:72,careerRating:81}
         ],
         "2011": [
             {name:"Eric Fry",positions:["Loosehead Prop", "Tighthead Prop"],num:1,rating:66,careerRating:72},
@@ -5606,7 +5606,7 @@ const allSquads = {
             {name:"Paul Emerick",positions:["Inside Centre", "Left Wing"],num:27,rating:71,careerRating:71},
             {name:"Takudzwa Ngwenya",positions:["Right Wing", "Left Wing"],num:28,rating:68,careerRating:70},
             {name:"Blaine Scully",positions:["Fullback", "Left Wing"],num:29,rating:63,careerRating:71},
-            {name:"Chris Wyles",positions:["Fullback", "Inside Centre"],num:30,rating:71,careerRating:75}
+            {name:"Chris Wyles",positions:["Fullback", "Inside Centre"],num:30,rating:76,careerRating:81}
         ],
         "2015": [
             {name:"Eric Fry",positions:["Loosehead Prop", "Tighthead Prop"],num:1,rating:70,careerRating:72},
@@ -5639,7 +5639,7 @@ const allSquads = {
             {name:"Thretton Palamo",positions:["Inside Centre", "Outside Centre"],num:28,rating:65,careerRating:67},
             {name:"Takudzwa Ngwenya",positions:["Right Wing", "Left Wing"],num:29,rating:70,careerRating:70},
             {name:"Blaine Scully",positions:["Fullback", "Left Wing"],num:30,rating:69,careerRating:71},
-            {name:"Chris Wyles",positions:["Fullback", "Inside Centre"],num:31,rating:75,careerRating:75}
+            {name:"Chris Wyles",positions:["Fullback", "Inside Centre"],num:31,rating:81,careerRating:81}
         ],
         "2019": [
             {name:"Chance Wenglewski",positions:["Loosehead Prop", "Tighthead Prop"],num:1,rating:67,careerRating:67},
@@ -5980,8 +5980,8 @@ const allSquads = {
             {name:"Martyn Williams",positions:["Openside Flanker", "Blindside Flanker"],num:12,rating:83,careerRating:91},
             {name:"Alix Popham",positions:["Number 8", "Openside Flanker"],num:13,rating:79,careerRating:85},
             {name:"Colin Charvis",positions:["Number 8", "Blindside Flanker"],num:14,rating:88,careerRating:92},
-            {name:"Dafydd Jones",positions:["Number 8", "Openside Flanker"],num:15,rating:82,careerRating:82},
-            {name:"Jonathan Thomas",positions:["Number 8", "Openside Flanker"],num:16,rating:78,careerRating:84},
+            {name:"Dafydd Jones",positions:["Blindside Flanker", "Openside Flanker"],num:15,rating:82,careerRating:82},
+            {name:"Jonathan Thomas",positions:["Blindside Flanker", "Openside Flanker"],num:16,rating:78,careerRating:84},
             {name:"Dwayne Peel",positions:["Scrum-half"],num:17,rating:81,careerRating:85},
             {name:"Gareth Cooper",positions:["Scrum-half"],num:18,rating:79,careerRating:83},
             {name:"Ceri Sweeney",positions:["Fly-half", "Inside Centre"],num:19,rating:79,careerRating:83},
@@ -5993,9 +5993,9 @@ const allSquads = {
             {name:"Tom Shanklin",positions:["Inside Centre", "Left Wing"],num:25,rating:83,careerRating:87},
             {name:"Garan Evans",positions:["Fullback"],num:26,rating:77,careerRating:77},
             {name:"Gareth Thomas",positions:["Fullback", "Right Wing"],num:27,rating:90,careerRating:92},
-            {name:"Iestyn Harris",positions:["Fullback", "Outside Centre"],num:28,rating:85,careerRating:85},
+            {name:"Iestyn Harris",positions:["Inside Centre", "Fly-half"],num:28,rating:85,careerRating:85},
             {name:"Kevin Morgan",positions:["Fullback", "Left Wing"],num:29,rating:84,careerRating:88},
-            {name:"Rhys Williams",positions:["Fullback"],num:30,rating:85,careerRating:85}
+            {name:"Rhys Williams",positions:["Right Wing",Fullback"],num:30,rating:85,careerRating:85}
         ],
         "2007": [
             {name:"Duncan Jones",positions:["Loosehead Prop", "Tighthead Prop"],num:1,rating:83,careerRating:83},
