@@ -37,6 +37,19 @@
             } catch (e) {}
         })();
     </script>
+    <div id="tip-overlay" class="hidden">
+        <div id="tip-card">
+            <button id="tip-close-btn" aria-label="Close">&times;</button>
+            <div id="tip-icon"></div>
+            <div id="tip-title"></div>
+            <div id="tip-body"></div>
+            <label id="tip-dontshow-label">
+                <input type="checkbox" id="tip-dontshow-checkbox">
+                Don't show these tips again
+            </label>
+            <button id="tip-gotit-btn" class="btn-primary">Got it</button>
+        </div>
+    </div>
     <!-- Google Tag Manager (noscript) -->
 <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-KBVM69FK"
 height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
@@ -235,7 +248,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             </div>
         </div>
     </main>
-<div style="text-align: center;">
+<div id="kofi-wrap" style="text-align: center;">
     <a href="https://ko-fi.com/U1R321MVNC" target="_blank">
         <img
             src="https://storage.ko-fi.com/cdn/kofi2.png?v=6"
@@ -245,6 +258,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         >
     </a>
 </div>
+<button id="floating-spin-btn" class="hidden">Spin Team</button>
 <div id="page-share-wrap">
     <button id="page-share-btn" aria-label="Share this page" title="Share this page">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
@@ -258,7 +272,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <button data-share="copy">Copy Link</button>
     </div>
 </div>
-<div id="version-footer">v1.2606290932</div>
+<div id="version-footer">v1.2606291237</div>
     <script src="data.js"></script>
     <script src="app.js"></script>
 </body>
