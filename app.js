@@ -883,6 +883,8 @@ if (runSimBtn) {
         const meta = tournamentMeta[selectedTournamentYear];
         if (meta && meta.hasPlayoffRound) {
             runTournamentSimulation1999();
+        } else if (meta && meta.hasFixedQfPairing) {
+            runTournamentSimulation1995();
         } else {
             runTournamentSimulation();
         }
@@ -2252,6 +2254,255 @@ async function runTournamentSimulation1999() {
 
     if (fin.won) {
         await addLog("WORLD CHAMPIONS! Your Hybrid XV wins the 1999 Rugby World Cup!", "var(--brand-gold)");
+        await addLog("", null);
+        await addLog("But the challenge doesn't end here...", "var(--text-muted)");
+        await addLog("Three legendary teams await. Do you dare face them?", "var(--text-muted)");
+        await addLog("", null);
+        await showResultsSummary();
+        showShareButton("WORLD CHAMPIONS", "#c5a059");
+
+        const bossBtn = document.createElement("button");
+        bossBtn.textContent = "Accept the Ultimate Challenge";
+        bossBtn.className = "btn-primary";
+        bossBtn.style.cssText = "margin:12px 0;display:block;width:100%;padding:8px 14px;font-size:0.9rem;";
+        document.getElementById("sim-results").appendChild(bossBtn);
+        document.getElementById("sim-results").scrollTop = document.getElementById("sim-results").scrollHeight;
+
+        bossBtn.addEventListener("click", async () => {
+            bossBtn.remove();
+            await runBossStage();
+        }, { once: true });
+
+        restartBtn.classList.remove("hidden");
+    } else {
+        await addLog("Runners-up. A magnificent campaign — one step short of glory.", "#c5a059");
+        await showResultsSummary();
+        showShareButton("Runners-Up — World Cup Final", "#c5a059");
+        restartBtn.classList.remove("hidden");
+    }
+}
+
+// ============================================================
+// 1995 RUGBY WORLD CUP — same era 3/2/1 points system as 1999 (no bonus
+// points), but a simpler bracket: 4 pools of 4, no play-off round, pool
+// winners and runners-up go straight to the quarter-finals. The QF
+// cross-pairing is genuinely different from the modern (2003+) format
+// though — winner of A faces runner-up of B and vice versa, same for
+// C/D — not the diagonal A-D / B-C pairing used from 2003 onward. Kept
+// as its own function rather than parameterising the modern one, since
+// that pairing is hardcoded there and safer not to touch.
+// ============================================================
+async function runTournamentSimulation1995() {
+    const userR = getUserRating();
+    const pool = getPoolFor(replacedTeam);
+    const poolTeams = activePoolStandings[pool].filter(t => t !== replacedTeam);
+
+    await addLog("=== POOL STAGE — Pool " + pool + " ===", "var(--brand-gold)");
+    await addLog("Your Hybrid XV (avg: " + userR + ") replaces " + replacedTeam, null);
+    await addLog("", null);
+    matchHistory = [];
+    playerStats = {};
+
+    const record = name => ({ name, p:0, w:0, d:0, l:0, pf:0, pa:0, pts:0 });
+    const records = { "Your XV": record("Your XV") };
+    poolTeams.forEach(t => { records[t] = record(t); });
+
+    // Same 3/2/1 points system as 1999 — no bonus points.
+    function pts1995(won, drew) { return won ? 3 : drew ? 2 : 1; }
+
+    function applyResult(nameA, scoreA, nameB, scoreB) {
+        const a = records[nameA], b = records[nameB];
+        a.p++; b.p++;
+        a.pf += scoreA; a.pa += scoreB;
+        b.pf += scoreB; b.pa += scoreA;
+        const drew = scoreA === scoreB;
+        if (scoreA > scoreB) { a.w++; b.l++; }
+        else if (scoreA < scoreB) { b.w++; a.l++; }
+        else { a.d++; b.d++; }
+        a.pts += pts1995(scoreA > scoreB, drew);
+        b.pts += pts1995(scoreB > scoreA, drew);
+    }
+
+    // ── User's pool matches ──
+    for (const opp of poolTeams) {
+        const res = simulateMatch(userR, activeTeamStrengths[opp] || 72);
+        const icon = res.won ? "WIN " : "LOSS";
+        const colour = res.won ? "#4ade80" : "#f87171";
+        const userPts = pts1995(res.won, res.userScore === res.oppScore);
+        await addLog(icon + "  vs " + opp + "  " + res.userScore + "-" + res.oppScore + "  (+" + userPts + " pts)", colour);
+        await addScoreBreakdownLog(userTeam, res.userScore, opp, res.oppScore);
+        matchHistory.push({ stage:"Pool", opponent:opp, userScore:res.userScore, oppScore:res.oppScore, won:res.won });
+        applyResult("Your XV", res.userScore, opp, res.oppScore);
+    }
+
+    // ── Simulate other pool matches ──
+    for (let i = 0; i < poolTeams.length; i++) {
+        for (let j = i+1; j < poolTeams.length; j++) {
+            const t1 = poolTeams[i], t2 = poolTeams[j];
+            const res = simulateMatch(activeTeamStrengths[t1]||72, activeTeamStrengths[t2]||72);
+            applyResult(t1, res.userScore, t2, res.oppScore);
+        }
+    }
+
+    // ── Pool standings ──
+    await addLog("", null);
+    await addLog("--- Pool " + pool + " Standings ---", "var(--brand-gold)");
+    const table = Object.values(records);
+    table.sort((a, b) => (b.pts - a.pts) || ((b.pf - b.pa) - (a.pf - a.pa)));
+    await addLogBlock(buildStandingsTableHtml(table));
+
+    const rank = table.findIndex(r => r.name === "Your XV");
+    if (rank > 1) {
+        await addLog("", null);
+        await addLog("ELIMINATED — Your Hybrid XV did not qualify from Pool " + pool + ".", "#ef4444");
+        await showResultsSummary();
+        showShareButton("Eliminated at the Pool Stage", "#f87171");
+        restartBtn.classList.remove("hidden"); return;
+    }
+
+    const qualified = rank === 0 ? "1st" : "2nd";
+    await addLog("", null);
+    await addLog("QUALIFIED — " + qualified + " in Pool " + pool, "#4ade80");
+
+    // ── Simulate every other pool in full with proper 1995 records, so
+    // we know the real standings needed for the QF cross-pairing ──
+    const allPoolRecords = {};
+    for (const [p, teams] of Object.entries(activePoolStandings)) {
+        const poolRecords = {};
+        teams.forEach(t => { poolRecords[t] = record(t); });
+        if (p === pool) {
+            teams.forEach(t => {
+                const key = (t === replacedTeam) ? "Your XV" : t;
+                if (records[key]) poolRecords[t] = { ...records[key], name: t };
+            });
+        } else {
+            for (let i = 0; i < teams.length; i++) {
+                for (let j = i+1; j < teams.length; j++) {
+                    const t1 = teams[i], t2 = teams[j];
+                    const res = simulateMatch(activeTeamStrengths[t1]||72, activeTeamStrengths[t2]||72);
+                    const a = poolRecords[t1], b = poolRecords[t2];
+                    a.p++; b.p++;
+                    a.pf += res.userScore; a.pa += res.oppScore;
+                    b.pf += res.oppScore; b.pa += res.userScore;
+                    const drew = res.userScore === res.oppScore;
+                    if (res.userScore > res.oppScore) { a.w++; b.l++; } else if (res.userScore < res.oppScore) { b.w++; a.l++; } else { a.d++; b.d++; }
+                    a.pts += pts1995(res.userScore > res.oppScore, drew);
+                    b.pts += pts1995(res.oppScore > res.userScore, drew);
+                }
+            }
+        }
+        allPoolRecords[p] = Object.values(poolRecords).sort((a,b) => (b.pts-a.pts) || ((b.pf-b.pa)-(a.pf-a.pa)));
+    }
+
+    const finishers = {};
+    for (const [p, sorted] of Object.entries(allPoolRecords)) {
+        finishers[p] = sorted.map(r => r.name === "Your XV" ? replacedTeam : r.name);
+    }
+
+    // ── Real 1995 QF cross-pairing: winner of A vs runner-up of B and
+    // vice versa; winner of C vs runner-up of D and vice versa ──
+    const qfPairings = [
+        { id: "QF1", home: finishers.A[0], away: finishers.B[1] },
+        { id: "QF2", home: finishers.B[0], away: finishers.A[1] },
+        { id: "QF3", home: finishers.C[0], away: finishers.D[1] },
+        { id: "QF4", home: finishers.D[0], away: finishers.C[1] },
+    ];
+
+    const userQF = qfPairings.find(qf => qf.home === replacedTeam || qf.away === replacedTeam);
+    const qfOpp = userQF.home === replacedTeam ? userQF.away : userQF.home;
+
+    const koBoost = 3;
+    const effectiveR = userR + koBoost;
+
+    await addLog("", null);
+    await addLog("=== QUARTER-FINAL vs " + qfOpp + " ===", "var(--brand-gold)");
+    const qfOppR = activeTeamStrengths[qfOpp] || 80;
+    const qfProb = winProbability(effectiveR, qfOppR);
+    await addLog(oddsText(qfProb) + " (" + qfProb + "% chance of winning)", "var(--text-muted)");
+    const qf = simulateMatch(effectiveR, qfOppR);
+    await addLog((qf.won?"WIN ":"LOSS") + "  " + qf.userScore + "-" + qf.oppScore, qf.won?"#4ade80":"#f87171");
+    matchHistory.push({ stage:"QF", opponent:qfOpp, userScore:qf.userScore, oppScore:qf.oppScore, won:qf.won });
+    await addScoreBreakdownLog(userTeam, qf.userScore, qfOpp, qf.oppScore);
+    if (!qf.won) {
+        await addLog("KNOCKED OUT at the quarter-final stage.", "#ef4444");
+        await showResultsSummary();
+        showShareButton("Knocked Out — Quarter-Final", "#f87171");
+        restartBtn.classList.remove("hidden"); return;
+    }
+
+    // Simulate the other three QFs to fill out the rest of the bracket.
+    // SF pairing per the real 1995 rule: winner of QF1 vs winner of QF2,
+    // winner of QF3 vs winner of QF4.
+    const qfWinners = { [userQF.id]: replacedTeam };
+    for (const qfx of qfPairings) {
+        if (qfWinners[qfx.id]) continue;
+        const res = simulateMatch(activeTeamStrengths[qfx.home]||80, activeTeamStrengths[qfx.away]||80);
+        qfWinners[qfx.id] = res.won ? qfx.home : qfx.away;
+    }
+
+    // Real 1995 SF pairing, confirmed directly against actual results:
+    // QF1 winner (South Africa, beat Samoa) played QF4 winner (France,
+    // beat Ireland); QF3 winner (New Zealand, beat Scotland) played QF2
+    // winner (England, beat Australia). This is the standard "opposite
+    // side of the draw" bracket convention (1↔4, 2↔3), not the literal
+    // "winner 1 vs winner 2" some secondary sources paraphrase it as.
+    const userInGroup14 = userQF.id === "QF1" || userQF.id === "QF4";
+    const sfOpp = userInGroup14
+        ? (userQF.id === "QF1" ? qfWinners.QF4 : qfWinners.QF1)
+        : (userQF.id === "QF2" ? qfWinners.QF3 : qfWinners.QF2);
+
+    await addLog("", null);
+    await addLog("=== SEMI-FINAL vs " + sfOpp + " ===", "var(--brand-gold)");
+    const sfOppR = activeTeamStrengths[sfOpp] || 82;
+    const sfProb = winProbability(effectiveR, sfOppR);
+    await addLog(oddsText(sfProb) + " (" + sfProb + "% chance of winning)", "var(--text-muted)");
+    const sf = simulateMatch(effectiveR, sfOppR);
+    await addLog((sf.won?"WIN ":"LOSS") + "  " + sf.userScore + "-" + sf.oppScore, sf.won?"#4ade80":"#f87171");
+    matchHistory.push({ stage:"SF", opponent:sfOpp, userScore:sf.userScore, oppScore:sf.oppScore, won:sf.won });
+    await addScoreBreakdownLog(userTeam, sf.userScore, sfOpp, sf.oppScore);
+
+    // Simulate the other semi-final to get the Final opponent (if the
+    // user wins) or the 3rd-place opponent (if the user loses).
+    let otherSFWinner, otherSFLoser;
+    if (userInGroup14) {
+        const a = qfWinners.QF2, b = qfWinners.QF3;
+        const res = simulateMatch(activeTeamStrengths[a]||82, activeTeamStrengths[b]||82);
+        otherSFWinner = res.won ? a : b; otherSFLoser = res.won ? b : a;
+    } else {
+        const a = qfWinners.QF1, b = qfWinners.QF4;
+        const res = simulateMatch(activeTeamStrengths[a]||82, activeTeamStrengths[b]||82);
+        otherSFWinner = res.won ? a : b; otherSFLoser = res.won ? b : a;
+    }
+
+    if (!sf.won) {
+        await addLog("", null);
+        await addLog("=== 3RD PLACE PLAY-OFF vs " + otherSFLoser + " ===", "var(--brand-gold)");
+        const tpOppR = activeTeamStrengths[otherSFLoser] || 80;
+        const tpProb = winProbability(effectiveR, tpOppR);
+        await addLog(oddsText(tpProb) + " (" + tpProb + "% chance of winning)", "var(--text-muted)");
+        const tp = simulateMatch(effectiveR, tpOppR);
+        await addLog((tp.won?"WIN ":"LOSS") + "  " + tp.userScore + "-" + tp.oppScore, tp.won?"#4ade80":"#f87171");
+        matchHistory.push({ stage:"3rd Place", opponent:otherSFLoser, userScore:tp.userScore, oppScore:tp.oppScore, won:tp.won });
+        await addScoreBreakdownLog(userTeam, tp.userScore, otherSFLoser, tp.oppScore);
+        await addLog(tp.won ? "BRONZE — 3rd place at the 1995 Rugby World Cup!" : "4th place — agonisingly close.", tp.won?"#4ade80":"#c5a059");
+        await showResultsSummary();
+        showShareButton(tp.won ? "Bronze Medal — 3rd Place" : "4th Place Finish", tp.won?"#4ade80":"#c5a059");
+        restartBtn.classList.remove("hidden"); return;
+    }
+
+    // ── Final ──
+    await addLog("", null);
+    await addLog("=== FINAL vs " + otherSFWinner + " ===", "var(--brand-gold)");
+    const finOppR = activeTeamStrengths[otherSFWinner] || 85;
+    const finProb = winProbability(effectiveR, finOppR);
+    await addLog(oddsText(finProb) + " (" + finProb + "% chance of winning)", "var(--text-muted)");
+    const fin = simulateMatch(effectiveR, finOppR);
+    await addLog((fin.won?"WIN ":"LOSS") + "  " + fin.userScore + "-" + fin.oppScore, fin.won?"#4ade80":"#f87171");
+    matchHistory.push({ stage:"Final", opponent:otherSFWinner, userScore:fin.userScore, oppScore:fin.oppScore, won:fin.won });
+    await addScoreBreakdownLog(userTeam, fin.userScore, otherSFWinner, fin.oppScore);
+
+    if (fin.won) {
+        await addLog("WORLD CHAMPIONS! Your Hybrid XV wins the 1995 Rugby World Cup!", "var(--brand-gold)");
         await addLog("", null);
         await addLog("But the challenge doesn't end here...", "var(--text-muted)");
         await addLog("Three legendary teams await. Do you dare face them?", "var(--text-muted)");
