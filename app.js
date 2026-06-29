@@ -288,6 +288,7 @@ document.addEventListener("DOMContentLoaded", () => {
         setupCard.classList.add("hidden");
         draftDashboard.classList.remove("hidden");
         recalculateDashboardAverages();
+        showTip("draftIntro");
 
         const headerResetBtn = document.getElementById("header-reset-btn");
         if (headerResetBtn) headerResetBtn.textContent = "Abandon Campaign";
@@ -333,6 +334,7 @@ function activateCymruMode() {
     populateManifestPreviewWindow();
     populatePreKickoffSummary();
     populateTournamentTitle();
+    showTip("simIntro");
 
     const headerResetBtn = document.getElementById("header-reset-btn");
     if (headerResetBtn) headerResetBtn.textContent = "Abandon Campaign";
@@ -472,6 +474,22 @@ if (spinBtn) {
         }
         lockCurrentNodes();
         triggerRosterSpinEngine();
+    });
+}
+
+// Floating mobile-only "Spin Team" button: triggers the exact same spin
+// logic as the real button (so the existing guard against re-spinning
+// before placing a player still applies), then scrolls up to the roster
+// so the user sees the newly-spun squad without needing to scroll
+// manually, and hides itself again since there's nothing to place yet.
+const floatingSpinBtn = document.getElementById("floating-spin-btn");
+if (floatingSpinBtn && spinBtn) {
+    floatingSpinBtn.addEventListener("click", () => {
+        spinBtn.click();
+        floatingSpinBtn.classList.add("hidden");
+        if (rosterContainer) {
+            rosterContainer.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
     });
 }
 if (respinBtn) {
@@ -725,13 +743,17 @@ pitchCircles.forEach(node => {
 
         if (spotsFilledCount === 15) {
             lockCurrentNodes();
+            if (floatingSpinBtn) floatingSpinBtn.classList.add("hidden");
             setTimeout(() => {
                 draftDashboard.classList.add("hidden");
                 simDashboard.classList.remove("hidden");
                 populateManifestPreviewWindow();
                 populatePreKickoffSummary();
                 populateTournamentTitle();
+                showTip("simIntro");
             }, 800);
+        } else {
+            if (floatingSpinBtn) floatingSpinBtn.classList.remove("hidden");
         }
     });
 });
@@ -2570,3 +2592,77 @@ async function runBossStage() {
         window.addEventListener("load", dismissLoadingScreen);
     }
 })();
+
+// ============================================================
+// ONBOARDING TIPS
+// ============================================================
+// Small, dismissible instructional popups shown at points in the flow
+// that genuinely aren't self-explanatory. Two independent controls:
+//   - "Don't show these tips again" checkbox -> localStorage, persists
+//     forever until cleared (so it naturally resets in incognito, where
+//     localStorage isn't shared with normal browsing — no special-casing
+//     needed for that case).
+//   - Per-tip "seen" tracking -> sessionStorage, so each distinct tip
+//     only shows once per browser session even if the user keeps the
+//     opt-out unchecked, rather than re-showing every single time the
+//     user reaches that screen again within the same session.
+const TIPS = {
+    draftIntro: {
+        icon: "🎲",
+        title: "Building Your Squad",
+        body: "Click <strong>Spin Team</strong> to draw a random historical squad. Pick one player from it for the highlighted position on the pitch. Once you've placed them, the button changes back to <strong>Spin Team</strong> again — click it to draw a new squad for the next position. Repeat until all 15 spots are filled."
+    },
+    simIntro: {
+        icon: "🏉",
+        title: "Ready to Simulate",
+        body: "Choose a <strong>Simulation Speed</strong>, then click <strong>Kick Off Tournament</strong>. The whole World Cup — pool stage through to the Final — plays out automatically. Just sit back and watch the results roll in."
+    }
+};
+
+function showTip(key) {
+    const tip = TIPS[key];
+    if (!tip) return;
+
+    let optedOut = false;
+    try { optedOut = localStorage.getItem("tipsDisabled") === "1"; } catch (e) {}
+    if (optedOut) return;
+
+    let alreadySeen = false;
+    try { alreadySeen = sessionStorage.getItem("tipSeen_" + key) === "1"; } catch (e) {}
+    if (alreadySeen) return;
+
+    const overlay = document.getElementById("tip-overlay");
+    if (!overlay) return;
+
+    document.getElementById("tip-icon").textContent = tip.icon;
+    document.getElementById("tip-title").textContent = tip.title;
+    document.getElementById("tip-body").innerHTML = tip.body;
+    document.getElementById("tip-dontshow-checkbox").checked = false;
+    overlay.classList.remove("hidden");
+
+    try { sessionStorage.setItem("tipSeen_" + key, "1"); } catch (e) {}
+}
+
+function setupTipOverlay() {
+    const overlay = document.getElementById("tip-overlay");
+    const closeBtn = document.getElementById("tip-close-btn");
+    const gotItBtn = document.getElementById("tip-gotit-btn");
+    const dontShowCheckbox = document.getElementById("tip-dontshow-checkbox");
+    if (!overlay || !closeBtn || !gotItBtn || !dontShowCheckbox) return;
+
+    function dismiss() {
+        if (dontShowCheckbox.checked) {
+            try { localStorage.setItem("tipsDisabled", "1"); } catch (e) {}
+        }
+        overlay.classList.add("hidden");
+    }
+    closeBtn.addEventListener("click", dismiss);
+    gotItBtn.addEventListener("click", dismiss);
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) dismiss(); });
+}
+
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", setupTipOverlay);
+} else {
+    setupTipOverlay();
+}
