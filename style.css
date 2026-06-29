@@ -72,6 +72,74 @@ body {
     50% { opacity: 0.85; transform: scale(0.97); }
 }
 
+/* Onboarding tip popups: a small set of dismissible, one-time-by-default
+   instructional cards shown at points in the flow that genuinely aren't
+   self-explanatory (e.g. the spin-then-place-then-repeat draft mechanic).
+   Never blocks return visitors who already know the app — see the
+   "Don't show these tips again" checkbox, persisted via localStorage. */
+#tip-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.55);
+    z-index: 500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+#tip-card {
+    position: relative;
+    max-width: 420px;
+    width: 100%;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    padding: 28px 26px 22px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+    text-align: center;
+}
+#tip-close-btn {
+    position: absolute;
+    top: 10px; right: 12px;
+    background: none;
+    border: none;
+    font-size: 1.4rem;
+    line-height: 1;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 4px 8px;
+}
+#tip-close-btn:hover { color: var(--text-main); }
+#tip-icon { font-size: 2.2rem; margin-bottom: 10px; }
+#tip-title {
+    font-family: Georgia, serif;
+    font-weight: 700;
+    font-size: 1.15rem;
+    color: var(--brand-gold);
+    margin-bottom: 10px;
+}
+#tip-body {
+    font-size: 0.9rem;
+    color: var(--text-main);
+    line-height: 1.55;
+    margin-bottom: 18px;
+    text-align: left;
+}
+#tip-body strong { color: var(--brand-gold); }
+#tip-dontshow-label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    margin-bottom: 16px;
+    cursor: pointer;
+    user-select: none;
+}
+#tip-dontshow-label input { cursor: pointer; }
+#tip-gotit-btn { width: 100%; padding: 11px; }
+
 #version-footer {
     position: fixed;
     bottom: 6px;
@@ -81,6 +149,44 @@ body {
     z-index: 10;
     pointer-events: none;
     user-select: none;
+}
+
+/* Floating "Spin Team" button — mobile only, appears once a player has
+   been placed, so the user doesn't need to scroll back up to spin again. */
+#floating-spin-btn {
+    display: none;
+    position: fixed;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 30;
+    background: var(--brand-gold);
+    color: #000;
+    font-weight: 700;
+    font-size: 0.95rem;
+    padding: 14px 32px;
+    border: none;
+    border-radius: 30px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    cursor: pointer;
+}
+#floating-spin-btn:active { background: var(--brand-gold-hover); }
+@media (max-width: 1024px) {
+    #floating-spin-btn:not(.hidden) { display: block; }
+}
+
+#kofi-wrap {
+    margin-top: 48px;
+    margin-bottom: 24px;
+}
+@media (max-width: 1024px) {
+    #kofi-wrap {
+        margin-top: 64px;
+        /* Extra bottom clearance so it doesn't sit right under the
+           floating spin button (which is itself ~70px tall with its
+           fixed bottom offset) when both are visible at once. */
+        margin-bottom: 90px;
+    }
 }
 
 #page-share-wrap {
