@@ -852,7 +852,12 @@ if (runSimBtn) {
         runSimBtn.disabled = true; runSimBtn.classList.add("disabled");
         simResults.innerHTML = "";
         disableSpeedSlider();
-        runTournamentSimulation();
+        const meta = tournamentMeta[selectedTournamentYear];
+        if (meta && meta.hasPlayoffRound) {
+            runTournamentSimulation1999();
+        } else {
+            runTournamentSimulation();
+        }
     });
 }
 
@@ -1912,6 +1917,332 @@ async function runTournamentSimulation() {
         }, { once: true });
 
         // Also show play again
+        restartBtn.classList.remove("hidden");
+    } else {
+        await addLog("Runners-up. A magnificent campaign — one step short of glory.", "#c5a059");
+        await showResultsSummary();
+        showShareButton("Runners-Up — World Cup Final", "#c5a059");
+        restartBtn.classList.remove("hidden");
+    }
+}
+
+// ============================================================
+// 1999 RUGBY WORLD CUP — unique structure: 5 pools of 4, 3/2/1 points
+// (no bonus points), and a fixed knockout play-off round between the
+// pool stage and the quarter-finals. Kept as its own function rather
+// than threaded into runTournamentSimulation() with year checks, since
+// the bracket shape and points system are both genuinely different,
+// not just a data variation of the modern format.
+// ============================================================
+async function runTournamentSimulation1999() {
+    const userR = getUserRating();
+    const pool = getPoolFor(replacedTeam);
+    const poolTeams = activePoolStandings[pool].filter(t => t !== replacedTeam);
+
+    await addLog("=== POOL STAGE — Pool " + pool + " ===", "var(--brand-gold)");
+    await addLog("Your Hybrid XV (avg: " + userR + ") replaces " + replacedTeam, null);
+    await addLog("", null);
+    matchHistory = [];
+    playerStats = {};
+
+    const record = name => ({ name, p:0, w:0, d:0, l:0, pf:0, pa:0, pts:0 });
+    const records = { "Your XV": record("Your XV") };
+    poolTeams.forEach(t => { records[t] = record(t); });
+
+    // 1999's points system: 3 for a win, 2 for a draw, 1 just for playing
+    // (and losing) — no try bonus, no losing bonus.
+    function pts1999(won, drew) { return won ? 3 : drew ? 2 : 1; }
+
+    function applyResult(nameA, scoreA, nameB, scoreB) {
+        const a = records[nameA], b = records[nameB];
+        a.p++; b.p++;
+        a.pf += scoreA; a.pa += scoreB;
+        b.pf += scoreB; b.pa += scoreA;
+        const drew = scoreA === scoreB;
+        if (scoreA > scoreB) { a.w++; b.l++; }
+        else if (scoreA < scoreB) { b.w++; a.l++; }
+        else { a.d++; b.d++; }
+        a.pts += pts1999(scoreA > scoreB, drew);
+        b.pts += pts1999(scoreB > scoreA, drew);
+    }
+
+    // ── User's pool matches ──
+    for (const opp of poolTeams) {
+        const res = simulateMatch(userR, activeTeamStrengths[opp] || 72);
+        const icon = res.won ? "WIN " : "LOSS";
+        const colour = res.won ? "#4ade80" : "#f87171";
+        const userPts = pts1999(res.won, res.userScore === res.oppScore);
+        await addLog(icon + "  vs " + opp + "  " + res.userScore + "-" + res.oppScore + "  (+" + userPts + " pts)", colour);
+        await addScoreBreakdownLog(userTeam, res.userScore, opp, res.oppScore);
+        matchHistory.push({ stage:"Pool", opponent:opp, userScore:res.userScore, oppScore:res.oppScore, won:res.won });
+        applyResult("Your XV", res.userScore, opp, res.oppScore);
+    }
+
+    // ── Simulate other pool matches ──
+    for (let i = 0; i < poolTeams.length; i++) {
+        for (let j = i+1; j < poolTeams.length; j++) {
+            const t1 = poolTeams[i], t2 = poolTeams[j];
+            const res = simulateMatch(activeTeamStrengths[t1]||72, activeTeamStrengths[t2]||72);
+            applyResult(t1, res.userScore, t2, res.oppScore);
+        }
+    }
+
+    // ── Pool standings ──
+    await addLog("", null);
+    await addLog("--- Pool " + pool + " Standings ---", "var(--brand-gold)");
+    const table = Object.values(records);
+    table.sort((a, b) => (b.pts - a.pts) || ((b.pf - b.pa) - (a.pf - a.pa)));
+    await addLogBlock(buildStandingsTableHtml(table));
+
+    const rank = table.findIndex(r => r.name === "Your XV");
+    if (rank > 1) {
+        await addLog("", null);
+        await addLog("ELIMINATED — Your Hybrid XV did not qualify from Pool " + pool + ".", "#ef4444");
+        await showResultsSummary();
+        showShareButton("Eliminated at the Pool Stage", "#f87171");
+        restartBtn.classList.remove("hidden"); return;
+    }
+
+    const qualified = rank === 0 ? "1st" : "2nd";
+    await addLog("", null);
+    await addLog((rank === 0 ? "QUALIFIED DIRECTLY TO THE QUARTER-FINALS — " : "QUALIFIED FOR THE PLAY-OFF ROUND — ") + qualified + " in Pool " + pool, "#4ade80");
+
+    // ── Simulate every other pool in full, with proper 1999 records,
+    // so we know the real standings (needed for the play-off pairings
+    // and to determine the best third-placed team across all 5 pools) ──
+    const allPoolRecords = {};
+    for (const [p, teams] of Object.entries(activePoolStandings)) {
+        const poolRecords = {};
+        teams.forEach(t => { poolRecords[t] = record(t); });
+        // If the user's actual pool is this one, splice in their real
+        // simulated results instead of re-simulating from scratch.
+        if (p === pool) {
+            teams.forEach(t => {
+                const key = (t === replacedTeam) ? "Your XV" : t;
+                if (records[key]) poolRecords[t] = { ...records[key], name: t };
+            });
+        } else {
+            for (let i = 0; i < teams.length; i++) {
+                for (let j = i+1; j < teams.length; j++) {
+                    const t1 = teams[i], t2 = teams[j];
+                    const res = simulateMatch(activeTeamStrengths[t1]||72, activeTeamStrengths[t2]||72);
+                    const a = poolRecords[t1], b = poolRecords[t2];
+                    a.p++; b.p++;
+                    a.pf += res.userScore; a.pa += res.oppScore;
+                    b.pf += res.oppScore; b.pa += res.userScore;
+                    const drew = res.userScore === res.oppScore;
+                    if (res.userScore > res.oppScore) { a.w++; b.l++; } else if (res.userScore < res.oppScore) { b.w++; a.l++; } else { a.d++; b.d++; }
+                    a.pts += pts1999(res.userScore > res.oppScore, drew);
+                    b.pts += pts1999(res.oppScore > res.userScore, drew);
+                }
+            }
+        }
+        allPoolRecords[p] = Object.values(poolRecords).sort((a,b) => (b.pts-a.pts) || ((b.pf-b.pa)-(a.pf-a.pa)));
+    }
+
+    // Map of pool -> [1st, 2nd, 3rd, 4th] team names (user's real name
+    // substituted back in if they were in this pool)
+    const finishers = {};
+    for (const [p, sorted] of Object.entries(allPoolRecords)) {
+        finishers[p] = sorted.map(r => r.name === "Your XV" ? replacedTeam : r.name);
+    }
+
+    // Best third-placed team across all 5 pools, by the same points/PD criteria
+    const thirdPlaceTeams = Object.entries(allPoolRecords).map(([p, sorted]) => ({ pool:p, ...sorted[2] }));
+    thirdPlaceTeams.sort((a,b) => (b.pts-a.pts) || ((b.pf-b.pa)-(a.pf-a.pa)));
+    const bestThird = thirdPlaceTeams[0];
+    const bestThirdName = bestThird.name === "Your XV" ? replacedTeam : bestThird.name;
+
+    // ── Determine the user's play-off fixture (if they finished 2nd) or
+    // their automatic QF slot (if they finished 1st) ──
+    const userFinishedFirst = rank === 0;
+    const userIsBestThird = rank === 2 && bestThird.pool === pool && bestThirdName === replacedTeam;
+
+    if (rank === 2 && !userIsBestThird) {
+        // Finished third but isn't the best third-placed side overall — tournament over.
+        await addLog("", null);
+        await addLog("ELIMINATED — Your Hybrid XV finished 3rd in Pool " + pool + " and was not the best third-placed side.", "#ef4444");
+        await showResultsSummary();
+        showShareButton("Eliminated at the Pool Stage", "#f87171");
+        restartBtn.classList.remove("hidden"); return;
+    }
+    if (rank === 3) {
+        await addLog("", null);
+        await addLog("ELIMINATED — Your Hybrid XV finished bottom of Pool " + pool + ".", "#ef4444");
+        await showResultsSummary();
+        showShareButton("Eliminated at the Pool Stage", "#f87171");
+        restartBtn.classList.remove("hidden"); return;
+    }
+
+    // Resolve a bracket slot name (e.g. "poolA_2nd", "best3rd") to an actual team
+    function resolveSlot(slot) {
+        if (slot === "best3rd") return bestThirdName;
+        const m = slot.match(/^pool([A-E])_(1st|2nd)$/);
+        if (m) return finishers[m[1]][m[2] === "1st" ? 0 : 1];
+        return null;
+    }
+
+    const koBoost = 3;
+    const effectiveR = userR + koBoost;
+    const playoffWinners = {}; // keyed by match label (F, G, H) -> winning team name
+
+    if (!userFinishedFirst) {
+        // ── User plays in the knockout play-off round ──
+        const userPlayoff = bracket1999.playoffs.find(po => {
+            const a = resolveSlot(po.slotA), b = resolveSlot(po.slotB);
+            return a === replacedTeam || b === replacedTeam;
+        });
+        const oppSlot = resolveSlot(userPlayoff.slotA) === replacedTeam ? userPlayoff.slotB : userPlayoff.slotA;
+        const poOpp = resolveSlot(oppSlot);
+
+        await addLog("", null);
+        await addLog("=== QUARTER-FINAL PLAY-OFF (" + userPlayoff.label + ") vs " + poOpp + " ===", "var(--brand-gold)");
+        await addLog("Lose this and the tournament is over.", "var(--text-muted)");
+        const poOppR = activeTeamStrengths[poOpp] || 75;
+        const poProb = winProbability(userR, poOppR);
+        await addLog(oddsText(poProb) + " (" + poProb + "% chance of winning)", "var(--text-muted)");
+        const po = simulateMatch(userR, poOppR);
+        await addLog((po.won?"WIN ":"LOSS") + "  " + po.userScore + "-" + po.oppScore, po.won?"#4ade80":"#f87171");
+        matchHistory.push({ stage:"Play-off", opponent:poOpp, userScore:po.userScore, oppScore:po.oppScore, won:po.won });
+        await addScoreBreakdownLog(userTeam, po.userScore, poOpp, po.oppScore);
+
+        if (!po.won) {
+            await addLog("", null);
+            await addLog("ELIMINATED at the quarter-final play-off stage.", "#ef4444");
+            await showResultsSummary();
+            showShareButton("Eliminated — QF Play-off", "#f87171");
+            restartBtn.classList.remove("hidden"); return;
+        }
+        playoffWinners[userPlayoff.label.replace("Match ", "")] = replacedTeam;
+    }
+
+    // Simulate the other two playoff matches (the user isn't in)
+    for (const po of bracket1999.playoffs) {
+        const key = po.label.replace("Match ", "");
+        if (playoffWinners[key]) continue; // user already resolved this one
+        const a = resolveSlot(po.slotA), b = resolveSlot(po.slotB);
+        const res = simulateMatch(activeTeamStrengths[a]||75, activeTeamStrengths[b]||75);
+        playoffWinners[key] = res.won ? a : b;
+    }
+
+    function resolveQfSlot(slot) {
+        if (slot.startsWith("playoff")) return playoffWinners[slot.replace("playoff","").replace("_winner","")];
+        return resolveSlot(slot);
+    }
+
+    // ── Quarter-final (fixed bracket) ──
+    const userQF = bracket1999.quarterFinals.find(qf => {
+        const a = resolveQfSlot(qf.slotA), b = resolveQfSlot(qf.slotB);
+        return a === replacedTeam || b === replacedTeam;
+    });
+    const qfOppSlot = resolveQfSlot(userQF.slotA) === replacedTeam ? userQF.slotB : userQF.slotA;
+    const qfOpp = resolveQfSlot(qfOppSlot);
+
+    await addLog("", null);
+    await addLog("=== QUARTER-FINAL (" + userQF.label + ") vs " + qfOpp + " ===", "var(--brand-gold)");
+    const qfOppR = activeTeamStrengths[qfOpp] || 80;
+    const qfProb = winProbability(effectiveR, qfOppR);
+    await addLog(oddsText(qfProb) + " (" + qfProb + "% chance of winning)", "var(--text-muted)");
+    const qf = simulateMatch(effectiveR, qfOppR);
+    await addLog((qf.won?"WIN ":"LOSS") + "  " + qf.userScore + "-" + qf.oppScore, qf.won?"#4ade80":"#f87171");
+    matchHistory.push({ stage:"QF", opponent:qfOpp, userScore:qf.userScore, oppScore:qf.oppScore, won:qf.won });
+    await addScoreBreakdownLog(userTeam, qf.userScore, qfOpp, qf.oppScore);
+    if (!qf.won) {
+        await addLog("KNOCKED OUT at the quarter-final stage.", "#ef4444");
+        await showResultsSummary();
+        showShareButton("Knocked Out — Quarter-Final", "#f87171");
+        restartBtn.classList.remove("hidden"); return;
+    }
+
+    // Resolve the rest of the bracket: simulate every other QF, then both semis
+    const qfWinners = { [userQF.label.replace("Match ","")]: replacedTeam };
+    for (const qfx of bracket1999.quarterFinals) {
+        const key = qfx.label.replace("Match ","");
+        if (qfWinners[key]) continue;
+        const a = resolveQfSlot(qfx.slotA), b = resolveQfSlot(qfx.slotB);
+        const res = simulateMatch(activeTeamStrengths[a]||80, activeTeamStrengths[b]||80);
+        qfWinners[key] = res.won ? a : b;
+    }
+
+    function resolveSfSlot(slot) {
+        const m = slot.match(/^qf([A-M])_winner$/);
+        return m ? qfWinners[m[1]] : null;
+    }
+
+    const userSF = bracket1999.semiFinals.find(sf => {
+        const a = resolveSfSlot(sf.slotA), b = resolveSfSlot(sf.slotB);
+        return a === replacedTeam || b === replacedTeam;
+    });
+    const sfOppSlot = resolveSfSlot(userSF.slotA) === replacedTeam ? userSF.slotB : userSF.slotA;
+    const sfOpp = resolveSfSlot(sfOppSlot);
+
+    await addLog("", null);
+    await addLog("=== SEMI-FINAL vs " + sfOpp + " ===", "var(--brand-gold)");
+    const sfOppR = activeTeamStrengths[sfOpp] || 82;
+    const sfProb = winProbability(effectiveR, sfOppR);
+    await addLog(oddsText(sfProb) + " (" + sfProb + "% chance of winning)", "var(--text-muted)");
+    const sf = simulateMatch(effectiveR, sfOppR);
+    await addLog((sf.won?"WIN ":"LOSS") + "  " + sf.userScore + "-" + sf.oppScore, sf.won?"#4ade80":"#f87171");
+    matchHistory.push({ stage:"SF", opponent:sfOpp, userScore:sf.userScore, oppScore:sf.oppScore, won:sf.won });
+    await addScoreBreakdownLog(userTeam, sf.userScore, sfOpp, sf.oppScore);
+
+    // The other semi-final, simulated, gives the Final opponent and the
+    // 3rd-place play-off opponent (whichever side the user didn't face)
+    const otherSF = bracket1999.semiFinals.find(sf2 => sf2 !== userSF);
+    const otherA = resolveSfSlot(otherSF.slotA), otherB = resolveSfSlot(otherSF.slotB);
+    const otherSFRes = simulateMatch(activeTeamStrengths[otherA]||82, activeTeamStrengths[otherB]||82);
+    const otherSFWinner = otherSFRes.won ? otherA : otherB;
+    const otherSFLoser  = otherSFRes.won ? otherB : otherA;
+
+    if (!sf.won) {
+        // Lost the semi — play the 3rd-place match against the other semi's loser
+        await addLog("", null);
+        await addLog("=== 3RD PLACE PLAY-OFF vs " + otherSFLoser + " ===", "var(--brand-gold)");
+        const tpOppR = activeTeamStrengths[otherSFLoser] || 80;
+        const tpProb = winProbability(effectiveR, tpOppR);
+        await addLog(oddsText(tpProb) + " (" + tpProb + "% chance of winning)", "var(--text-muted)");
+        const tp = simulateMatch(effectiveR, tpOppR);
+        await addLog((tp.won?"WIN ":"LOSS") + "  " + tp.userScore + "-" + tp.oppScore, tp.won?"#4ade80":"#f87171");
+        matchHistory.push({ stage:"3rd Place", opponent:otherSFLoser, userScore:tp.userScore, oppScore:tp.oppScore, won:tp.won });
+        await addScoreBreakdownLog(userTeam, tp.userScore, otherSFLoser, tp.oppScore);
+        await addLog(tp.won ? "BRONZE — 3rd place at the 1999 Rugby World Cup!" : "4th place — agonisingly close.", tp.won?"#4ade80":"#c5a059");
+        await showResultsSummary();
+        showShareButton(tp.won ? "Bronze Medal — 3rd Place" : "4th Place Finish", tp.won?"#4ade80":"#c5a059");
+        restartBtn.classList.remove("hidden"); return;
+    }
+
+    // ── Final ──
+    await addLog("", null);
+    await addLog("=== FINAL vs " + otherSFWinner + " ===", "var(--brand-gold)");
+    const finOppR = activeTeamStrengths[otherSFWinner] || 85;
+    const finProb = winProbability(effectiveR, finOppR);
+    await addLog(oddsText(finProb) + " (" + finProb + "% chance of winning)", "var(--text-muted)");
+    const fin = simulateMatch(effectiveR, finOppR);
+    await addLog((fin.won?"WIN ":"LOSS") + "  " + fin.userScore + "-" + fin.oppScore, fin.won?"#4ade80":"#f87171");
+    matchHistory.push({ stage:"Final", opponent:otherSFWinner, userScore:fin.userScore, oppScore:fin.oppScore, won:fin.won });
+    await addScoreBreakdownLog(userTeam, fin.userScore, otherSFWinner, fin.oppScore);
+
+    if (fin.won) {
+        await addLog("WORLD CHAMPIONS! Your Hybrid XV wins the 1999 Rugby World Cup!", "var(--brand-gold)");
+        await addLog("", null);
+        await addLog("But the challenge doesn't end here...", "var(--text-muted)");
+        await addLog("Three legendary teams await. Do you dare face them?", "var(--text-muted)");
+        await addLog("", null);
+        await showResultsSummary();
+        showShareButton("WORLD CHAMPIONS", "#c5a059");
+
+        const bossBtn = document.createElement("button");
+        bossBtn.textContent = "Accept the Ultimate Challenge";
+        bossBtn.className = "btn-primary";
+        bossBtn.style.cssText = "margin:12px 0;display:block;width:100%;padding:8px 14px;font-size:0.9rem;";
+        document.getElementById("sim-results").appendChild(bossBtn);
+        document.getElementById("sim-results").scrollTop = document.getElementById("sim-results").scrollHeight;
+
+        bossBtn.addEventListener("click", async () => {
+            bossBtn.remove();
+            await runBossStage();
+        }, { once: true });
+
         restartBtn.classList.remove("hidden");
     } else {
         await addLog("Runners-up. A magnificent campaign — one step short of glory.", "#c5a059");
