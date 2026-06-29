@@ -67,6 +67,12 @@ const poolStandingsByYear = {
         C: ["France","Fiji","Canada","Namibia"],
         D: ["Wales","Argentina","Samoa","Japan"],
         E: ["Australia","Ireland","USA","Romania"]
+    },
+    "1995": {
+        A: ["South Africa","Australia","Romania","Canada"],
+        B: ["England","Samoa","Italy","Argentina"],
+        C: ["New Zealand","Ireland","Wales","Japan"],
+        D: ["France","Scotland","Tonga","Ivory Coast"]
     }
 };
 
@@ -114,6 +120,12 @@ const teamStrengthsByYear = {
         "France":85,"Fiji":75,"Canada":61,"Namibia":51,
         "Wales":83,"Argentina":82,"Samoa":74,"Japan":73,
         "Australia":87,"Ireland":81,"USA":59,"Romania":57
+    },
+    "1995": {
+        "South Africa":84,"Australia":86,"Romania":58,"Canada":57,
+        "England":85,"Samoa":71,"Italy":70,"Argentina":79,
+        "New Zealand":88,"Ireland":80,"Wales":81,"Japan":69,
+        "France":86,"Scotland":81,"Tonga":56,"Ivory Coast":45
     }
 };
 
@@ -125,6 +137,11 @@ const teamStrengthsByYear = {
 // here via poolsOf:4, bonusPoints:false, and hasPlayoffRound:true so the
 // simulation logic can branch correctly rather than relying on a
 // hardcoded year check.
+// 1995 (and 1991/1987) used 4 pools of 4, the same 3/2/1 points system,
+// no play-off round, but a genuinely different QF cross-pairing rule
+// from the modern format (winner of A vs runner-up of B and vice versa,
+// same for C/D — not the diagonal A-D/B-C pairing 2003 onward uses) —
+// flagged via hasFixedQfPairing:true.
 const tournamentMeta = {
     "2023": { teams:20, poolsOf:5, bonusPoints:true,  host:"France" },
     "2019": { teams:20, poolsOf:5, bonusPoints:true,  host:"Japan" },
@@ -132,7 +149,8 @@ const tournamentMeta = {
     "2011": { teams:20, poolsOf:5, bonusPoints:true,  host:"New Zealand" },
     "2007": { teams:20, poolsOf:5, bonusPoints:true,  host:"France" },
     "2003": { teams:20, poolsOf:5, bonusPoints:true,  host:"Australia" },
-    "1999": { teams:20, poolsOf:4, bonusPoints:false, host:"Wales", hasPlayoffRound:true }
+    "1999": { teams:20, poolsOf:4, bonusPoints:false, host:"Wales", hasPlayoffRound:true },
+    "1995": { teams:16, poolsOf:4, bonusPoints:false, host:"South Africa", hasFixedQfPairing:true }
 };
 
 // 1999's knockout bracket was genuinely fixed by pool/slot, not freely
