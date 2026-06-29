@@ -142,7 +142,7 @@ body {
 
 #version-footer {
     position: fixed;
-    bottom: 6px;
+    bottom: calc(6px + env(safe-area-inset-bottom));
     left: 10px;
     font-size: 0.6rem;
     color: #888888;
@@ -156,7 +156,7 @@ body {
 #floating-spin-btn {
     display: none;
     position: fixed;
-    bottom: 16px;
+    bottom: calc(32px + env(safe-area-inset-bottom));
     left: 50%;
     transform: translateX(-50%);
     z-index: 30;
@@ -191,7 +191,7 @@ body {
 
 #page-share-wrap {
     position: fixed;
-    bottom: 10px;
+    bottom: calc(10px + env(safe-area-inset-bottom));
     right: 12px;
     z-index: 20;
 }
