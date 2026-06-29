@@ -353,12 +353,18 @@ button:disabled, button.disabled { opacity: 0.4; cursor: not-allowed; pointer-ev
 }
 
 /* Pre-kickoff team summary: horizontal row, scores in gold circles */
+#manifest-team-box {
+    grid-column: 1;
+    grid-row: 1;
+}
 .prekick-box {
     grid-column: 1;
+    grid-row: 2;
     margin-bottom: 18px;
 }
 #sim-processor-card {
     grid-column: 2;
+    grid-row: 1;
     height: 700px;
     display: flex;
     flex-direction: column;
@@ -956,9 +962,11 @@ button:disabled, button.disabled { opacity: 0.4; cursor: not-allowed; pointer-ev
     .roster-panel { min-height: 300px; }
     .roster-scroll-boundary { max-height: 300px; }
     .sim-layout-container { grid-template-columns: 1fr; }
-    .prekick-box { grid-column: 1; }
+    #manifest-team-box { grid-column: 1; grid-row: auto; }
+    .prekick-box { grid-column: 1; grid-row: auto; }
     #sim-processor-card {
         grid-column: 1;
+        grid-row: auto;
         height: auto;
         flex: none;
         min-height: unset;
