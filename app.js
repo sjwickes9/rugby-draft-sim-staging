@@ -336,6 +336,7 @@ function activateCymruMode() {
     populateManifestPreviewWindow();
     populatePreKickoffSummary();
     populateTournamentTitle();
+    applyHostTheme();
     showTip("simIntro");
 
     const headerResetBtn = document.getElementById("header-reset-btn");
@@ -756,6 +757,7 @@ pitchCircles.forEach(node => {
                 populateManifestPreviewWindow();
                 populatePreKickoffSummary();
                 populateTournamentTitle();
+                applyHostTheme();
                 showTip("simIntro");
             }, 800);
         } else {
@@ -834,6 +836,39 @@ function populateTournamentTitle() {
     box.innerHTML = `
         <div class="tt-line1">Rugby World Cup ${selectedTournamentYear}${host ? " — " + host : ""}</div>
     `;
+}
+
+// Recolours the simulation screen's chrome (team list border, ratings
+// circles, processor panel border, speed slider handle) to match the
+// host nation's sporting colour for the selected tournament year. A
+// single host gets a flat colour; a jointly-hosted year gets a
+// gradient band across each host's own colour, since averaging very
+// different hues together produces an unrecognisable muddy blend
+// rather than something that reads as "these nations co-hosted".
+function applyHostTheme() {
+    const dashboard = document.getElementById("sim-dashboard");
+    if (!dashboard) return;
+
+    const colours = (typeof hostColoursByYear !== "undefined") ? hostColoursByYear[selectedTournamentYear] : null;
+    if (!colours || !colours.length) {
+        dashboard.classList.remove("host-themed");
+        dashboard.style.removeProperty("--host-colour");
+        dashboard.style.removeProperty("--host-gradient");
+        return;
+    }
+
+    dashboard.classList.add("host-themed");
+    dashboard.style.setProperty("--host-colour", colours[0]);
+
+    if (colours.length > 1) {
+        const stops = colours.map((c, i) => {
+            const pct = (i / (colours.length - 1)) * 100;
+            return c + " " + pct + "%";
+        }).join(", ");
+        dashboard.style.setProperty("--host-gradient", "linear-gradient(135deg, " + stops + ")");
+    } else {
+        dashboard.style.removeProperty("--host-gradient");
+    }
 }
 
 // ============================================================

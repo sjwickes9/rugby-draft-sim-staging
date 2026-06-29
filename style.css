@@ -508,6 +508,25 @@ button:disabled, button.disabled { opacity: 0.4; cursor: not-allowed; pointer-ev
     font-weight: 800;
     box-shadow: 0 2px 6px rgba(0,0,0,0.35);
 }
+
+/* Host-nation theming for the simulation screen. Applied via the
+   .host-themed class on #sim-dashboard, with --host-colour (and, for
+   jointly-hosted years, --host-gradient) set inline by JS based on the
+   selected tournament year. Falls back to the existing gold/border
+   defaults entirely when no host colour is set, so every other screen
+   and every other element is completely unaffected. */
+.host-themed #manifest-team-box,
+.host-themed #sim-processor-card {
+    border-color: var(--host-colour, var(--border-color));
+    box-shadow: 0 0 0 1px var(--host-colour, transparent), 0 2px 12px rgba(0,0,0,0.25);
+}
+.host-themed .prekick-val {
+    background: var(--host-gradient, var(--host-colour, var(--brand-gold)));
+}
+.host-themed .speed-slider-handle {
+    background: var(--host-colour, var(--brand-gold));
+}
+
 .prekick-lbl {
     font-size: 0.75rem;
     color: var(--text-muted);

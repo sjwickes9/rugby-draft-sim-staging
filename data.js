@@ -189,6 +189,43 @@ const tournamentMeta = {
     "1987": { teams:16, poolsOf:4, bonusPoints:false, host:"New Zealand, Australia", hasFixedQfPairing:true, winPoints:2, triesTiebreak:true }
 };
 
+// Sporting/national identity colours for each host nation, used to recolour
+// the simulation screen's chrome (team list border, ratings circles,
+// processor panel, speed slider) per tournament. These are recognisable
+// sporting-context colours rather than literal flag colours pulled
+// wholesale — e.g. France's rugby blue rather than the full tricolore,
+// New Zealand's silver fern rather than true All Blacks black (which
+// would be invisible against this dark navy theme).
+const nationColours = {
+    "France":       "#3b5bdb",
+    "Japan":        "#e6303d",
+    "England":      "#a8112e",
+    "New Zealand":  "#c0c0c0",
+    "Australia":    "#00843d",
+    "Wales":        "#00b140",
+    "South Africa": "#c9a635",
+    "Ireland":      "#169b62",
+    "Scotland":     "#0065bd"
+};
+
+// Per-year host colour(s) for the simulation screen theme. A single hex
+// string for a solo host; an array of hex strings (in host order) for a
+// jointly-hosted year, rendered as a gradient band across each nation's
+// own colour rather than a flat average (which produces a muddy,
+// unrecognisable blend when mixing very different hues).
+const hostColoursByYear = {
+    "2023": [nationColours["France"]],
+    "2019": [nationColours["Japan"]],
+    "2015": [nationColours["England"]],
+    "2011": [nationColours["New Zealand"]],
+    "2007": [nationColours["France"]],
+    "2003": [nationColours["Australia"]],
+    "1999": [nationColours["Wales"]],
+    "1995": [nationColours["South Africa"]],
+    "1991": [nationColours["England"], nationColours["France"], nationColours["Ireland"], nationColours["Scotland"], nationColours["Wales"]],
+    "1987": [nationColours["New Zealand"], nationColours["Australia"]]
+};
+
 // 1999's knockout bracket was genuinely fixed by pool/slot, not freely
 // reseeded — confirmed directly from the official tournament draw.
 // Playoff round: runner-up vs runner-up (or vs the best 3rd-placed side),
