@@ -287,6 +287,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         setupCard.classList.add("hidden");
         draftDashboard.classList.remove("hidden");
+        window.scrollTo(0, 0);
         recalculateDashboardAverages();
         showTip("draftIntro");
 
@@ -331,6 +332,7 @@ function activateCymruMode() {
     setupCard.classList.add("hidden");
     draftDashboard.classList.add("hidden");
     simDashboard.classList.remove("hidden");
+    window.scrollTo(0, 0);
     populateManifestPreviewWindow();
     populatePreKickoffSummary();
     populateTournamentTitle();
@@ -479,16 +481,19 @@ if (spinBtn) {
 
 // Floating mobile-only "Spin Team" button: triggers the exact same spin
 // logic as the real button (so the existing guard against re-spinning
-// before placing a player still applies), then scrolls up to the roster
-// so the user sees the newly-spun squad without needing to scroll
-// manually, and hides itself again since there's nothing to place yet.
+// before placing a player still applies), then scrolls up so the newly
+// spun squad's country/year is visible at the top of the screen (not
+// just the player list itself, which would push that context off-screen
+// above the fold), and hides itself again since there's nothing to
+// place yet.
 const floatingSpinBtn = document.getElementById("floating-spin-btn");
 if (floatingSpinBtn && spinBtn) {
     floatingSpinBtn.addEventListener("click", () => {
         spinBtn.click();
         floatingSpinBtn.classList.add("hidden");
-        if (rosterContainer) {
-            rosterContainer.scrollIntoView({ behavior: "smooth", block: "start" });
+        const spinActionCard = document.getElementById("spin-action-card");
+        if (spinActionCard) {
+            spinActionCard.scrollIntoView({ behavior: "smooth", block: "start" });
         }
     });
 }
@@ -747,6 +752,7 @@ pitchCircles.forEach(node => {
             setTimeout(() => {
                 draftDashboard.classList.add("hidden");
                 simDashboard.classList.remove("hidden");
+                window.scrollTo(0, 0);
                 populateManifestPreviewWindow();
                 populatePreKickoffSummary();
                 populateTournamentTitle();
