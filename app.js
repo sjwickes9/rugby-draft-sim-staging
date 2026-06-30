@@ -838,36 +838,83 @@ function populateTournamentTitle() {
     `;
 }
 
-// Recolours the simulation screen's chrome (team list border, ratings
-// circles, processor panel border, speed slider handle) to match the
-// host nation's sporting colour for the selected tournament year. A
-// single host gets a flat colour; a jointly-hosted year gets a
-// gradient band across each host's own colour, since averaging very
-// different hues together produces an unrecognisable muddy blend
-// rather than something that reads as "these nations co-hosted".
+// Recolours the simulation screen's chrome to match the host nation's
+// genuine sporting colours for the selected tournament year — the team
+// list card, ratings circles, processor panel, speed slider handle,
+// and the Kick Off Tournament button. Each of those five "roles" is
+// assigned to a host nation in rotation, so a jointly-hosted year
+// shows multiple distinct national colours across the page rather
+// than blending them into one. Re-applied on theme toggle as well as
+// on screen transitions, since each nation has its own light/dark
+// variant (e.g. New Zealand flips between a black card in dark mode
+// and a white card in light mode).
 function applyHostTheme() {
     const dashboard = document.getElementById("sim-dashboard");
     if (!dashboard) return;
 
-    const colours = (typeof hostColoursByYear !== "undefined") ? hostColoursByYear[selectedTournamentYear] : null;
-    if (!colours || !colours.length) {
+    const hosts = (typeof hostNationsByYear !== "undefined") ? hostNationsByYear[selectedTournamentYear] : null;
+    if (!hosts || !hosts.length || typeof nationPalette === "undefined") {
         dashboard.classList.remove("host-themed");
-        dashboard.style.removeProperty("--host-colour");
-        dashboard.style.removeProperty("--host-gradient");
+        ["--host-bg-teamlist","--host-border-teamlist","--host-bg-processor",
+         "--host-border-processor","--host-ratings-colour","--host-slider-colour",
+         "--host-button-colour","--host-button-text"].forEach(v => dashboard.style.removeProperty(v));
         return;
     }
 
-    dashboard.classList.add("host-themed");
-    dashboard.style.setProperty("--host-colour", colours[0]);
+    const isLight = document.body.classList.contains("light-theme");
+    const themeKey = isLight ? "light" : "dark";
 
-    if (colours.length > 1) {
-        const stops = colours.map((c, i) => {
-            const pct = (i / (colours.length - 1)) * 100;
-            return c + " " + pct + "%";
-        }).join(", ");
-        dashboard.style.setProperty("--host-gradient", "linear-gradient(135deg, " + stops + ")");
-    } else {
-        dashboard.style.removeProperty("--host-gradient");
+    // Role -> host nation, cycling through the host list if there are
+    // fewer hosts than roles (e.g. a 2-host year still colours all
+    // five roles, just with each nation covering more than one).
+    const roles = ["teamList", "ratings", "processor", "slider", "button"];
+    const roleNation = {};
+    roles.forEach((role, i) => { roleNation[role] = hosts[i % hosts.length]; });
+
+    function paletteFor(nationName) {
+        const p = nationPalette[nationName];
+        return p ? p[themeKey] : null;
+    }
+
+    function hexToRgb(hex) {
+        const h = hex.replace("#", "");
+        return [parseInt(h.slice(0,2),16), parseInt(h.slice(2,4),16), parseInt(h.slice(4,6),16)];
+    }
+
+    // Card backgrounds use a TINTED version of the nation's primary
+    // colour blended over the theme's existing card colour, not a
+    // full-saturation fill — keeps the existing text legible while
+    // still giving a clearly visible, recognisable colour shift.
+    function tinted(primaryHex, alpha) {
+        const baseCardHex = isLight ? "#ffffff" : "#081933";
+        const [pr,pg,pb] = hexToRgb(primaryHex);
+        const [br,bg,bb] = hexToRgb(baseCardHex);
+        const r = Math.round(pr*alpha + br*(1-alpha));
+        const g = Math.round(pg*alpha + bg*(1-alpha));
+        const b = Math.round(pb*alpha + bb*(1-alpha));
+        return "rgb(" + r + "," + g + "," + b + ")";
+    }
+
+    const teamListP = paletteFor(roleNation.teamList);
+    const ratingsP = paletteFor(roleNation.ratings);
+    const processorP = paletteFor(roleNation.processor);
+    const sliderP = paletteFor(roleNation.slider);
+    const buttonP = paletteFor(roleNation.button);
+
+    dashboard.classList.add("host-themed");
+    if (teamListP) {
+        dashboard.style.setProperty("--host-bg-teamlist", tinted(teamListP.primary, 0.22));
+        dashboard.style.setProperty("--host-border-teamlist", teamListP.secondary);
+    }
+    if (processorP) {
+        dashboard.style.setProperty("--host-bg-processor", tinted(processorP.primary, 0.22));
+        dashboard.style.setProperty("--host-border-processor", processorP.secondary);
+    }
+    if (ratingsP) dashboard.style.setProperty("--host-ratings-colour", ratingsP.primary);
+    if (sliderP) dashboard.style.setProperty("--host-slider-colour", sliderP.primary);
+    if (buttonP) {
+        dashboard.style.setProperty("--host-button-colour", buttonP.primary);
+        dashboard.style.setProperty("--host-button-text", buttonP.buttonText);
     }
 }
 
@@ -3197,6 +3244,7 @@ document.getElementById("theme-toggle").addEventListener("click", () => {
     document.body.classList.toggle("light-theme");
     document.getElementById("theme-toggle").textContent =
         document.body.classList.contains("light-theme") ? "Dark Mode" : "Light Mode";
+    applyHostTheme();
 });
 
 // ============================================================
