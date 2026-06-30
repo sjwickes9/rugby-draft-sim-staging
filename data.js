@@ -3007,7 +3007,7 @@ const allSquads = {
             {name:"Edoardo Gori",positions:["Scrum-half"],num:16,rating:76,careerRating:82},
             {name:"Fabio Semenzato",positions:["Scrum-half"],num:17,rating:73,careerRating:73},
             {name:"Gonzalo García",positions:["Scrum-half", "Outside Centre"],num:18,rating:78,careerRating:80},
-            {name:"Mauro Bergamasco",positions:["Scrum-half", "Openside Flanker"],num:19,rating:88,careerRating:89},
+            {name:"Mauro Bergamasco",positions:["Openside Flanker", "Scrum-half"],num:19,rating:88,careerRating:89},
             {name:"Pablo Canavosio",positions:["Scrum-half", "Left Wing"],num:20,rating:79,careerRating:79},
             {name:"Andrea Masi",positions:["Fly-half", "Fullback"],num:21,rating:84,careerRating:84},
             {name:"Luciano Orquera",positions:["Fly-half"],num:22,rating:78,careerRating:78},
