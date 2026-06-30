@@ -531,7 +531,13 @@ function triggerRosterSpinEngine() {
         return;
     }
 
-    const allNations = Object.keys(allSquads).filter(n => n !== replacedTeam);
+    // Every nation is available to draft from, including the one you're
+    // replacing in the bracket — there's no reason building an
+    // England-led Hybrid XV should lock you out of English players.
+    // The team you're replacing is still correctly excluded from your
+    // own pool's match simulation elsewhere (you can't play yourself),
+    // but that's a separate, bracket-level concern from this draft pool.
+    const allNations = Object.keys(allSquads);
 
     // Weighted draw — tier 1 nations appear ~3x more often than tier 3
     const weights = {
