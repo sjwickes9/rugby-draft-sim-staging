@@ -189,41 +189,60 @@ const tournamentMeta = {
     "1987": { teams:16, poolsOf:4, bonusPoints:false, host:"New Zealand, Australia", hasFixedQfPairing:true, winPoints:2, triesTiebreak:true }
 };
 
-// Sporting/national identity colours for each host nation, used to recolour
-// the simulation screen's chrome (team list border, ratings circles,
-// processor panel, speed slider) per tournament. These are recognisable
-// sporting-context colours rather than literal flag colours pulled
-// wholesale — e.g. France's rugby blue rather than the full tricolore,
-// New Zealand's silver fern rather than true All Blacks black (which
-// would be invisible against this dark navy theme).
-const nationColours = {
-    "France":       "#3b5bdb",
-    "Japan":        "#e6303d",
-    "England":      "#a8112e",
-    "New Zealand":  "#c0c0c0",
-    "Australia":    "#00843d",
-    "Wales":        "#00b140",
-    "South Africa": "#c9a635",
-    "Ireland":      "#169b62",
-    "Scotland":     "#0065bd"
+// Sporting/national identity palette for each host nation, used to
+// recolour the simulation screen's chrome — team list card, ratings
+// circles, processor panel, speed slider, and the Kick Off button.
+// Each nation has a primary colour (used as a card-background tint and
+// a bold button fill), a secondary colour (used as a border/accent,
+// never as text directly on the primary fill, since several genuine
+// national colour pairings — e.g. France's blue+red, Wales's red+green
+// — have poor contrast against each other and only work as separated
+// accents), and a buttonText colour chosen per nation by actually
+// computing contrast rather than assuming white always works (Japan
+// and Ireland's brighter colours read better with black text).
+// Dark and light variants are both genuinely distinct where the
+// nation's real identity calls for it — New Zealand flips between a
+// black card (dark mode) and a white card (light mode) rather than
+// using an in-between grey that wouldn't read as either.
+const nationPalette = {
+    "France":       { dark: { primary:"#3b5bdb", secondary:"#c8102e", buttonText:"#ffffff" },
+                      light:{ primary:"#1e3a8a", secondary:"#c8102e", buttonText:"#ffffff" } },
+    "Japan":        { dark: { primary:"#e6303d", secondary:"#ffffff", buttonText:"#000000" },
+                      light:{ primary:"#bc002d", secondary:"#1a1a1a", buttonText:"#ffffff" } },
+    "England":      { dark: { primary:"#a8112e", secondary:"#ffffff", buttonText:"#ffffff" },
+                      light:{ primary:"#a8112e", secondary:"#1a1a1a", buttonText:"#ffffff" } },
+    "New Zealand":  { dark: { primary:"#0d0d0d", secondary:"#f3f4f6", buttonText:"#ffffff" },
+                      light:{ primary:"#f7f7f7", secondary:"#0d0d0d", buttonText:"#000000" } },
+    "Australia":    { dark: { primary:"#00843d", secondary:"#ffd200", buttonText:"#ffffff" },
+                      light:{ primary:"#00843d", secondary:"#b8860b", buttonText:"#ffffff" } },
+    "Wales":        { dark: { primary:"#c8102e", secondary:"#00b140", buttonText:"#ffffff" },
+                      light:{ primary:"#c8102e", secondary:"#00843d", buttonText:"#ffffff" } },
+    "South Africa": { dark: { primary:"#007749", secondary:"#ffb81c", buttonText:"#ffffff" },
+                      light:{ primary:"#007749", secondary:"#b8860b", buttonText:"#ffffff" } },
+    "Ireland":      { dark: { primary:"#169b62", secondary:"#ff8200", buttonText:"#000000" },
+                      light:{ primary:"#169b62", secondary:"#d2691e", buttonText:"#ffffff" } },
+    "Scotland":     { dark: { primary:"#0065bd", secondary:"#ffffff", buttonText:"#ffffff" },
+                      light:{ primary:"#0065bd", secondary:"#1a1a1a", buttonText:"#ffffff" } }
 };
 
-// Per-year host colour(s) for the simulation screen theme. A single hex
-// string for a solo host; an array of hex strings (in host order) for a
-// jointly-hosted year, rendered as a gradient band across each nation's
-// own colour rather than a flat average (which produces a muddy,
-// unrecognisable blend when mixing very different hues).
-const hostColoursByYear = {
-    "2023": [nationColours["France"]],
-    "2019": [nationColours["Japan"]],
-    "2015": [nationColours["England"]],
-    "2011": [nationColours["New Zealand"]],
-    "2007": [nationColours["France"]],
-    "2003": [nationColours["Australia"]],
-    "1999": [nationColours["Wales"]],
-    "1995": [nationColours["South Africa"]],
-    "1991": [nationColours["England"], nationColours["France"], nationColours["Ireland"], nationColours["Scotland"], nationColours["Wales"]],
-    "1987": [nationColours["New Zealand"], nationColours["Australia"]]
+// Per-year list of host nation(s), in host order. A solo host applies
+// its full palette to every themed element. A jointly-hosted year
+// assigns each themed role (team list, ratings, processor, slider,
+// button) to a different host nation in rotation — rather than
+// blending every host's colour into one element, each part of the
+// page gets a different nation's genuine colour, cycling through the
+// host list if there are fewer hosts than roles.
+const hostNationsByYear = {
+    "2023": ["France"],
+    "2019": ["Japan"],
+    "2015": ["England"],
+    "2011": ["New Zealand"],
+    "2007": ["France"],
+    "2003": ["Australia"],
+    "1999": ["Wales"],
+    "1995": ["South Africa"],
+    "1991": ["England", "France", "Ireland", "Scotland", "Wales"],
+    "1987": ["New Zealand", "Australia"]
 };
 
 // 1999's knockout bracket was genuinely fixed by pool/slot, not freely
