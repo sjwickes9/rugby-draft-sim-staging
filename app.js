@@ -839,84 +839,54 @@ function populateTournamentTitle() {
 }
 
 // Recolours the simulation screen's chrome to match the host nation's
-// genuine sporting colours for the selected tournament year — the team
-// list card, ratings circles, processor panel, speed slider handle,
-// and the Kick Off Tournament button. Each of those five "roles" is
-// assigned to a host nation in rotation, so a jointly-hosted year
-// shows multiple distinct national colours across the page rather
-// than blending them into one. Re-applied on theme toggle as well as
-// on screen transitions, since each nation has its own light/dark
-// variant (e.g. New Zealand flips between a black card in dark mode
-// and a white card in light mode).
+// genuine sporting colours for the selected tournament year, using the
+// fully explicit per-year, per-theme spec in simTheme (data.js) — team
+// list card background/border/text, the processor panel border, the
+// inner match-log box background/text, the ratings circles, the
+// "Your Hybrid XV is ready" header, the speed slider handle, and the
+// Kick Off Tournament button. Re-applied on theme toggle as well as on
+// screen transitions, since most nations have a genuinely distinct
+// light/dark variant rather than one colour reused across both.
 function applyHostTheme() {
     const dashboard = document.getElementById("sim-dashboard");
     if (!dashboard) return;
 
-    const hosts = (typeof hostNationsByYear !== "undefined") ? hostNationsByYear[selectedTournamentYear] : null;
-    if (!hosts || !hosts.length || typeof nationPalette === "undefined") {
+    const allVars = ["--host-team-bg","--host-team-border","--host-team-text","--host-team-muted",
+        "--host-proc-bg","--host-proc-border","--host-terminal-bg","--host-terminal-text",
+        "--host-ratings-bg","--host-ratings-text","--host-ready-header",
+        "--host-slider-colour","--host-button-bg","--host-button-text"];
+
+    const yearTheme = (typeof simTheme !== "undefined") ? simTheme[selectedTournamentYear] : null;
+    if (!yearTheme) {
         dashboard.classList.remove("host-themed");
-        ["--host-bg-teamlist","--host-border-teamlist","--host-bg-processor",
-         "--host-border-processor","--host-ratings-colour","--host-slider-colour",
-         "--host-button-colour","--host-button-text"].forEach(v => dashboard.style.removeProperty(v));
+        allVars.forEach(v => dashboard.style.removeProperty(v));
         return;
     }
 
     const isLight = document.body.classList.contains("light-theme");
-    const themeKey = isLight ? "light" : "dark";
-
-    // Role -> host nation, cycling through the host list if there are
-    // fewer hosts than roles (e.g. a 2-host year still colours all
-    // five roles, just with each nation covering more than one).
-    const roles = ["teamList", "ratings", "processor", "slider", "button"];
-    const roleNation = {};
-    roles.forEach((role, i) => { roleNation[role] = hosts[i % hosts.length]; });
-
-    function paletteFor(nationName) {
-        const p = nationPalette[nationName];
-        return p ? p[themeKey] : null;
+    const spec = yearTheme[isLight ? "light" : "dark"];
+    if (!spec) {
+        dashboard.classList.remove("host-themed");
+        allVars.forEach(v => dashboard.style.removeProperty(v));
+        return;
     }
-
-    function hexToRgb(hex) {
-        const h = hex.replace("#", "");
-        return [parseInt(h.slice(0,2),16), parseInt(h.slice(2,4),16), parseInt(h.slice(4,6),16)];
-    }
-
-    // Card backgrounds use a TINTED version of the nation's primary
-    // colour blended over the theme's existing card colour, not a
-    // full-saturation fill — keeps the existing text legible while
-    // still giving a clearly visible, recognisable colour shift.
-    function tinted(primaryHex, alpha) {
-        const baseCardHex = isLight ? "#ffffff" : "#081933";
-        const [pr,pg,pb] = hexToRgb(primaryHex);
-        const [br,bg,bb] = hexToRgb(baseCardHex);
-        const r = Math.round(pr*alpha + br*(1-alpha));
-        const g = Math.round(pg*alpha + bg*(1-alpha));
-        const b = Math.round(pb*alpha + bb*(1-alpha));
-        return "rgb(" + r + "," + g + "," + b + ")";
-    }
-
-    const teamListP = paletteFor(roleNation.teamList);
-    const ratingsP = paletteFor(roleNation.ratings);
-    const processorP = paletteFor(roleNation.processor);
-    const sliderP = paletteFor(roleNation.slider);
-    const buttonP = paletteFor(roleNation.button);
 
     dashboard.classList.add("host-themed");
-    if (teamListP) {
-        dashboard.style.setProperty("--host-bg-teamlist", tinted(teamListP.primary, 0.22));
-        dashboard.style.setProperty("--host-border-teamlist", teamListP.secondary);
-    }
-    if (processorP) {
-        dashboard.style.setProperty("--host-bg-processor", tinted(processorP.primary, 0.22));
-        dashboard.style.setProperty("--host-border-processor", processorP.secondary);
-    }
-    if (ratingsP) dashboard.style.setProperty("--host-ratings-colour", ratingsP.primary);
-    if (sliderP) dashboard.style.setProperty("--host-slider-colour", sliderP.primary);
-    if (buttonP) {
-        dashboard.style.setProperty("--host-button-colour", buttonP.primary);
-        dashboard.style.setProperty("--host-button-text", buttonP.buttonText);
-    }
+    const propMap = {
+        teamBg: "--host-team-bg", teamBorder: "--host-team-border",
+        teamText: "--host-team-text", teamMuted: "--host-team-muted",
+        procBg: "--host-proc-bg", procBorder: "--host-proc-border",
+        terminalBg: "--host-terminal-bg", terminalText: "--host-terminal-text",
+        ratingsBg: "--host-ratings-bg", ratingsText: "--host-ratings-text",
+        readyHeader: "--host-ready-header", sliderColour: "--host-slider-colour",
+        buttonBg: "--host-button-bg", buttonText: "--host-button-text"
+    };
+    Object.entries(propMap).forEach(([key, cssVar]) => {
+        if (spec[key]) dashboard.style.setProperty(cssVar, spec[key]);
+        else dashboard.style.removeProperty(cssVar);
+    });
 }
+
 
 // ============================================================
 // PRE-KICKOFF SUMMARY — the FIRST moment ratings are revealed
