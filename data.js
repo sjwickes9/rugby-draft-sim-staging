@@ -254,14 +254,14 @@ const simTheme = {
                   ratingsBg:"#1e3a8a", ratingsText:"#ffffff", readyHeader:"#1e3a8a",
                   sliderColour:"#1e3a8a", buttonBg:"#1e3a8a", buttonText:"#ffffff" }
     },
-    "2003": { // Australia — gold leads, green secondary (deliberately reversed from South Africa)
+    "2003": { // Australia — Australian Gold leads, green secondary (deliberately reversed from South Africa)
         dark:  { teamBg:"rgb(45,38,9)", teamBorder:"#00843d", procBg:"rgb(45,38,9)", procBorder:"#00843d",
-                  ratingsBg:"#ffd200", ratingsText:"#000000", readyHeader:"#ffd200",
-                  sliderColour:"#ffd200", buttonBg:"#ffd200", buttonText:"#000000" },
-        light: { teamBg:"#ffffff", teamBorder:"#00843d", teamText:"#b8860b", procBg:"#ffffff", procBorder:"#00843d",
-                  terminalBg:"#fffceb", terminalText:"#8a6d00",
-                  ratingsBg:"#b8860b", ratingsText:"#ffffff", readyHeader:"#b8860b",
-                  sliderColour:"#b8860b", buttonBg:"#b8860b", buttonText:"#ffffff" }
+                  ratingsBg:"#F9CB0F", ratingsText:"#000000", readyHeader:"#F9CB0F",
+                  sliderColour:"#F9CB0F", buttonBg:"#F9CB0F", buttonText:"#000000" },
+        light: { teamBg:"#ffffff", teamBorder:"#00843d", teamText:"#886f08", procBg:"#ffffff", procBorder:"#00843d",
+                  terminalBg:"#fffceb", terminalText:"#886f08",
+                  ratingsBg:"#886f08", ratingsText:"#ffffff", readyHeader:"#886f08",
+                  sliderColour:"#886f08", buttonBg:"#886f08", buttonText:"#ffffff" }
     },
     "1999": { // Wales — red leads, green secondary accent only
         dark:  { teamBg:"#7a0d22", teamBorder:"#00b140", procBg:"#7a0d22", procBorder:"#00b140",
@@ -285,22 +285,22 @@ const simTheme = {
     "1991": { // England, France, Ireland, Scotland, Wales — Five Nations
         dark:  { teamBg:"#0065bd", teamBorder:"#f3f4f6", teamText:"#ffffff", teamMuted:"#dbe9fb",
                   procBg:"rgb(8,25,51)", procBorder:"#f3f4f6",
-                  ratingsBg:"#3b5bdb", ratingsText:"#ffffff", readyHeader:"#0065bd",
+                  ratingsBg:"#0f7a4d", ratingsText:"#ffffff", readyHeader:"#22c55e",
                   sliderColour:"#0065bd", buttonBg:"#c8102e", buttonText:"#ffffff" },
         light: { teamBg:"#ffffff", teamBorder:"#0065bd", teamText:"#0065bd", procBg:"#ffffff", procBorder:"#c8102e",
                   terminalBg:"#ffffff", terminalText:"#0065bd",
-                  ratingsBg:"#1e3a8a", ratingsText:"#ffffff", readyHeader:"#0065bd",
+                  ratingsBg:"#0f7a4d", ratingsText:"#ffffff", readyHeader:"#0f7a4d",
                   sliderColour:"#0065bd", buttonBg:"#c8102e", buttonText:"#ffffff" }
     },
     "1987": { // New Zealand, Australia
-        dark:  { teamBg:"#0d0d0d", teamBorder:"#ffd200", teamText:"#f3f4f6", procBg:"#0d0d0d", procBorder:"#ffd200",
+        dark:  { teamBg:"#0d0d0d", teamBorder:"#F9CB0F", teamText:"#f3f4f6", procBg:"#0d0d0d", procBorder:"#F9CB0F",
                   terminalBg:"#000000", terminalText:"#f3f4f6",
-                  ratingsBg:"#0d0d0d", ratingsText:"#ffd200", readyHeader:"#ffd200",
-                  sliderColour:"#ffd200", buttonBg:"#0d0d0d", buttonText:"#ffd200" },
-        light: { teamBg:"#ffffff", teamBorder:"#b8860b", teamText:"#00843d", procBg:"#ffffff", procBorder:"#b8860b",
+                  ratingsBg:"#0d0d0d", ratingsText:"#F9CB0F", readyHeader:"#F9CB0F",
+                  sliderColour:"#F9CB0F", buttonBg:"#0d0d0d", buttonText:"#F9CB0F" },
+        light: { teamBg:"#ffffff", teamBorder:"#886f08", teamText:"#00843d", procBg:"#ffffff", procBorder:"#886f08",
                   terminalBg:"#ffffff", terminalText:"#00843d",
                   ratingsBg:"#0d0d0d", ratingsText:"#ffffff", readyHeader:"#00843d",
-                  sliderColour:"#b8860b", buttonBg:"#0d0d0d", buttonText:"#ffd200" }
+                  sliderColour:"#886f08", buttonBg:"#0d0d0d", buttonText:"#F9CB0F" }
     }
 };
 
