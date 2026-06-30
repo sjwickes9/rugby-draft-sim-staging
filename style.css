@@ -510,41 +510,51 @@ button:disabled, button.disabled { opacity: 0.4; cursor: not-allowed; pointer-ev
 }
 
 /* Host-nation theming for the simulation screen. Applied via the
-   .host-themed class on #sim-dashboard, with a set of --host-* CSS
-   variables set inline by JS per element (since for jointly-hosted
-   years, different elements use different host nations' colours
-   rather than one blended colour everywhere). Falls back to the
-   existing gold/navy/border defaults entirely when a variable isn't
-   set, so every other screen is completely unaffected.
-
-   Card backgrounds use a TINTED version of each nation's primary
-   colour (set by JS as an rgba() value, not the solid hex), not a
-   full-saturation fill — several genuine national colour pairings
-   (e.g. France's blue+red, Wales's red+green) have poor contrast
-   against each other, so a bold fill would make the existing white
-   text hard to read. A tint keeps real, visible colour while keeping
-   contrast comfortably high. The secondary colour is reserved for
-   borders and the button accent — a thin border doesn't need to host
-   text, so it can stay at full strength as a clear stripe of colour. */
+   .host-themed class on #sim-dashboard, with a full set of --host-*
+   CSS variables set inline by JS based on a fully explicit per-year,
+   per-theme spec (simTheme in data.js) — not a derived formula, since
+   several nations need genuinely bespoke treatment (New Zealand's
+   panels flip from solid black to solid white between themes; Wales
+   leads with red rather than green). Every property falls back to the
+   site's existing gold/navy/border/text defaults when unset, so any
+   element a given year doesn't specify is completely unaffected. */
 .host-themed #manifest-team-box {
-    background: var(--host-bg-teamlist, var(--bg-card));
-    border-color: var(--host-border-teamlist, var(--border-color));
+    background: var(--host-team-bg, var(--bg-card));
+    border-color: var(--host-team-border, var(--border-color));
     border-width: 2px;
+}
+.host-themed #manifest-team-box .manifest-name {
+    color: var(--host-team-text, var(--text-main));
+}
+.host-themed #manifest-team-box .manifest-num,
+.host-themed #manifest-team-box .manifest-pos,
+.host-themed #manifest-team-box .manifest-nation {
+    color: var(--host-team-muted, var(--text-muted));
 }
 .host-themed #sim-processor-card {
-    background: var(--host-bg-processor, var(--bg-card));
-    border-color: var(--host-border-processor, var(--border-color));
+    background: var(--host-proc-bg, var(--bg-card));
+    border-color: var(--host-proc-border, var(--border-color));
     border-width: 2px;
 }
+.host-themed .terminal-window-shell {
+    background: var(--host-terminal-bg, var(--terminal-bg));
+}
+.host-themed .terminal-logs-viewport {
+    color: var(--host-terminal-text, var(--terminal-text));
+}
+.host-themed .prekick-header {
+    color: var(--host-ready-header, var(--text-main));
+}
 .host-themed .prekick-val {
-    background: var(--host-ratings-colour, var(--brand-gold));
+    background: var(--host-ratings-bg, var(--brand-gold));
+    color: var(--host-ratings-text, #000);
 }
 .host-themed .speed-slider-handle {
     background: var(--host-slider-colour, var(--brand-gold));
 }
 .host-themed #run-sim-btn {
-    background: var(--host-button-colour, var(--brand-gold));
-    border-color: var(--host-button-colour, var(--brand-gold));
+    background: var(--host-button-bg, var(--brand-gold));
+    border-color: var(--host-button-bg, var(--brand-gold));
     color: var(--host-button-text, #000);
 }
 
