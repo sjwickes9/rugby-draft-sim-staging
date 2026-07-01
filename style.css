@@ -522,6 +522,11 @@ button:disabled, button.disabled { opacity: 0.4; cursor: not-allowed; pointer-ev
     border-color: var(--host-team-border, var(--border-color));
     border-width: 2px;
 }
+.host-themed #pre-kickoff-summary {
+    background: var(--host-team-bg, var(--bg-card));
+    border-color: var(--host-team-border, var(--border-color));
+    border-width: 2px;
+}
 .host-themed #manifest-team-box .manifest-name {
     color: var(--host-team-text, var(--text-main));
 }
@@ -684,7 +689,7 @@ button:disabled, button.disabled { opacity: 0.4; cursor: not-allowed; pointer-ev
     font-family: Georgia, serif;
     font-size: 0.82rem;
     font-weight: 700;
-    color: var(--text-main);
+    color: var(--brand-gold);
     margin-bottom: 16px;
 }
 .strategy-slider-track {
