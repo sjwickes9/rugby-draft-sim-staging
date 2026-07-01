@@ -179,6 +179,18 @@ body {
     margin-top: 48px;
     margin-bottom: 24px;
 }
+.kofi-text-link {
+    display: inline-block;
+    color: var(--brand-gold);
+    font-weight: 700;
+    font-size: 0.93rem;
+    text-decoration: none;
+    padding: 6px 4px;
+}
+.kofi-text-link:hover,
+.kofi-text-link:focus {
+    text-decoration: underline;
+}
 @media (max-width: 1024px) {
     #kofi-wrap {
         margin-top: 64px;
@@ -730,17 +742,21 @@ button:disabled, button.disabled { opacity: 0.4; cursor: not-allowed; pointer-ev
 .strategy-slider-labels {
     position: absolute;
     top: 40px;
-    left: 0;
-    right: 0;
-    display: flex;
-    justify-content: space-between;
+    left: 14px;
+    right: 14px;
+    height: 14px;
     pointer-events: none;
 }
 .strategy-slider-label {
+    position: absolute;
     font-size: 0.7rem;
     color: var(--text-muted);
     font-weight: 600;
+    white-space: nowrap;
 }
+.strategy-slider-label:nth-child(1) { left: 0; }
+.strategy-slider-label:nth-child(2) { left: 50%; transform: translateX(-50%); }
+.strategy-slider-label:nth-child(3) { right: 0; }
 .strategy-slider-track[data-value="balanced"] .strategy-slider-label:nth-child(2),
 .strategy-slider-track[data-value="forwards"] .strategy-slider-label:nth-child(1),
 .strategy-slider-track[data-value="backs"] .strategy-slider-label:nth-child(3) {
