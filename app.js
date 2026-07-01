@@ -1590,10 +1590,10 @@ function getUserRating() {
 
 // Team Strategy slider: 0 = max Forwards Dominant, 50 = Balanced (an even
 // 50/50 blend of the forwards and backs averages), 100 = max Backs Dominant.
-// Capped at a 65/35 skew at each extreme so a stacked pack (or backline)
+// Capped at a 75/25 skew at each extreme so a stacked pack (or backline)
 // can never fully out-rate a genuinely balanced XV.
 function strategyForwardWeight(sliderValue) {
-    return 0.65 - (sliderValue / 100) * 0.30;
+    return 0.75 - (sliderValue / 100) * 0.50;
 }
 
 // Analytical win probability derived from the simulateMatch distribution
