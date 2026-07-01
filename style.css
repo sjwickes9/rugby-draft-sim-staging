@@ -471,7 +471,6 @@ button:disabled, button.disabled { opacity: 0.4; cursor: not-allowed; pointer-ev
 }
 #sim-processor-card {
     grid-column: 2;
-    height: 700px;
     display: flex;
     flex-direction: column;
     min-height: 0; min-width: 0;
@@ -677,14 +676,15 @@ button:disabled, button.disabled { opacity: 0.4; cursor: not-allowed; pointer-ev
    the prekick screen — continuous, unlike the 3-stop speed slider, so it
    reuses the same rail/handle visual language rather than the same JS. */
 .strategy-row {
-    margin-top: 16px;
+    margin-top: 30px;
 }
 .strategy-row-label {
-    display: block;
+    display: flex;
+    align-items: center;
     font-size: 0.82rem;
     font-weight: 600;
     color: var(--text-muted);
-    margin-bottom: 6px;
+    margin-bottom: 16px;
 }
 .strategy-slider-track {
     position: relative;
@@ -934,6 +934,45 @@ button:disabled, button.disabled { opacity: 0.4; cursor: not-allowed; pointer-ev
     user-select: none;
 }
 .oop-icon:hover { color: #fbbf24; }
+
+/* ── Generic info icon + tooltip (e.g. Team Strategy) ── */
+.info-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    margin-left: 6px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.14);
+    color: var(--text-muted);
+    font-size: 0.68rem;
+    font-weight: 700;
+    font-style: italic;
+    cursor: pointer;
+    user-select: none;
+    vertical-align: middle;
+}
+.info-icon:hover, .info-icon:focus {
+    background: var(--brand-gold);
+    color: #000;
+    outline: none;
+}
+.info-tooltip {
+    position: fixed;
+    background: #1a1a1a;
+    color: var(--text-main, #fff);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-size: 0.78rem;
+    line-height: 1.4;
+    max-width: 260px;
+    white-space: normal;
+    pointer-events: none;
+    z-index: 9999;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.6);
+}
 .pitch-circle.occupied {
     background: #111317;
     border: 2px solid var(--brand-gold); border-style: solid;
@@ -966,7 +1005,7 @@ button:disabled, button.disabled { opacity: 0.4; cursor: not-allowed; pointer-ev
 .sim-layout-container {
     max-width: 1000px; margin: 20px auto;
     display: grid; grid-template-columns: 4fr 5fr; gap: 25px;
-    align-items: start;
+    align-items: stretch;
 }
 .tournament-title-banner {
     flex: 1;

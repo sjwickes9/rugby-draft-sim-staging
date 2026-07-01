@@ -933,7 +933,9 @@ function populatePreKickoffSummary() {
             </div>
         </div>
         <div class="strategy-row">
-            <span class="strategy-row-label">Team Strategy</span>
+            <span class="strategy-row-label">Team Strategy
+                <span id="strategy-info-icon" class="info-icon" tabindex="0" role="button" aria-label="What does Team Strategy do?">i</span>
+            </span>
             <div id="strategy-slider-track" class="strategy-slider-track" data-value="balanced">
                 <div class="strategy-slider-rail"></div>
                 <div id="strategy-slider-handle" class="strategy-slider-handle" tabindex="0" role="slider"
@@ -945,7 +947,6 @@ function populatePreKickoffSummary() {
                 </div>
             </div>
         </div>
-        <p class="control-hint">Slide toward Forwards or Backs Dominant to weight your Overall Rating (and match simulation) more heavily on that half of the team. Locks in once you kick off.</p>
     `;
 
     setupStrategySlider(fwd, bck);
@@ -955,6 +956,20 @@ function setupStrategySlider(fwdAvg, bckAvg) {
     const track  = document.getElementById("strategy-slider-track");
     const handle = document.getElementById("strategy-slider-handle");
     const overallVal = document.getElementById("prekick-overall-val");
+    const infoIcon = document.getElementById("strategy-info-icon");
+    if (infoIcon) {
+        const tipText = "Slide toward Forwards or Backs Dominant to weight your Overall Rating (and match simulation) more heavily on that half of the team. Locks in once you kick off.";
+        infoIcon.addEventListener("click", e => {
+            e.stopPropagation();
+            toggleInfoTooltip(infoIcon, tipText);
+        });
+        infoIcon.addEventListener("keydown", e => {
+            if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                toggleInfoTooltip(infoIcon, tipText);
+            }
+        });
+    }
     if (!track || !handle) return;
 
     function applyValue(v) {
@@ -3275,6 +3290,7 @@ function getPoolFor(team) {
 // OOP TOOLTIP — hover on desktop, tap on mobile
 // ============================================================
 let currentOopTooltip = null;
+let currentInfoTooltip = null;
 
 function showOopTooltip(icon, penalty) {
     hideOopTooltip();
@@ -3305,6 +3321,32 @@ function toggleOopTooltip(icon, penalty) {
     if (currentOopTooltip) { hideOopTooltip(); return; }
     showOopTooltip(icon, penalty);
 }
+
+// Generic info tooltip — shares positionTooltip() with the OOP tooltip above,
+// but takes free text and wraps, for explanatory "i" icons rather than warnings.
+function showInfoTooltip(icon, text) {
+    hideInfoTooltip();
+    const tip = document.createElement("div");
+    tip.className = "info-tooltip";
+    tip.textContent = text;
+    document.body.appendChild(tip);
+    currentInfoTooltip = tip;
+    positionTooltip(tip, icon);
+}
+
+function hideInfoTooltip() {
+    if (currentInfoTooltip) { currentInfoTooltip.remove(); currentInfoTooltip = null; }
+}
+
+function toggleInfoTooltip(icon, text) {
+    if (currentInfoTooltip) { hideInfoTooltip(); return; }
+    showInfoTooltip(icon, text);
+}
+
+// Dismiss info tooltip on outside click
+document.addEventListener("click", e => {
+    if (currentInfoTooltip && !e.target.classList.contains("info-icon")) hideInfoTooltip();
+});
 
 // Dismiss tooltip on outside click
 document.addEventListener("click", e => {
