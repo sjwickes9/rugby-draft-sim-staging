@@ -681,9 +681,10 @@ button:disabled, button.disabled { opacity: 0.4; cursor: not-allowed; pointer-ev
 .strategy-row-label {
     display: flex;
     align-items: center;
+    font-family: Georgia, serif;
     font-size: 0.82rem;
-    font-weight: 600;
-    color: var(--text-muted);
+    font-weight: 700;
+    color: var(--text-main);
     margin-bottom: 16px;
 }
 .strategy-slider-track {
