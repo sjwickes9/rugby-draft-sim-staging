@@ -825,9 +825,13 @@ function populateManifestPreviewWindow() {
             ? (isKnowledgeMode ? `<span class="manifest-oop">⚠ OOP</span>` : `<span class="manifest-oop">⚠ -${p.penalty || '?'}pts</span>`)
             : "";
         html += `<div class="manifest-row">
-            <span class="manifest-num">${i+1}</span>
-            <span class="manifest-pos">${posShort[pos] || pos}</span>
-            <span class="manifest-name">${p.name} <span class="manifest-nation">(${p.nation})</span>${oopBadge}</span>
+            <span class="manifest-left">
+                <span class="manifest-num">${i+1}</span>
+                <span class="manifest-pos">${posShort[pos] || pos}</span>
+            </span>
+            <span class="manifest-right">
+                <span class="manifest-name">${p.name}</span> <span class="manifest-nation">(${p.nation})</span>${oopBadge}
+            </span>
         </div>`;
     });
     manifestTeamBox.innerHTML = html;
@@ -950,7 +954,29 @@ function populatePreKickoffSummary() {
     `;
 
     setupStrategySlider(fwd, bck);
+    syncProcessorCardHeight();
 }
+
+// Pins #sim-processor-card's height to match #sim-left-column's actual
+// rendered height, so the terminal log scrolls inside a fixed box instead
+// of the whole card growing as match results are appended. Grid align-items:
+// stretch alone doesn't do this safely — an auto-sized grid track grows to
+// fit unbounded flex content, which is exactly the bug this replaces.
+function syncProcessorCardHeight() {
+    const left = document.getElementById("sim-left-column");
+    const card = document.getElementById("sim-processor-card");
+    if (!left || !card) return;
+    // Below the 1024px breakpoint the columns stack and CSS already
+    // handles sizing (height: auto, fixed-height terminal), so leave it alone.
+    if (window.innerWidth <= 1024) { card.style.height = ""; return; }
+    card.style.height = left.offsetHeight + "px";
+}
+
+let _procCardResizeTimer = null;
+window.addEventListener("resize", () => {
+    clearTimeout(_procCardResizeTimer);
+    _procCardResizeTimer = setTimeout(syncProcessorCardHeight, 120);
+});
 
 function setupStrategySlider(fwdAvg, bckAvg) {
     const track  = document.getElementById("strategy-slider-track");
