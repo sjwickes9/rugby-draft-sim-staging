@@ -673,6 +673,93 @@ button:disabled, button.disabled { opacity: 0.4; cursor: not-allowed; pointer-ev
     .speed-slider-track { width: 100%; max-width: none; }
 }
 
+/* Team Strategy slider (Forwards Dominant / Balanced / Backs Dominant) on
+   the prekick screen — continuous, unlike the 3-stop speed slider, so it
+   reuses the same rail/handle visual language rather than the same JS. */
+.strategy-row {
+    margin-top: 16px;
+}
+.strategy-row-label {
+    display: block;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+}
+.strategy-slider-track {
+    position: relative;
+    width: 100%;
+    height: 56px;
+    cursor: pointer;
+    user-select: none;
+}
+.strategy-slider-rail {
+    position: absolute;
+    top: 18px;
+    left: 14px;
+    right: 14px;
+    height: 6px;
+    background: rgba(0,0,0,0.25);
+    border: 1px solid var(--border-color);
+    border-radius: 3px;
+}
+.strategy-slider-handle {
+    position: absolute;
+    top: 7px;
+    left: 14px;
+    width: 28px;
+    height: 28px;
+    background: var(--brand-gold);
+    border: 2px solid #000;
+    border-radius: 50%;
+    transform: translateX(-50%);
+    transition: background 0.2s, opacity 0.2s;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+    cursor: grab;
+    z-index: 2;
+}
+.strategy-slider-handle:active { cursor: grabbing; }
+.strategy-slider-handle:focus { outline: 2px solid var(--brand-gold); outline-offset: 2px; }
+
+.strategy-slider-labels {
+    position: absolute;
+    top: 40px;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: space-between;
+    pointer-events: none;
+}
+.strategy-slider-label {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    font-weight: 600;
+}
+.strategy-slider-track[data-value="balanced"] .strategy-slider-label:nth-child(2),
+.strategy-slider-track[data-value="forwards"] .strategy-slider-label:nth-child(1),
+.strategy-slider-track[data-value="backs"] .strategy-slider-label:nth-child(3) {
+    color: var(--brand-gold);
+}
+
+.strategy-slider-track.disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+}
+.strategy-slider-track.disabled .strategy-slider-handle {
+    cursor: not-allowed;
+    background: var(--text-muted);
+    border-color: rgba(0,0,0,0.4);
+}
+
+.host-themed .strategy-slider-handle {
+    background: var(--host-slider-colour, var(--brand-gold));
+}
+
+@media (max-width: 600px) {
+    .strategy-slider-labels { top: 38px; }
+    .strategy-slider-label { font-size: 0.62rem; }
+}
+
 /* ── Draft dashboard layout ── */
 .panel-card {
     background: var(--bg-card);

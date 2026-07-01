@@ -199,6 +199,7 @@ let respinsLeft        = 0;
 let isKnowledgeMode    = false;
 let isCareerMode       = false;
 let simSpeedMultiplier = 1; // 1 = medium (default); read from the speed radio when Kick Off Tournament is clicked
+let teamStrategyWeight = 50; // 0 = max Forwards Dominant, 100 = max Backs Dominant, 50 = Balanced; locked in when Kick Off Tournament is clicked
 
 // Preloaded once at script load so the share card can draw it synchronously
 // without needing to restructure generateShareGraphic() as async.
@@ -901,21 +902,25 @@ function populatePreKickoffSummary() {
     const box = document.getElementById("pre-kickoff-summary");
     if (!box) return;
 
-    let tS=0,fS=0,bS=0,tC=0,fC=0,bC=0;
+    let fS=0,bS=0,fC=0,bC=0;
     for (let pos in userTeam) {
-        const v = userTeam[pos].score; tS+=v; tC++;
+        const v = userTeam[pos].score;
         if (forwardNodes.includes(pos)) { fS+=v; fC++; }
         if (backNodes.includes(pos))    { bS+=v; bC++; }
     }
-    const overall = tC>0 ? Math.round(tS/tC) : 0;
-    const fwd     = fC>0 ? Math.round(fS/fC) : 0;
-    const bck     = bC>0 ? Math.round(bS/bC) : 0;
+    const fwd = fC>0 ? Math.round(fS/fC) : 0;
+    const bck = bC>0 ? Math.round(bS/bC) : 0;
+    // Reset to Balanced each time the prekick screen is (re)built, so the
+    // Overall Rating shown here always matches what getUserRating() will
+    // actually use if the player kicks off without touching the slider.
+    teamStrategyWeight = 50;
+    const overall = Math.round(fwd*strategyForwardWeight(50) + bck*(1-strategyForwardWeight(50)));
 
     box.innerHTML = `
         <div class="prekick-header">Your Hybrid XV is ready</div>
         <div class="prekick-stats">
             <div class="prekick-stat">
-                <div class="prekick-val">${overall}</div>
+                <div class="prekick-val" id="prekick-overall-val">${overall}</div>
                 <div class="prekick-lbl">Overall Rating</div>
             </div>
             <div class="prekick-stat">
@@ -927,7 +932,92 @@ function populatePreKickoffSummary() {
                 <div class="prekick-lbl">Backs Rating</div>
             </div>
         </div>
+        <div class="strategy-row">
+            <span class="strategy-row-label">Team Strategy</span>
+            <div id="strategy-slider-track" class="strategy-slider-track" data-value="balanced">
+                <div class="strategy-slider-rail"></div>
+                <div id="strategy-slider-handle" class="strategy-slider-handle" tabindex="0" role="slider"
+                     aria-label="Team strategy: forwards dominant to backs dominant" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50"></div>
+                <div class="strategy-slider-labels">
+                    <span class="strategy-slider-label">Forwards Dominant</span>
+                    <span class="strategy-slider-label">Balanced</span>
+                    <span class="strategy-slider-label">Backs Dominant</span>
+                </div>
+            </div>
+        </div>
+        <p class="control-hint">Slide toward Forwards or Backs Dominant to weight your Overall Rating (and match simulation) more heavily on that half of the team. Locks in once you kick off.</p>
     `;
+
+    setupStrategySlider(fwd, bck);
+}
+
+function setupStrategySlider(fwdAvg, bckAvg) {
+    const track  = document.getElementById("strategy-slider-track");
+    const handle = document.getElementById("strategy-slider-handle");
+    const overallVal = document.getElementById("prekick-overall-val");
+    if (!track || !handle) return;
+
+    function applyValue(v) {
+        teamStrategyWeight = Math.max(0, Math.min(100, Math.round(v)));
+        handle.style.left = `calc(14px + ${teamStrategyWeight/100} * (100% - 28px))`;
+        handle.setAttribute("aria-valuenow", teamStrategyWeight);
+        track.dataset.value = teamStrategyWeight < 40 ? "forwards" : teamStrategyWeight > 60 ? "backs" : "balanced";
+        if (overallVal) {
+            const fwdWeight = strategyForwardWeight(teamStrategyWeight);
+            overallVal.textContent = Math.round(fwdAvg*fwdWeight + bckAvg*(1-fwdWeight));
+        }
+    }
+
+    function pointerToValue(clientX) {
+        const rect = track.getBoundingClientRect();
+        const usableLeft = rect.left + 14;
+        const usableWidth = rect.width - 28;
+        const fraction = Math.max(0, Math.min(1, (clientX - usableLeft) / usableWidth));
+        return fraction * 100;
+    }
+
+    let dragging = false;
+
+    function startDrag(e) {
+        if (track.classList.contains("disabled")) return;
+        dragging = true;
+        e.preventDefault();
+    }
+    function moveDrag(e) {
+        if (!dragging) return;
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        applyValue(pointerToValue(clientX));
+    }
+    function endDrag() { dragging = false; }
+
+    handle.addEventListener("mousedown", startDrag);
+    handle.addEventListener("touchstart", startDrag, { passive: false });
+    document.addEventListener("mousemove", moveDrag);
+    document.addEventListener("touchmove", moveDrag, { passive: false });
+    document.addEventListener("mouseup", endDrag);
+    document.addEventListener("touchend", endDrag);
+
+    // Click anywhere on the track (not just the handle) jumps straight there
+    track.addEventListener("click", (e) => {
+        if (track.classList.contains("disabled")) return;
+        if (e.target === handle) return; // handled by drag logic
+        applyValue(pointerToValue(e.clientX));
+    });
+
+    handle.addEventListener("keydown", (e) => {
+        if (track.classList.contains("disabled")) return;
+        if (e.key === "ArrowLeft")  { applyValue(teamStrategyWeight - 5); e.preventDefault(); }
+        if (e.key === "ArrowRight") { applyValue(teamStrategyWeight + 5); e.preventDefault(); }
+    });
+
+    applyValue(50); // start Balanced
+}
+
+function disableStrategySlider() {
+    const track = document.getElementById("strategy-slider-track");
+    const handle = document.getElementById("strategy-slider-handle");
+    if (track) track.classList.add("disabled");
+    if (handle) handle.setAttribute("tabindex", "-1");
 }
 
 // ============================================================
@@ -938,6 +1028,7 @@ if (runSimBtn) {
         runSimBtn.disabled = true; runSimBtn.classList.add("disabled");
         simResults.innerHTML = "";
         disableSpeedSlider();
+        disableStrategySlider();
         const meta = tournamentMeta[selectedTournamentYear];
         if (meta && meta.hasPlayoffRound) {
             runTournamentSimulation1999();
@@ -1439,9 +1530,29 @@ function wrapCanvasText(ctx, text, x, y, maxWidth, lineHeight) {
 }
 
 function getUserRating() {
-    let s=0, c=0;
-    for (let p in userTeam) { s+=userTeam[p].score; c++; }
-    return c>0 ? Math.round(s/c) : 80;
+    let fS=0, fC=0, bS=0, bC=0;
+    for (let p in userTeam) {
+        const v = userTeam[p].score;
+        if (forwardNodes.includes(p)) { fS+=v; fC++; }
+        else if (backNodes.includes(p)) { bS+=v; bC++; }
+    }
+    if (!fC || !bC) {
+        // Fallback for an incomplete team — shouldn't happen once the
+        // tournament has kicked off, but keeps this safe if ever called early.
+        let s=0, c=0;
+        for (let p in userTeam) { s+=userTeam[p].score; c++; }
+        return c>0 ? Math.round(s/c) : 80;
+    }
+    const fwdWeight = strategyForwardWeight(teamStrategyWeight);
+    return Math.round((fS/fC)*fwdWeight + (bS/bC)*(1-fwdWeight));
+}
+
+// Team Strategy slider: 0 = max Forwards Dominant, 50 = Balanced (an even
+// 50/50 blend of the forwards and backs averages), 100 = max Backs Dominant.
+// Capped at a 65/35 skew at each extreme so a stacked pack (or backline)
+// can never fully out-rate a genuinely balanced XV.
+function strategyForwardWeight(sliderValue) {
+    return 0.65 - (sliderValue / 100) * 0.30;
 }
 
 // Analytical win probability derived from the simulateMatch distribution
@@ -3470,7 +3581,7 @@ const TIPS = {
     draftIntro: {
         icon: "🎲",
         title: "Building Your Squad",
-        body: "Click <strong>Spin Team</strong> to draw a random historical squad. Pick one player from it for the highlighted position on the pitch. Once you've placed them, the button changes back to <strong>Spin Team</strong> again — click it to draw a new squad for the next position. Repeat until all 15 spots are filled."
+        body: "Click <strong>Spin Team</strong> to draw a random historical squad. Pick any player from it, then click an open position on the pitch to slot them in. Gold positions are their natural fit; amber positions carry a rating penalty. Once you've placed them, the button changes back to <strong>Spin Team</strong> again ready for the next pick. Repeat until all 15 spots are filled."
     },
     simIntro: {
         icon: "🏉",
