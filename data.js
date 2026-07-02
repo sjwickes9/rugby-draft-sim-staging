@@ -3990,7 +3990,7 @@ const allSquads = {
             {name:"Beauden Barrett",positions:["Fly-half", "Fullback"],num:21,rating:96,careerRating:97},
             {name:"Richie Mo'unga",positions:["Fly-half", "Fullback"],num:22,rating:92,careerRating:95},
             {name:"TJ Perenara",positions:["Scrum-half"],num:23,rating:96,careerRating:96},
-            {name:"Jordie Barrett",positions:["Fullback", "Left Wing"],num:24,rating:92,careerRating:95},
+            {name:"Jordie Barrett",positions:["Inside Centre", "Left Wing"],num:24,rating:92,careerRating:95},
             {name:"Anton Lienert-Brown",positions:["Inside Centre", "Outside Centre"],num:25,rating:92,careerRating:95},
             {name:"Jack Goodhue",positions:["Inside Centre", "Outside Centre"],num:26,rating:91,careerRating:91},
             {name:"Rieko Ioane",positions:["Inside Centre", "Left Wing"],num:27,rating:92,careerRating:95},
@@ -6196,7 +6196,7 @@ const allSquads = {
             {name:"Wayne Proctor",positions:["Left Wing", "Right Wing"],num:21,rating:83,careerRating:83},
             {name:"Mike Hall",positions:["Inside Centre", "Outside Centre"],num:22,rating:82,careerRating:82},
             {name:"Ieuan Evans",positions:["Right Wing", "Left Wing"],num:23,rating:90,careerRating:90},
-            {name:"Gareth Thomas",positions:["Fullback", "Right Wing"],num:24,rating:78,careerRating:92},
+            {name:"Gareth Thomas",positions:["Outside Centre", "Right Wing"],num:24,rating:78,careerRating:92},
             {name:"Justin Thomas",positions:["Fullback"],num:25,rating:79,careerRating:79},
             {name:"Tony Clement",positions:["Fullback"],num:26,rating:83,careerRating:83}
         ],
