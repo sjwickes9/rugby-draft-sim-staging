@@ -312,7 +312,7 @@ function activateCymruMode() {
         { pos:"Openside Flanker",  name:"Sam Warburton",    nation:"WAL '11" },
         { pos:"Number 8",          name:"Mervyn Davies",    nation:"WAL '76" },
         { pos:"Scrum-half",        name:"Gareth Edwards",   nation:"WAL '76" },
-        { pos:"Fly-half",          name:"Barry John",       nation:"WAL '72" },
+        { pos:"Fly-half",          name:"Barry John",       nation:"WAL '72", kicker:true },
         { pos:"Left Wing",         name:"Shane Williams",   nation:"WAL '07" },
         { pos:"Inside Centre",     name:"Scott Gibbs",      nation:"WAL '99" },
         { pos:"Outside Centre",    name:"Bleddyn Williams", nation:"WAL '53" },
@@ -322,7 +322,8 @@ function activateCymruMode() {
     cymruSquad.forEach(p => {
         userTeam[p.pos] = {
             name: p.name, score: 99, nation: p.nation,
-            outOfPosition: false, penalty: 0, originalRating: 99
+            outOfPosition: false, penalty: 0, originalRating: 99,
+            kicker: p.kicker === true
         };
     });
     replacedTeam = "Wales";  // replaces Wales in the bracket
@@ -576,7 +577,8 @@ function triggerRosterSpinEngine() {
         group:     primaryGroup(p),
         num:       p.num,
         rating:    isCareerMode ? p.careerRating : p.rating,
-        nation:    nation + " '" + year.slice(2)
+        nation:    nation + " '" + year.slice(2),
+        kicker:    p.kicker === true
     }));
 
     renderRosterList();
@@ -724,7 +726,8 @@ pitchCircles.forEach(node => {
             nation:         selectedPlayer.nation,
             outOfPosition:  !inPos,
             penalty:        penalty,
-            originalRating: baseRating
+            originalRating: baseRating,
+            kicker:         selectedPlayer.kicker === true
         };
         globalDraftedNames.add(selectedPlayer.name);
         spotsFilledCount++;
@@ -1765,13 +1768,28 @@ const TRY_WEIGHTS = {
 };
 
 function decideKicker(team) {
+    // Find all players in the XV flagged as specialist kickers. If more
+    // than one was drafted, pick the highest-rated — roughly approximating
+    // who takes the goal-kicking duties when, e.g., both a fly-half and
+    // fullback in the XV are known kickers.
+    const flaggedKickers = Object.entries(team)
+        .filter(([, p]) => p && p.kicker)
+        .map(([pos, p]) => ({ pos, name: p.name, score: p.score }));
+
+    if (flaggedKickers.length > 0) {
+        flaggedKickers.sort((a, b) => b.score - a.score);
+        return { pos: flaggedKickers[0].pos, name: flaggedKickers[0].name };
+    }
+
+    // No specialist kicker drafted — fall back to whoever is playing
+    // fly-half or fullback, preferring fly-half unless the fullback is
+    // rated noticeably higher (same logic as before).
     const fh = team["Fly-half"];
     const fb = team["Fullback"];
     if (!fh && !fb) return null;
     if (!fh) return { pos: "Fullback", name: fb.name };
     if (!fb) return { pos: "Fly-half", name: fh.name };
-    const fhR = fh.score, fbR = fb.score;
-    return (fbR - fhR >= 5)
+    return (fb.score - fh.score >= 5)
         ? { pos: "Fullback", name: fb.name }
         : { pos: "Fly-half", name: fh.name };
 }
