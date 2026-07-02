@@ -3580,331 +3580,215 @@ const BOSS_TEAMS = {
 
 const LIONS_TOUR_ORDER = [1989, 1993, 1997, 2001, 2005, 2009, 2013, 2017, 2021, 2025];
 
-
-// Each entry is the real starting XV from that tour's series-deciding Test
-// (the match that actually settled the series, not always the third Test).
-// Player ratings pull from the nearest World Cup year to the tour, preferring
-// the RWC immediately before the tour and falling back to the one after if the
-// player didn't feature in an earlier World Cup. Two players, Rob Henderson
-// (2001) and Richard Hibbard (2013), never played a World Cup at all, so their
-// ratings are hand set and stored in lionsOnlyPlayers rather than allSquads.
+// Each entry is the real starting XV from that tour, shown to the user for
+// context and flavour, but not used to compute the match rating any more.
+// Individual player ratings were dropped since they were never actually shown
+// in play, a single hand set teamRating drives the match instead. The numbers
+// broadly rise tour on tour, with deliberate dips for the 2001 series loss and
+// the 2005 whitewash, a small rise for the 2009 loss reflecting the era rather
+// than the result, and clear bumps for the 2013 and 2025 series wins.
 const LIONS_TOURS = {
     1989: {
-        opponent: "Australia", result: "Won 2-1",
+        opponent: "Australia", result: "Won 2-1", teamRating: 82,
         players: [
-            { pos:"Loosehead Prop", name:"David Sole", nation:"SCO '89", r:75 },
-            { pos:"Hooker", name:"Brian Moore", nation:"ENG '89", r:80 },
-            { pos:"Tighthead Prop", name:"Dai Young", nation:"WAL '89", r:74 },
-            { pos:"Lock", name:"Paul Ackford", nation:"ENG '89", r:85 },
-            { pos:"Lock", name:"Wade Dooley", nation:"ENG '89", r:85 },
-            { pos:"Blindside Flanker", name:"Mike Teague", nation:"ENG '89", r:82 },
-            { pos:"Openside Flanker", name:"Finlay Calder", nation:"SCO '89", r:89 },
-            { pos:"Number 8", name:"Dean Richards", nation:"ENG '89", r:80 },
-            { pos:"Scrum-half", name:"Robert Jones", nation:"WAL '89", r:88 },
-            { pos:"Fly-half", name:"Rob Andrew", nation:"ENG '89", r:84 },
-            { pos:"Left Wing", name:"Rory Underwood", nation:"ENG '89", r:82 },
-            { pos:"Inside Centre", name:"Jeremy Guscott", nation:"ENG '89", r:85 },
-            { pos:"Outside Centre", name:"Scott Hastings", nation:"SCO '89", r:76 },
-            { pos:"Right Wing", name:"Ieuan Evans", nation:"WAL '89", r:88 },
-            { pos:"Fullback", name:"Gavin Hastings", nation:"SCO '89", r:91 },
+            { pos:"Loosehead Prop", name:"David Sole", nation:"SCO '89" },
+            { pos:"Hooker", name:"Brian Moore", nation:"ENG '89" },
+            { pos:"Tighthead Prop", name:"Dai Young", nation:"WAL '89" },
+            { pos:"Lock", name:"Paul Ackford", nation:"ENG '89" },
+            { pos:"Lock", name:"Wade Dooley", nation:"ENG '89" },
+            { pos:"Blindside Flanker", name:"Mike Teague", nation:"ENG '89" },
+            { pos:"Openside Flanker", name:"Finlay Calder", nation:"SCO '89" },
+            { pos:"Number 8", name:"Dean Richards", nation:"ENG '89" },
+            { pos:"Scrum-half", name:"Robert Jones", nation:"WAL '89" },
+            { pos:"Fly-half", name:"Rob Andrew", nation:"ENG '89" },
+            { pos:"Left Wing", name:"Rory Underwood", nation:"ENG '89" },
+            { pos:"Inside Centre", name:"Jeremy Guscott", nation:"ENG '89" },
+            { pos:"Outside Centre", name:"Scott Hastings", nation:"SCO '89" },
+            { pos:"Right Wing", name:"Ieuan Evans", nation:"WAL '89" },
+            { pos:"Fullback", name:"Gavin Hastings", nation:"SCO '89" },
         ]
     },
     1993: {
-        opponent: "New Zealand", result: "Lost 2-1",
+        opponent: "New Zealand", result: "Lost 2-1", teamRating: 85,
         players: [
-            { pos:"Loosehead Prop", name:"Jason Leonard", nation:"ENG '93", r:87 },
-            { pos:"Hooker", name:"Brian Moore", nation:"ENG '93", r:87 },
-            { pos:"Tighthead Prop", name:"Graham Rowntree", nation:"ENG '93", r:83 },
-            { pos:"Lock", name:"Martin Bayfield", nation:"ENG '93", r:86 },
-            { pos:"Lock", name:"Wade Dooley", nation:"ENG '93", r:90 },
-            { pos:"Blindside Flanker", name:"Peter Winterbottom", nation:"ENG '93", r:88 },
-            { pos:"Openside Flanker", name:"Ben Clarke", nation:"ENG '93", r:87 },
-            { pos:"Number 8", name:"Dean Richards", nation:"ENG '93", r:87 },
-            { pos:"Scrum-half", name:"Dewi Morris", nation:"ENG '93", r:88 },
-            { pos:"Fly-half", name:"Rob Andrew", nation:"ENG '93", r:87 },
-            { pos:"Left Wing", name:"Rory Underwood", nation:"ENG '93", r:87 },
-            { pos:"Inside Centre", name:"Scott Gibbs", nation:"WAL '93", r:80 },
-            { pos:"Outside Centre", name:"Jeremy Guscott", nation:"ENG '93", r:85 },
-            { pos:"Right Wing", name:"Ieuan Evans", nation:"WAL '93", r:79 },
-            { pos:"Fullback", name:"Gavin Hastings", nation:"SCO '93", r:93 },
+            { pos:"Loosehead Prop", name:"Jason Leonard", nation:"ENG '93" },
+            { pos:"Hooker", name:"Brian Moore", nation:"ENG '93" },
+            { pos:"Tighthead Prop", name:"Graham Rowntree", nation:"ENG '93" },
+            { pos:"Lock", name:"Martin Bayfield", nation:"ENG '93" },
+            { pos:"Lock", name:"Wade Dooley", nation:"ENG '93" },
+            { pos:"Blindside Flanker", name:"Peter Winterbottom", nation:"ENG '93" },
+            { pos:"Openside Flanker", name:"Ben Clarke", nation:"ENG '93" },
+            { pos:"Number 8", name:"Dean Richards", nation:"ENG '93" },
+            { pos:"Scrum-half", name:"Dewi Morris", nation:"ENG '93" },
+            { pos:"Fly-half", name:"Rob Andrew", nation:"ENG '93" },
+            { pos:"Left Wing", name:"Rory Underwood", nation:"ENG '93" },
+            { pos:"Inside Centre", name:"Scott Gibbs", nation:"WAL '93" },
+            { pos:"Outside Centre", name:"Jeremy Guscott", nation:"ENG '93" },
+            { pos:"Right Wing", name:"Ieuan Evans", nation:"WAL '93" },
+            { pos:"Fullback", name:"Gavin Hastings", nation:"SCO '93" },
         ]
     },
     1997: {
-        opponent: "South Africa", result: "Won 2-1",
+        opponent: "South Africa", result: "Won 2-1", teamRating: 88,
         players: [
-            { pos:"Loosehead Prop", name:"Tom Smith", nation:"SCO '97", r:90 },
-            { pos:"Hooker", name:"Keith Wood", nation:"IRE '97", r:94 },
-            { pos:"Tighthead Prop", name:"Paul Wallace", nation:"IRE '97", r:89 },
-            { pos:"Lock", name:"Martin Johnson", nation:"ENG '97", r:96 },
-            { pos:"Lock", name:"Jeremy Davidson", nation:"IRE '97", r:80 },
-            { pos:"Blindside Flanker", name:"Lawrence Dallaglio", nation:"ENG '97", r:93 },
-            { pos:"Openside Flanker", name:"Richard Hill", nation:"ENG '97", r:94 },
-            { pos:"Number 8", name:"Tim Rodber", nation:"ENG '97", r:90 },
-            { pos:"Scrum-half", name:"Matt Dawson", nation:"ENG '97", r:90 },
-            { pos:"Fly-half", name:"Gregor Townsend", nation:"SCO '97", r:90 },
-            { pos:"Left Wing", name:"Alan Tait", nation:"SCO '97", r:89 },
-            { pos:"Inside Centre", name:"Scott Gibbs", nation:"WAL '97", r:93 },
-            { pos:"Outside Centre", name:"Jeremy Guscott", nation:"ENG '97", r:94 },
-            { pos:"Right Wing", name:"Ieuan Evans", nation:"WAL '97", r:92 },
-            { pos:"Fullback", name:"Neil Jenkins", nation:"WAL '97", r:90 },
+            { pos:"Loosehead Prop", name:"Tom Smith", nation:"SCO '97" },
+            { pos:"Hooker", name:"Keith Wood", nation:"IRE '97" },
+            { pos:"Tighthead Prop", name:"Paul Wallace", nation:"IRE '97" },
+            { pos:"Lock", name:"Martin Johnson", nation:"ENG '97" },
+            { pos:"Lock", name:"Jeremy Davidson", nation:"IRE '97" },
+            { pos:"Blindside Flanker", name:"Lawrence Dallaglio", nation:"ENG '97" },
+            { pos:"Openside Flanker", name:"Richard Hill", nation:"ENG '97" },
+            { pos:"Number 8", name:"Tim Rodber", nation:"ENG '97" },
+            { pos:"Scrum-half", name:"Matt Dawson", nation:"ENG '97" },
+            { pos:"Fly-half", name:"Gregor Townsend", nation:"SCO '97" },
+            { pos:"Left Wing", name:"Alan Tait", nation:"SCO '97" },
+            { pos:"Inside Centre", name:"Scott Gibbs", nation:"WAL '97" },
+            { pos:"Outside Centre", name:"Jeremy Guscott", nation:"ENG '97" },
+            { pos:"Right Wing", name:"Ieuan Evans", nation:"WAL '97" },
+            { pos:"Fullback", name:"Neil Jenkins", nation:"WAL '97" },
         ]
     },
     2001: {
-        opponent: "Australia", result: "Lost 2-1",
+        opponent: "Australia", result: "Lost 2-1", teamRating: 85,
         players: [
-            { pos:"Loosehead Prop", name:"Tom Smith", nation:"SCO '01", r:89 },
-            { pos:"Hooker", name:"Keith Wood", nation:"IRE '01", r:92 },
-            { pos:"Tighthead Prop", name:"Phil Vickery", nation:"ENG '01", r:94 },
-            { pos:"Lock", name:"Martin Johnson", nation:"ENG '01", r:95 },
-            { pos:"Lock", name:"Danny Grewcock", nation:"ENG '01", r:90 },
-            { pos:"Blindside Flanker", name:"Martin Corry", nation:"ENG '01", r:91 },
-            { pos:"Openside Flanker", name:"Neil Back", nation:"ENG '01", r:93 },
-            { pos:"Number 8", name:"Scott Quinnell", nation:"WAL '01", r:95 },
-            { pos:"Scrum-half", name:"Matt Dawson", nation:"ENG '01", r:92 },
-            { pos:"Fly-half", name:"Jonny Wilkinson", nation:"ENG '01", r:94 },
-            { pos:"Left Wing", name:"Jason Robinson", nation:"ENG '01", r:96 },
-            { pos:"Inside Centre", name:"Rob Henderson", nation:"IRE '01", r:90 },
-            { pos:"Outside Centre", name:"Brian O'Driscoll", nation:"IRE '01", r:95 },
-            { pos:"Right Wing", name:"Dafydd James", nation:"WAL '01", r:90 },
-            { pos:"Fullback", name:"Matt Perry", nation:"ENG '01", r:90 },
+            { pos:"Loosehead Prop", name:"Tom Smith", nation:"SCO '01" },
+            { pos:"Hooker", name:"Keith Wood", nation:"IRE '01" },
+            { pos:"Tighthead Prop", name:"Phil Vickery", nation:"ENG '01" },
+            { pos:"Lock", name:"Martin Johnson", nation:"ENG '01" },
+            { pos:"Lock", name:"Danny Grewcock", nation:"ENG '01" },
+            { pos:"Blindside Flanker", name:"Martin Corry", nation:"ENG '01" },
+            { pos:"Openside Flanker", name:"Neil Back", nation:"ENG '01" },
+            { pos:"Number 8", name:"Scott Quinnell", nation:"WAL '01" },
+            { pos:"Scrum-half", name:"Matt Dawson", nation:"ENG '01" },
+            { pos:"Fly-half", name:"Jonny Wilkinson", nation:"ENG '01" },
+            { pos:"Left Wing", name:"Jason Robinson", nation:"ENG '01" },
+            { pos:"Inside Centre", name:"Rob Henderson", nation:"IRE '01" },
+            { pos:"Outside Centre", name:"Brian O'Driscoll", nation:"IRE '01" },
+            { pos:"Right Wing", name:"Dafydd James", nation:"WAL '01" },
+            { pos:"Fullback", name:"Matt Perry", nation:"ENG '01" },
         ]
     },
     2005: {
-        opponent: "New Zealand", result: "Lost 3-0",
+        opponent: "New Zealand", result: "Lost 3-0", teamRating: 82,
         players: [
-            { pos:"Loosehead Prop", name:"Gethin Jenkins", nation:"WAL '05", r:93 },
-            { pos:"Hooker", name:"Steve Thompson", nation:"ENG '05", r:88 },
-            { pos:"Tighthead Prop", name:"Julian White", nation:"ENG '05", r:85 },
-            { pos:"Lock", name:"Donncha O'Callaghan", nation:"IRE '05", r:79 },
-            { pos:"Lock", name:"Paul O'Connell", nation:"IRE '05", r:79 },
-            { pos:"Blindside Flanker", name:"Simon Easterby", nation:"IRE '05", r:85 },
-            { pos:"Openside Flanker", name:"Lewis Moody", nation:"ENG '05", r:86 },
-            { pos:"Number 8", name:"Ryan Jones", nation:"WAL '05", r:90 },
-            { pos:"Scrum-half", name:"Dwayne Peel", nation:"WAL '05", r:81 },
-            { pos:"Fly-half", name:"Stephen Jones", nation:"WAL '05", r:85 },
-            { pos:"Left Wing", name:"Josh Lewsey", nation:"ENG '05", r:88 },
-            { pos:"Inside Centre", name:"Gareth Thomas", nation:"WAL '05", r:90 },
-            { pos:"Outside Centre", name:"Will Greenwood", nation:"ENG '05", r:91 },
-            { pos:"Right Wing", name:"Mark Cueto", nation:"ENG '05", r:87 },
-            { pos:"Fullback", name:"Geordan Murphy", nation:"IRE '05", r:85 },
+            { pos:"Loosehead Prop", name:"Gethin Jenkins", nation:"WAL '05" },
+            { pos:"Hooker", name:"Steve Thompson", nation:"ENG '05" },
+            { pos:"Tighthead Prop", name:"Julian White", nation:"ENG '05" },
+            { pos:"Lock", name:"Donncha O'Callaghan", nation:"IRE '05" },
+            { pos:"Lock", name:"Paul O'Connell", nation:"IRE '05" },
+            { pos:"Blindside Flanker", name:"Simon Easterby", nation:"IRE '05" },
+            { pos:"Openside Flanker", name:"Lewis Moody", nation:"ENG '05" },
+            { pos:"Number 8", name:"Ryan Jones", nation:"WAL '05" },
+            { pos:"Scrum-half", name:"Dwayne Peel", nation:"WAL '05" },
+            { pos:"Fly-half", name:"Stephen Jones", nation:"WAL '05" },
+            { pos:"Left Wing", name:"Josh Lewsey", nation:"ENG '05" },
+            { pos:"Inside Centre", name:"Gareth Thomas", nation:"WAL '05" },
+            { pos:"Outside Centre", name:"Will Greenwood", nation:"ENG '05" },
+            { pos:"Right Wing", name:"Mark Cueto", nation:"ENG '05" },
+            { pos:"Fullback", name:"Geordan Murphy", nation:"IRE '05" },
         ]
     },
     2009: {
-        opponent: "South Africa", result: "Lost 2-1",
+        opponent: "South Africa", result: "Lost 2-1", teamRating: 90,
         players: [
-            { pos:"Loosehead Prop", name:"Gethin Jenkins", nation:"WAL '09", r:89 },
-            { pos:"Hooker", name:"Matthew Rees", nation:"WAL '09", r:82 },
-            { pos:"Tighthead Prop", name:"Adam Jones", nation:"WAL '09", r:87 },
-            { pos:"Lock", name:"Simon Shaw", nation:"ENG '09", r:91 },
-            { pos:"Lock", name:"Paul O'Connell", nation:"IRE '09", r:93 },
-            { pos:"Blindside Flanker", name:"Tom Croft", nation:"ENG '09", r:88 },
-            { pos:"Openside Flanker", name:"David Wallace", nation:"IRE '09", r:85 },
-            { pos:"Number 8", name:"Jamie Heaslip", nation:"IRE '09", r:86 },
-            { pos:"Scrum-half", name:"Mike Phillips", nation:"WAL '09", r:85 },
-            { pos:"Fly-half", name:"Stephen Jones", nation:"WAL '09", r:89 },
-            { pos:"Left Wing", name:"Luke Fitzgerald", nation:"IRE '09", r:84 },
-            { pos:"Inside Centre", name:"Jamie Roberts", nation:"WAL '09", r:86 },
-            { pos:"Outside Centre", name:"Brian O'Driscoll", nation:"IRE '09", r:94 },
-            { pos:"Right Wing", name:"Tommy Bowe", nation:"IRE '09", r:89 },
-            { pos:"Fullback", name:"Rob Kearney", nation:"IRE '09", r:88 },
+            { pos:"Loosehead Prop", name:"Gethin Jenkins", nation:"WAL '09" },
+            { pos:"Hooker", name:"Lee Mears", nation:"ENG '09" },
+            { pos:"Tighthead Prop", name:"Phil Vickery", nation:"ENG '09" },
+            { pos:"Lock", name:"Alun Wyn Jones", nation:"WAL '09" },
+            { pos:"Lock", name:"Paul O'Connell", nation:"IRE '09" },
+            { pos:"Blindside Flanker", name:"Tom Croft", nation:"ENG '09" },
+            { pos:"Openside Flanker", name:"David Wallace", nation:"IRE '09" },
+            { pos:"Number 8", name:"Jamie Heaslip", nation:"IRE '09" },
+            { pos:"Scrum-half", name:"Mike Phillips", nation:"WAL '09" },
+            { pos:"Fly-half", name:"Stephen Jones", nation:"WAL '09" },
+            { pos:"Left Wing", name:"Ugo Monye", nation:"ENG '09" },
+            { pos:"Inside Centre", name:"Jamie Roberts", nation:"WAL '09" },
+            { pos:"Outside Centre", name:"Brian O'Driscoll", nation:"IRE '09" },
+            { pos:"Right Wing", name:"Tommy Bowe", nation:"IRE '09" },
+            { pos:"Fullback", name:"Lee Byrne", nation:"WAL '09" },
         ]
     },
     2013: {
-        opponent: "Australia", result: "Won 2-1",
+        opponent: "Australia", result: "Won 2-1", teamRating: 93,
         players: [
-            { pos:"Loosehead Prop", name:"Alex Corbisiero", nation:"ENG '13", r:88 },
-            { pos:"Hooker", name:"Richard Hibbard", nation:"WAL '13", r:94 },
-            { pos:"Tighthead Prop", name:"Adam Jones", nation:"WAL '13", r:90 },
-            { pos:"Lock", name:"Alun Wyn Jones", nation:"WAL '13", r:95 },
-            { pos:"Lock", name:"Geoff Parling", nation:"ENG '13", r:92 },
-            { pos:"Blindside Flanker", name:"Dan Lydiate", nation:"WAL '13", r:91 },
-            { pos:"Openside Flanker", name:"Seán O'Brien", nation:"IRE '13", r:90 },
-            { pos:"Number 8", name:"Taulupe Faletau", nation:"WAL '13", r:92 },
-            { pos:"Scrum-half", name:"Mike Phillips", nation:"WAL '13", r:96 },
-            { pos:"Fly-half", name:"Johnny Sexton", nation:"IRE '13", r:93 },
-            { pos:"Left Wing", name:"George North", nation:"WAL '13", r:95 },
-            { pos:"Inside Centre", name:"Jamie Roberts", nation:"WAL '13", r:93 },
-            { pos:"Outside Centre", name:"Jonathan Davies", nation:"WAL '13", r:93 },
-            { pos:"Right Wing", name:"Tommy Bowe", nation:"IRE '13", r:92 },
-            { pos:"Fullback", name:"Leigh Halfpenny", nation:"WAL '13", r:95 },
+            { pos:"Loosehead Prop", name:"Alex Corbisiero", nation:"ENG '13" },
+            { pos:"Hooker", name:"Richard Hibbard", nation:"WAL '13" },
+            { pos:"Tighthead Prop", name:"Adam Jones", nation:"WAL '13" },
+            { pos:"Lock", name:"Alun Wyn Jones", nation:"WAL '13" },
+            { pos:"Lock", name:"Geoff Parling", nation:"ENG '13" },
+            { pos:"Blindside Flanker", name:"Dan Lydiate", nation:"WAL '13" },
+            { pos:"Openside Flanker", name:"Seán O'Brien", nation:"IRE '13" },
+            { pos:"Number 8", name:"Taulupe Faletau", nation:"WAL '13" },
+            { pos:"Scrum-half", name:"Mike Phillips", nation:"WAL '13" },
+            { pos:"Fly-half", name:"Johnny Sexton", nation:"IRE '13" },
+            { pos:"Left Wing", name:"George North", nation:"WAL '13" },
+            { pos:"Inside Centre", name:"Jamie Roberts", nation:"WAL '13" },
+            { pos:"Outside Centre", name:"Jonathan Davies", nation:"WAL '13" },
+            { pos:"Right Wing", name:"Tommy Bowe", nation:"IRE '13" },
+            { pos:"Fullback", name:"Leigh Halfpenny", nation:"WAL '13" },
         ]
     },
     2017: {
-        opponent: "New Zealand", result: "Drawn 1-1",
+        opponent: "New Zealand", result: "Drawn 1-1", teamRating: 94,
         players: [
-            { pos:"Loosehead Prop", name:"Mako Vunipola", nation:"ENG '17", r:90 },
-            { pos:"Hooker", name:"Jamie George", nation:"ENG '17", r:91 },
-            { pos:"Tighthead Prop", name:"Tadhg Furlong", nation:"IRE '17", r:94 },
-            { pos:"Lock", name:"Maro Itoje", nation:"ENG '17", r:95 },
-            { pos:"Lock", name:"Alun Wyn Jones", nation:"WAL '17", r:94 },
-            { pos:"Blindside Flanker", name:"Sam Warburton", nation:"WAL '17", r:93 },
-            { pos:"Openside Flanker", name:"Seán O'Brien", nation:"IRE '17", r:92 },
-            { pos:"Number 8", name:"Taulupe Faletau", nation:"WAL '17", r:92 },
-            { pos:"Scrum-half", name:"Conor Murray", nation:"IRE '17", r:93 },
-            { pos:"Fly-half", name:"Johnny Sexton", nation:"IRE '17", r:95 },
-            { pos:"Left Wing", name:"Elliot Daly", nation:"ENG '17", r:90 },
-            { pos:"Inside Centre", name:"Owen Farrell", nation:"ENG '17", r:93 },
-            { pos:"Outside Centre", name:"Jonathan Davies", nation:"WAL '17", r:96 },
-            { pos:"Right Wing", name:"Anthony Watson", nation:"ENG '17", r:91 },
-            { pos:"Fullback", name:"Liam Williams", nation:"WAL '17", r:91 },
+            { pos:"Loosehead Prop", name:"Mako Vunipola", nation:"ENG '17" },
+            { pos:"Hooker", name:"Jamie George", nation:"ENG '17" },
+            { pos:"Tighthead Prop", name:"Tadhg Furlong", nation:"IRE '17" },
+            { pos:"Lock", name:"Maro Itoje", nation:"ENG '17" },
+            { pos:"Lock", name:"Alun Wyn Jones", nation:"WAL '17" },
+            { pos:"Blindside Flanker", name:"Sam Warburton", nation:"WAL '17" },
+            { pos:"Openside Flanker", name:"Seán O'Brien", nation:"IRE '17" },
+            { pos:"Number 8", name:"Taulupe Faletau", nation:"WAL '17" },
+            { pos:"Scrum-half", name:"Conor Murray", nation:"IRE '17" },
+            { pos:"Fly-half", name:"Johnny Sexton", nation:"IRE '17" },
+            { pos:"Left Wing", name:"Elliot Daly", nation:"ENG '17" },
+            { pos:"Inside Centre", name:"Owen Farrell", nation:"ENG '17" },
+            { pos:"Outside Centre", name:"Jonathan Davies", nation:"WAL '17" },
+            { pos:"Right Wing", name:"Anthony Watson", nation:"ENG '17" },
+            { pos:"Fullback", name:"Liam Williams", nation:"WAL '17" },
         ]
     },
     2021: {
-        opponent: "South Africa", result: "Lost 2-1",
+        opponent: "South Africa", result: "Lost 2-1", teamRating: 95,
         players: [
-            { pos:"Loosehead Prop", name:"Wyn Jones", nation:"WAL '21", r:90 },
-            { pos:"Hooker", name:"Ken Owens", nation:"WAL '21", r:88 },
-            { pos:"Tighthead Prop", name:"Tadhg Furlong", nation:"IRE '21", r:95 },
-            { pos:"Lock", name:"Maro Itoje", nation:"ENG '21", r:95 },
-            { pos:"Lock", name:"Alun Wyn Jones", nation:"WAL '21", r:96 },
-            { pos:"Blindside Flanker", name:"Courtney Lawes", nation:"ENG '21", r:93 },
-            { pos:"Openside Flanker", name:"Tom Curry", nation:"ENG '21", r:91 },
-            { pos:"Number 8", name:"Jack Conan", nation:"IRE '21", r:86 },
-            { pos:"Scrum-half", name:"Ali Price", nation:"SCO '21", r:91 },
-            { pos:"Fly-half", name:"Dan Biggar", nation:"WAL '21", r:91 },
-            { pos:"Left Wing", name:"Duhan van der Merwe", nation:"SCO '21", r:88 },
-            { pos:"Inside Centre", name:"Bundee Aki", nation:"IRE '21", r:90 },
-            { pos:"Outside Centre", name:"Robbie Henshaw", nation:"IRE '21", r:92 },
-            { pos:"Right Wing", name:"Josh Adams", nation:"WAL '21", r:90 },
-            { pos:"Fullback", name:"Liam Williams", nation:"WAL '21", r:93 },
+            { pos:"Loosehead Prop", name:"Wyn Jones", nation:"WAL '21" },
+            { pos:"Hooker", name:"Ken Owens", nation:"WAL '21" },
+            { pos:"Tighthead Prop", name:"Tadhg Furlong", nation:"IRE '21" },
+            { pos:"Lock", name:"Maro Itoje", nation:"ENG '21" },
+            { pos:"Lock", name:"Alun Wyn Jones", nation:"WAL '21" },
+            { pos:"Blindside Flanker", name:"Courtney Lawes", nation:"ENG '21" },
+            { pos:"Openside Flanker", name:"Tom Curry", nation:"ENG '21" },
+            { pos:"Number 8", name:"Jack Conan", nation:"IRE '21" },
+            { pos:"Scrum-half", name:"Ali Price", nation:"SCO '21" },
+            { pos:"Fly-half", name:"Dan Biggar", nation:"WAL '21" },
+            { pos:"Left Wing", name:"Duhan van der Merwe", nation:"SCO '21" },
+            { pos:"Inside Centre", name:"Bundee Aki", nation:"IRE '21" },
+            { pos:"Outside Centre", name:"Robbie Henshaw", nation:"IRE '21" },
+            { pos:"Right Wing", name:"Josh Adams", nation:"WAL '21" },
+            { pos:"Fullback", name:"Liam Williams", nation:"WAL '21" },
         ]
     },
     2025: {
-        opponent: "Australia", result: "Won 2-1",
+        opponent: "Australia", result: "Won 2-1", teamRating: 97,
         players: [
-            { pos:"Loosehead Prop", name:"Andrew Porter", nation:"IRE '25", r:92 },
-            { pos:"Hooker", name:"Dan Sheehan", nation:"IRE '25", r:96 },
-            { pos:"Tighthead Prop", name:"Tadhg Furlong", nation:"IRE '25", r:96 },
-            { pos:"Lock", name:"Maro Itoje", nation:"ENG '25", r:96 },
-            { pos:"Lock", name:"Ollie Chessum", nation:"ENG '25", r:91 },
-            { pos:"Blindside Flanker", name:"Tadhg Beirne", nation:"IRE '25", r:92 },
-            { pos:"Openside Flanker", name:"Tom Curry", nation:"ENG '25", r:92 },
-            { pos:"Number 8", name:"Jack Conan", nation:"IRE '25", r:91 },
-            { pos:"Scrum-half", name:"Jamison Gibson-Park", nation:"IRE '25", r:97 },
-            { pos:"Fly-half", name:"Finn Russell", nation:"SCO '25", r:94 },
-            { pos:"Left Wing", name:"James Lowe", nation:"IRE '25", r:91 },
-            { pos:"Inside Centre", name:"Bundee Aki", nation:"IRE '25", r:91 },
-            { pos:"Outside Centre", name:"Huw Jones", nation:"SCO '25", r:93 },
-            { pos:"Right Wing", name:"Tommy Freeman", nation:"ENG '25", r:92 },
-            { pos:"Fullback", name:"Hugo Keenan", nation:"IRE '25", r:91 },
+            { pos:"Loosehead Prop", name:"Andrew Porter", nation:"IRE '25" },
+            { pos:"Hooker", name:"Dan Sheehan", nation:"IRE '25" },
+            { pos:"Tighthead Prop", name:"Tadhg Furlong", nation:"IRE '25" },
+            { pos:"Lock", name:"Maro Itoje", nation:"ENG '25" },
+            { pos:"Lock", name:"Ollie Chessum", nation:"ENG '25" },
+            { pos:"Blindside Flanker", name:"Tadhg Beirne", nation:"IRE '25" },
+            { pos:"Openside Flanker", name:"Tom Curry", nation:"ENG '25" },
+            { pos:"Number 8", name:"Jack Conan", nation:"IRE '25" },
+            { pos:"Scrum-half", name:"Jamison Gibson-Park", nation:"IRE '25" },
+            { pos:"Fly-half", name:"Finn Russell", nation:"SCO '25" },
+            { pos:"Left Wing", name:"James Lowe", nation:"IRE '25" },
+            { pos:"Inside Centre", name:"Bundee Aki", nation:"IRE '25" },
+            { pos:"Outside Centre", name:"Huw Jones", nation:"SCO '25" },
+            { pos:"Right Wing", name:"Tommy Freeman", nation:"ENG '25" },
+            { pos:"Fullback", name:"Hugo Keenan", nation:"IRE '25" },
         ]
     },
 };
-
-function getBossRating(team) {
-    return Math.round(team.players.reduce((s,p) => s + p.r, 0) / team.players.length);
-}
-
-// Convert a BOSS_TEAMS entry into the position-map shape used by the
-// score breakdown system. Locks/props in BOSS_TEAMS share one "pos" label
-// for both starting slots, so split them across Lock 4/Lock 5 etc.
-function bossTeamToLineup(team) {
-    const lineup = {};
-    let lockSlot = 4, propSlot = 0;
-    const propOrder = ["Loosehead Prop", "Tighthead Prop"];
-    team.players.forEach(p => {
-        if (p.pos === "Lock") {
-            lineup["Lock " + lockSlot] = { name: p.name, score: p.r };
-            lockSlot++;
-        } else {
-            lineup[p.pos] = { name: p.name, score: p.r };
-        }
-    });
-    return lineup;
-}
-
-async function runBossStage() {
-    const userR = getUserRating();
-    const bossOrder = ["sanzaar","lions","alltimexv"];
-    const bossLabels = {
-        sanzaar:    "⚫ BONUS MATCH — SANZAAR BARBARIANS",
-        lions:      "🔴 BONUS MATCH — BRITISH & IRISH LIONS ALL TIME",
-        alltimexv:  "🏆 BONUS MATCH — ALL TIME WORLD XV"
-    };
-
-    for (const [bossIndex, bossKey] of bossOrder.entries()) {
-        const boss = BOSS_TEAMS[bossKey];
-        const bossR = getBossRating(boss);
-
-        await addLog("", null);
-        await addLog("─────────────────────────────────────", "var(--text-muted)");
-        await addLog(bossLabels[bossKey], "var(--brand-gold)");
-        await addLog(boss.flavour, "var(--text-muted)");
-        await addLog("", null);
-
-        // Show their lineup
-        await addLog("Their XV:", "var(--brand-gold)");
-        for (const p of boss.players) {
-            const shortPos = {
-                "Loosehead Prop":"Prop","Tighthead Prop":"Prop","Hooker":"Hooker",
-                "Lock":"Lock","Blindside Flanker":"Flanker","Openside Flanker":"Flanker",
-                "Number 8":"No.8","Scrum-half":"SH","Fly-half":"FH",
-                "Inside Centre":"Centre","Outside Centre":"Centre",
-                "Left Wing":"Wing","Right Wing":"Wing","Fullback":"FB"
-            }[p.pos] || p.pos;
-            await addLog(
-                shortPos.padEnd(8) + "  " + p.name.padEnd(28) + "  " + p.nation + "  (" + p.r + ")",
-                "var(--text-muted)"
-            );
-        }
-
-        await addLog("", null);
-        await addLog("Their average rating: " + bossR + "  |  Your rating: " + userR, null);
-        await addLog("", null);
-        const bossProb = winProbability(userR, bossR);
-        await addLog(oddsText(bossProb) + " (" + bossProb + "% chance of winning)", "var(--text-muted)");
-        await addLog("", null);
-        await addLog("=== KICK OFF ===", "var(--brand-gold)");
-
-        const res = simulateMatch(userR, bossR);
-        await addLog(
-            (res.won ? "WIN " : "LOSS") + "  " + res.userScore + "-" + res.oppScore,
-            res.won ? "#4ade80" : "#f87171"
-        );
-        matchHistory.push({ stage:"Ultimate " + (bossIndex + 1), opponent:boss.name, userScore:res.userScore, oppScore:res.oppScore, won:res.won });
-        await addScoreBreakdownLogForBoss(userTeam, res.userScore, bossTeamToLineup(boss), res.oppScore);
-
-        if (!res.won) {
-            await addLog("", null);
-            if (bossKey === "sanzaar") {
-                await addLog("The SANZAAR Barbarians were too strong. A valiant effort against the best of the Southern Hemisphere.", "#c5a059");
-                await showResultsSummary();
-                showShareButton("World Champions — Fell to SANZAAR Barbarians", "#c5a059");
-            } else if (bossKey === "lions") {
-                await addLog("The Lions held firm. You pushed the greatest British & Irish players in history to the limit.", "#c5a059");
-                await showResultsSummary();
-                showShareButton("World Champions — Fell to the Lions", "#c5a059");
-            } else {
-                await addLog("The All Time XV prevail. No team in history has beaten this side — and yours came closer than most.", "#c5a059");
-                await showResultsSummary();
-                showShareButton("World Champions — Fell to the All Time XV", "#c5a059");
-            }
-            restartBtn.classList.remove("hidden");
-            return;
-        }
-
-        if (bossKey === "sanzaar") {
-            await addLog("The SANZAAR Barbarians are beaten! Extraordinary. Now face the Lions...", "#4ade80");
-        } else if (bossKey === "lions") {
-            await addLog("The Lions fall! Your Hybrid XV has conquered British & Irish rugby royalty. One final challenge awaits...", "#4ade80");
-        } else {
-            await addLog("", null);
-            await addLog("THE ALL TIME XV ARE BEATEN.", "var(--brand-gold)");
-            await addLog("Your Hybrid XV has done the impossible. World Champions, and conquerors of the greatest teams ever assembled. Legendary.", "var(--brand-gold)");
-            await showResultsSummary();
-            showShareButton("LEGENDARY — Beat the All Time XV", "#c5a059");
-            restartBtn.classList.remove("hidden");
-            return;
-        }
-    }
-}
-
-// ============================================================
-// LIONS TOURS GAUNTLET, sequential ladder of real series deciders,
-// 1989 to 2025. A loss ends the run wherever it happens; clearing all
-// ten rungs leads into a trimmed one-fight boss stage against the
-// existing Lions All Time XV (reusing BOSS_TEAMS.lions as-is).
-// ============================================================
 const LIONS_SHORT_POS = {
     "Loosehead Prop":"Prop","Tighthead Prop":"Prop","Hooker":"Hooker",
     "Lock":"Lock","Blindside Flanker":"Flanker","Openside Flanker":"Flanker",
@@ -3914,7 +3798,7 @@ const LIONS_SHORT_POS = {
 };
 
 function getLionsTourRating(tour) {
-    return Math.round(tour.players.reduce((s,p) => s + p.r, 0) / tour.players.length);
+    return tour.teamRating;
 }
 
 async function runLionsGauntlet() {
