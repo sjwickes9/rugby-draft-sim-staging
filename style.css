@@ -31,13 +31,14 @@
     --terminal-text: #1f2937;
 }
 
-/* Lions Tours mode. Dark mode swaps the page surround for Lions red and
-   the gold accent for Irish green, the card panel keeps its existing navy
-   as-is. Light mode has no navy to convert, so the card panel stays white
-   and picks up a green border instead, with red taking over the accent
-   role gold normally plays. */
+/* Lions Tours mode. Dark mode keeps the page surround as the regular
+   navy, with the card panel itself picking up a muted, opaque red rather
+   than the vivid shirt red, which read as too much across a full page.
+   The gold accent still becomes Irish green. Light mode has no navy to
+   convert, so the card panel stays white and picks up a green border
+   instead, with red taking over the accent role gold normally plays. */
 .lions-theme {
-    --bg-main: #c8102e;
+    --bg-card: #5a1c22;
     --brand-gold: #00843d;
     --brand-gold-hover: #159354;
 }
@@ -1099,6 +1100,17 @@ button:disabled, button.disabled { opacity: 0.4; cursor: not-allowed; pointer-ev
     display: block; margin-bottom: 5px;
     white-space: pre-wrap; word-break: break-word;
 }
+
+/* Aligned lineup row used for the Lions Tours opposition XV. Flex columns
+   line up regardless of name length or accented characters, unlike the
+   old approach of padding strings out with spaces in a monospace font. */
+.lions-lineup-row {
+    display: flex; gap: 10px; margin-bottom: 5px;
+    font-size: 0.85rem; color: var(--text-muted);
+}
+.ll-pos { flex: 0 0 64px; }
+.ll-name { flex: 1 1 auto; min-width: 0; }
+.ll-nation { flex: 0 0 40px; text-align: right; }
 
 /* Two-column scorer breakdown (T/C/P) shown under each match result */
 .score-breakdown {

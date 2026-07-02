@@ -849,7 +849,7 @@ function populateManifestPreviewWindow() {
         "Inside Centre":"Centre", "Outside Centre":"Centre",
         "Left Wing":"Wing", "Right Wing":"Wing", "Fullback":"Fullback"
     };
-    let html = `<div class="manifest-header">Your Hybrid XV — replacing ${replacedTeam}</div>`;
+    let html = `<div class="manifest-header">Your Hybrid XV${appMode === "lions" ? "" : " replacing " + replacedTeam}</div>`;
     order.forEach((pos, i) => {
         const p = userTeam[pos];
         if (!p) return;
@@ -1327,7 +1327,7 @@ function generateShareGraphic() {
     ctx.fillText("RUGBY HYBRID XV", W/2, 110);
     ctx.font = "26px Georgia, serif";
     ctx.fillStyle = textMuted;
-    ctx.fillText("replacing " + (replacedTeam || "—"), W/2, 148);
+    ctx.fillText(appMode === "lions" ? "Lions Tours" : "replacing " + (replacedTeam || "—"), W/2, 148);
 
     // Divider
     ctx.strokeStyle = goldFaint;
@@ -3900,7 +3900,7 @@ async function runBossStage() {
 }
 
 // ============================================================
-// LIONS TOURS GAUNTLET — sequential ladder of real series deciders,
+// LIONS TOURS GAUNTLET, sequential ladder of real series deciders,
 // 1989 to 2025. A loss ends the run wherever it happens; clearing all
 // ten rungs leads into a trimmed one-fight boss stage against the
 // existing Lions All Time XV (reusing BOSS_TEAMS.lions as-is).
@@ -3927,16 +3927,18 @@ async function runLionsGauntlet() {
 
         await addLog("", null);
         await addLog("─────────────────────────────────────", "var(--text-muted)");
-        await addLog("RUNG " + (rung + 1) + " OF " + LIONS_TOUR_ORDER.length + " — " + year + " v " + tour.opponent, "var(--brand-gold)");
+        await addLog("RUNG " + (rung + 1) + " OF " + LIONS_TOUR_ORDER.length + ", " + year + " v " + tour.opponent, "var(--brand-gold)");
         await addLog("The series decider, " + tour.result + " on tour.", "var(--text-muted)");
         await addLog("", null);
 
         await addLog("Their XV:", "var(--brand-gold)");
         for (const p of tour.players) {
             const shortPos = LIONS_SHORT_POS[p.pos] || p.pos;
-            await addLog(
-                shortPos.padEnd(8) + "  " + p.name.padEnd(28) + "  " + p.nation + "  (" + p.r + ")",
-                "var(--text-muted)"
+            const nation = p.nation.replace(/\s*'\d\d$/, "");
+            await addLogBlock(
+                '<div class="lions-lineup-row"><span class="ll-pos">' + shortPos +
+                '</span><span class="ll-name">' + p.name +
+                '</span><span class="ll-nation">' + nation + '</span></div>'
             );
         }
 
@@ -3959,7 +3961,7 @@ async function runLionsGauntlet() {
             await addLog("", null);
             await addLog("The tour ends there. You reached rung " + (rung + 1) + " of " + LIONS_TOUR_ORDER.length + ", beating every Lions team up to " + (rung > 0 ? LIONS_TOUR_ORDER[rung - 1] : "none") + ".", "#f87171");
             await showResultsSummary();
-            showShareButton("Lions Tours — reached rung " + (rung + 1) + " of " + LIONS_TOUR_ORDER.length, "#c5a059");
+            showShareButton("Lions Tours, reached rung " + (rung + 1) + " of " + LIONS_TOUR_ORDER.length, "#c5a059");
             restartBtn.classList.remove("hidden");
             return;
         }
@@ -3979,15 +3981,17 @@ async function runLionsGauntlet() {
 
     await addLog("", null);
     await addLog("─────────────────────────────────────", "var(--text-muted)");
-    await addLog("🔴 BOSS — BRITISH & IRISH LIONS ALL TIME", "var(--brand-gold)");
+    await addLog("🔴 BOSS, BRITISH & IRISH LIONS ALL TIME", "var(--brand-gold)");
     await addLog(boss.flavour, "var(--text-muted)");
     await addLog("", null);
     await addLog("Their XV:", "var(--brand-gold)");
     for (const p of boss.players) {
         const shortPos = LIONS_SHORT_POS[p.pos] || p.pos;
-        await addLog(
-            shortPos.padEnd(8) + "  " + p.name.padEnd(28) + "  " + p.nation + "  (" + p.r + ")",
-            "var(--text-muted)"
+        const nation = p.nation.replace(/\s*'\d\d$/, "");
+        await addLogBlock(
+            '<div class="lions-lineup-row"><span class="ll-pos">' + shortPos +
+            '</span><span class="ll-name">' + p.name +
+            '</span><span class="ll-nation">' + nation + '</span></div>'
         );
     }
     await addLog("", null);
@@ -4008,11 +4012,11 @@ async function runLionsGauntlet() {
     if (!bres.won) {
         await addLog("", null);
         await addLog("The Lions All Time XV hold firm. Ten tours beaten, but the greatest Lions XV ever assembled was a step too far.", "#c5a059");
-        showShareButton("Lions Tours — fell to the Lions All Time XV", "#c5a059");
+        showShareButton("Lions Tours, fell to the Lions All Time XV", "#c5a059");
     } else {
         await addLog("", null);
         await addLog("THE LIONS ALL TIME XV ARE BEATEN. Every Lions tour since 1989, and the greatest Lions side ever picked. Legendary.", "var(--brand-gold)");
-        showShareButton("LEGENDARY — Beat the Lions All Time XV", "#c5a059");
+        showShareButton("LEGENDARY, Beat the Lions All Time XV", "#c5a059");
     }
     await showResultsSummary();
     restartBtn.classList.remove("hidden");
