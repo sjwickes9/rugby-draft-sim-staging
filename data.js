@@ -6493,3 +6493,17 @@ const allSquads = {
         ]
     }
 };
+
+// ============================================================
+// LIONS ONLY PLAYERS, capped on a Lions tour but never at a World Cup,
+// so they have no natural home in allSquads. Used by the Lions Tours
+// opposition lineups only.
+// ============================================================
+const lionsOnlyPlayers = {
+    "Ireland": [
+        {name:"Rob Henderson", positions:["Inside Centre", "Outside Centre"], rating:93, careerRating:93}
+    ],
+    "Wales": [
+        {name:"Richard Hibbard", positions:["Hooker"], rating:94, careerRating:94}
+    ]
+};

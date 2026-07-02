@@ -31,6 +31,24 @@
     --terminal-text: #1f2937;
 }
 
+/* Lions Tours mode. Dark mode swaps the page surround for Lions red and
+   the gold accent for Irish green, the card panel keeps its existing navy
+   as-is. Light mode has no navy to convert, so the card panel stays white
+   and picks up a green border instead, with red taking over the accent
+   role gold normally plays. */
+.lions-theme {
+    --bg-main: #c8102e;
+    --brand-gold: #00843d;
+    --brand-gold-hover: #159354;
+}
+
+.lions-theme.light-theme {
+    --bg-main: #ffffff;
+    --border-color: #00843d;
+    --brand-gold: #c8102e;
+    --brand-gold-hover: #a80d26;
+}
+
 * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
 
 body {

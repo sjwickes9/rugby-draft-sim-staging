@@ -79,7 +79,18 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <!-- SCREEN 1: SETUP -->
         <div id="setup-card" class="card-container">
 
-            <div class="explainer-box">
+            <div class="control-group">
+                <label>Game Mode</label>
+                <div id="mode-slider-track" class="slider-track">
+                    <div id="mode-handle" class="slider-handle"></div>
+                    <div class="slider-options">
+                        <div id="mode-rwc" class="slider-opt active">Rugby World Cups</div>
+                        <div id="mode-lions" class="slider-opt">Lions Tours</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="explainer-box" id="explainer-rwc">
                 <div class="explainer-lead">Build the ultimate rugby team from history then take them to the World Cup.</div>
                 <div class="explainer-body">Each turn, a random nation and year is spun — from the 1987 World Cup to 2023. Pick one player from that squad and place them on your pitch. Build a full XV across 15 spins, choosing wisely each time.</div>
                 <div class="explainer-body">Your XV replaces a real team in the bracket of whichever World Cup you choose to play. Once your squad is complete, simulate the tournament and see how far they go.</div>
@@ -93,7 +104,21 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                 </div>
             </div>
 
-            <div class="control-group">
+            <div class="explainer-box hidden" id="explainer-lions">
+                <div class="explainer-lead">Build a Lions XV from the four home nations then climb the ladder of Lions history.</div>
+                <div class="explainer-body">Each turn, a random home nation and year is spun. Pick one player from that squad and place them on your pitch. Build a full XV across 15 spins, choosing wisely each time.</div>
+                <div class="explainer-body">Once your squad is complete, you'll face the Lions Test team from every series decider since 1989, one tour at a time. Win and you move up a rung. Lose and the tour ends there.</div>
+                <div class="explainer-rules">
+                    <div class="explainer-rule">Draft only from England, Ireland, Scotland and Wales squads</div>
+                    <div class="explainer-rule">Ten rungs, one for every series decider from 1989 to 2025</div>
+                    <div class="explainer-rule">A single loss ends the tour, however far you've climbed</div>
+                    <div class="explainer-rule">Players can be placed out of position, but with a rating penalty</div>
+                    <div class="explainer-rule">Use respins to reject a squad and draw another</div>
+                    <div class="explainer-rule">Clear all ten rungs and the Lions All Time XV awaits</div>
+                </div>
+            </div>
+
+            <div class="control-group" id="tournament-year-group">
                 <label>Which World Cup?</label>
                 <select id="tournament-year-select" class="team-select">
                     <option value="2023">2023 — France</option>
@@ -110,7 +135,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                 <p class="control-hint">Choose which Rugby World Cup your Hybrid XV will compete in. The pool draw and bracket match what actually happened that year.</p>
             </div>
 
-            <div class="control-group">
+            <div class="control-group" id="team-select-group">
                 <label>Replace Which Team</label>
                 <select id="team-select" class="team-select"></select>
                 <p class="control-hint" id="team-select-hint">Your XV takes this team's place in the World Cup bracket.</p>
@@ -277,7 +302,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <button data-share="copy">Copy Link</button>
     </div>
 </div>
-<div id="version-footer">v1.2607021355</div>
+<div id="version-footer">v1.2607021530</div>
     <script src="data.js"></script>
     <script src="app.js"></script>
 </body>
