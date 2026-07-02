@@ -1283,45 +1283,36 @@ function generateShareGraphic() {
     const textMuted = "#9ca39c";
     const white = "#f3f4f6";
 
-    // ── Logo ──
-    if (shareCardLogo.complete && shareCardLogo.naturalWidth > 0) {
-        const logoH = 90;
-        const logoW = logoH * (shareCardLogo.naturalWidth / shareCardLogo.naturalHeight);
-        ctx.drawImage(shareCardLogo, W/2 - logoW/2, 20, logoW, logoH);
-    }
-
-    // ── Header ──
+    // ── Header — no logo here any more; it now sits as a large, faint
+    // watermark behind the pitch diagram instead ──
     ctx.textAlign = "center";
     ctx.fillStyle = gold;
     ctx.font = "bold 52px Georgia, serif";
-    ctx.fillText("RUGBY HYBRID XV", W/2, 190);
+    ctx.fillText("RUGBY HYBRID XV", W/2, 110);
     ctx.font = "26px Georgia, serif";
     ctx.fillStyle = textMuted;
-    ctx.fillText("replacing " + (replacedTeam || "—"), W/2, 228);
-
-    const tmeta = tournamentMeta[selectedTournamentYear];
-    ctx.font = "18px Arial";
-    ctx.fillStyle = textMuted;
-    ctx.fillText("Rugby World Cup " + selectedTournamentYear + (tmeta ? " — " + tmeta.host : ""), W/2, 254);
+    ctx.fillText("replacing " + (replacedTeam || "—"), W/2, 148);
 
     // Divider
     ctx.strokeStyle = goldFaint;
     ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(80, 275); ctx.lineTo(W-80, 275); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(80, 178); ctx.lineTo(W-80, 178); ctx.stroke();
 
-    // ── Result headline ──
-    ctx.font = "bold 38px Georgia, serif";
+    // ── Result headline — more breathing room below the divider than before ──
+    ctx.font = "bold 36px Georgia, serif";
     ctx.fillStyle = lastResultColour;
-    wrapCanvasText(ctx, lastResultHeadline || "Campaign complete", W/2, 330, W-160, 44);
+    wrapCanvasText(ctx, lastResultHeadline || "Campaign complete", W/2, 240, W-160, 44);
 
-    // ── Tournament summary: played/won/lost + top scorers ──
-    drawTournamentSummary(ctx, W, 380);
+    // ── Tournament line, played/won/lost, and top scorers — one host-themed box ──
+    const boxBottom = drawTournamentSummary(ctx, W, 330);
 
-    // ── Full-width pitch diagram with ratings + nation/year per player ──
-    drawMiniPitch(ctx, W/2, 1010, 920, 900);
+    // ── Full-width pitch diagram, matched to the box's own width, with a
+    // large faint logo watermark behind the roster ──
+    const pitchTop = boxBottom + 45;
+    drawMiniPitch(ctx, W/2, pitchTop + 450, W-120, 900);
 
-    // ── Results recap (replaces the old duplicate squad list) ──
-    const recapTop = 1520;
+    // ── Results recap ──
+    const recapTop = pitchTop + 900 + 60;
     ctx.textAlign = "left";
     ctx.font = "bold 24px Georgia, serif";
     ctx.fillStyle = gold;
@@ -1355,66 +1346,107 @@ function generateShareGraphic() {
         });
     }
 
-    // ── Footer ──
+    // ── Footer — bigger and in brand gold, rather than small and muted ──
     ctx.textAlign = "center";
-    ctx.font = "16px Arial";
-    ctx.fillStyle = textMuted;
-    ctx.fillText("rugbydraft.team", W/2, H - 40);
+    ctx.font = "bold 30px Arial";
+    ctx.fillStyle = gold;
+    ctx.fillText("www.rugbydraft.team", W/2, y + 30);
 
     shareOrDownloadCanvas(canvas);
 }
 
-// Draws a simplified rugby pitch with each position circle and player name
-// Draws the Played/Won/Lost stat row and the top scorer/try scorer lines
-// onto the share card canvas, using exactly the same data the in-app
-// results summary shows (via computeTournamentSummary), so the card never
-// disagrees with what the player already saw during the run.
+// Draws the tournament line, the Played/Won/Lost stat row, and the two top
+// scorers side by side, all inside one bordered box. Colours come from
+// simTheme — the same host-nation theming the sim screen's rating circles
+// and team panel already use — so the card always matches whatever the
+// player saw in-app, falling back to a neutral dark/gold look for any
+// year without a theme entry. Returns the box's bottom y so the caller
+// can position the pitch diagram directly beneath it.
 function drawTournamentSummary(ctx, W, top) {
     const { played, won, lost, topScorer, topTryScorer } = computeTournamentSummary();
-    const textMuted = "#9ca39c";
+    const gold = "#c5a059";
+    const boxMuted = "#dee8e0";
     const white = "#f3f4f6";
 
+    const boxLeft = 60, boxRight = W - 60;
+    const boxTop = top;
+    const boxBottom = boxTop + 260;
+    const radius = 14;
+
+    const yearTheme = (typeof simTheme !== "undefined") ? simTheme[selectedTournamentYear] : null;
+    const isLight = document.body.classList.contains("light-theme");
+    const spec = yearTheme ? yearTheme[isLight ? "light" : "dark"] : null;
+    const boxFill = (spec && spec.teamBg) || "rgba(255,255,255,0.04)";
+    const boxBorder = (spec && spec.teamBorder) || gold;
+
+    ctx.beginPath();
+    ctx.moveTo(boxLeft+radius, boxTop);
+    ctx.arcTo(boxRight, boxTop, boxRight, boxBottom, radius);
+    ctx.arcTo(boxRight, boxBottom, boxLeft, boxBottom, radius);
+    ctx.arcTo(boxLeft, boxBottom, boxLeft, boxTop, radius);
+    ctx.arcTo(boxLeft, boxTop, boxRight, boxTop, radius);
+    ctx.closePath();
+    ctx.fillStyle = boxFill;
+    ctx.fill();
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = boxBorder;
+    ctx.stroke();
+
+    const tmeta = tournamentMeta[selectedTournamentYear];
+    ctx.textAlign = "center";
+    ctx.font = "bold 24px Arial";
+    ctx.fillStyle = gold;
+    ctx.fillText("RUGBY WORLD CUP " + selectedTournamentYear + (tmeta ? " - " + tmeta.host.toUpperCase() : ""), W/2, boxTop + 40);
+
+    let by = boxTop + 86;
     const cols = [
         { label: "Played", value: played, colour: white },
         { label: "Won",    value: won,    colour: "#4ade80" },
         { label: "Lost",   value: lost,   colour: "#f87171" },
     ];
-    const colWidth = (W - 160) / 3;
+    const colWidth = (boxRight - boxLeft) / 3;
     cols.forEach((col, i) => {
-        const cx = 80 + colWidth * i + colWidth / 2;
-        ctx.textAlign = "center";
-        ctx.font = "bold 40px Arial";
+        const cx = boxLeft + colWidth * i + colWidth / 2;
+        ctx.font = "bold 44px Arial";
         ctx.fillStyle = col.colour;
-        ctx.fillText(String(col.value), cx, top + 40);
-        ctx.font = "13px Arial";
-        ctx.fillStyle = textMuted;
-        ctx.fillText(col.label.toUpperCase(), cx, top + 62);
+        ctx.fillText(String(col.value), cx, by);
+        ctx.font = "15px Arial";
+        ctx.fillStyle = boxMuted;
+        ctx.fillText(col.label.toUpperCase(), cx, by + 30);
     });
 
-    let leaderY = top + 100;
-    ctx.font = "16px Arial";
-    if (topScorer && topScorer[1].points > 0) {
-        ctx.textAlign = "right";
-        ctx.fillStyle = textMuted;
-        ctx.fillText("Top Points Scorer", W/2 - 10, leaderY);
-        ctx.textAlign = "left";
-        ctx.fillStyle = white;
-        ctx.font = "bold 16px Arial";
-        ctx.fillText(topScorer[0] + " — " + topScorer[1].points + " pts", W/2 + 10, leaderY);
-        leaderY += 26;
-    }
+    by += 53;
+    ctx.strokeStyle = "rgba(255,255,255,0.15)";
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(boxLeft+40, by); ctx.lineTo(boxRight-40, by); ctx.stroke();
+
+    by += 30;
+    const half = (boxRight - boxLeft) / 2;
+    const lx = boxLeft + half/2;
+    const rx = boxLeft + half + half/2;
+
+    ctx.font = "20px Arial";
+    ctx.fillStyle = boxMuted;
+    if (topScorer && topScorer[1].points > 0) ctx.fillText("TOP POINTS SCORER", lx, by);
+    if (topTryScorer && topTryScorer[1].tries > 0) ctx.fillText("TOP TRY SCORER", rx, by);
+
+    by += 34;
+    ctx.font = "bold 26px Arial";
+    ctx.fillStyle = white;
+    if (topScorer && topScorer[1].points > 0) ctx.fillText(topScorer[0], lx, by);
+    if (topTryScorer && topTryScorer[1].tries > 0) ctx.fillText(topTryScorer[0], rx, by);
+
+    by += 24;
+    ctx.font = "bold 24px Arial";
+    ctx.fillStyle = gold;
+    if (topScorer && topScorer[1].points > 0) ctx.fillText(topScorer[1].points + " pts", lx, by);
     if (topTryScorer && topTryScorer[1].tries > 0) {
-        ctx.textAlign = "right";
-        ctx.fillStyle = textMuted;
-        ctx.font = "16px Arial";
-        ctx.fillText("Top Try Scorer", W/2 - 10, leaderY);
-        ctx.textAlign = "left";
-        ctx.fillStyle = white;
-        ctx.font = "bold 16px Arial";
         const tries = topTryScorer[1].tries;
-        ctx.fillText(topTryScorer[0] + " — " + tries + (tries === 1 ? " try" : " tries"), W/2 + 10, leaderY);
+        ctx.fillText(tries + (tries === 1 ? " try" : " tries"), rx, by);
     }
+
     ctx.textAlign = "center"; // reset for subsequent drawing
+    return boxBottom;
 }
 
 function drawMiniPitch(ctx, cx, cy, w, h) {
@@ -1437,9 +1469,21 @@ function drawMiniPitch(ctx, cx, cy, w, h) {
         ctx.stroke();
     });
 
+    // Large, faint logo watermark behind the roster — drawn before the
+    // circles/text below so it always sits underneath them.
+    if (shareCardLogo.complete && shareCardLogo.naturalWidth > 0) {
+        const wmSize = 620;
+        ctx.save();
+        ctx.globalAlpha = 0.10;
+        ctx.drawImage(shareCardLogo, cx - wmSize/2, cy - wmSize/2, wmSize, wmSize);
+        ctx.restore();
+    }
+
     // Node layout as fractions of pitch width/height, matching the live pitch.
-    // Six distinct row-bands, evenly spaced so a circle + its two lines of
-    // text never collides with the row above or below it.
+    // Wingers sit inset from the pitch edge (rather than right against it)
+    // and dropped to sit halfway between the centres and the fullback, so
+    // a wide name never has to shrink just because the position is drawn
+    // close to the border.
     const nodes = [
         { pos:"Loosehead Prop", xf:0.20, yf:0.07 },
         { pos:"Hooker",         xf:0.50, yf:0.07 },
@@ -1451,10 +1495,10 @@ function drawMiniPitch(ctx, cx, cy, w, h) {
         { pos:"Openside Flanker", xf:0.82, yf:0.402 },
         { pos:"Scrum-half",    xf:0.34, yf:0.568 },
         { pos:"Fly-half",      xf:0.66, yf:0.568 },
-        { pos:"Left Wing",     xf:0.07, yf:0.734 },
+        { pos:"Left Wing",     xf:0.166, yf:0.817 },
         { pos:"Inside Centre", xf:0.36, yf:0.734 },
         { pos:"Outside Centre",xf:0.64, yf:0.734 },
-        { pos:"Right Wing",    xf:0.93, yf:0.734 },
+        { pos:"Right Wing",    xf:0.834, yf:0.817 },
         { pos:"Fullback",      xf:0.50, yf:0.90 },
     ];
 
@@ -1466,9 +1510,9 @@ function drawMiniPitch(ctx, cx, cy, w, h) {
         const p = userTeam[n.pos];
 
         // How much horizontal room this node actually has before its text
-        // would run off the canvas edge (with a margin either side).
-        const distToCanvasEdge = Math.min(x, ctx.canvas.width - x);
-        const maxTextWidth = Math.max(100, distToCanvasEdge * 2 - 30);
+        // would run off the pitch box's own edge (with a margin either side).
+        const distToEdge = Math.min(x - left, (left + w) - x);
+        const maxTextWidth = Math.max(100, distToEdge * 2 - 30);
 
         ctx.beginPath();
         ctx.arc(x, y, r, 0, Math.PI*2);
