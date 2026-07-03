@@ -3694,11 +3694,10 @@ async function runBossStage() {
         await addLog("Their XV:", "var(--brand-gold)");
         for (const p of boss.players) {
             const shortPos = LIONS_SHORT_POS[p.pos] || p.pos;
-            const nation = p.nation.replace(/\s*'\d\d$/, "");
             await addLogBlock(
                 '<div class="lions-lineup-row"><span class="ll-pos">' + shortPos +
                 '</span><span class="ll-name">' + p.name +
-                '</span><span class="ll-nation">' + nation +
+                '</span><span class="ll-nation">' + p.nation +
                 '</span><span class="ll-rating">' + p.r + '</span></div>'
             );
         }

@@ -68,8 +68,12 @@
     --brand-gold-hover: #a80d26;
 }
 
-.lions-theme.light-theme .btn-primary {
+.lions-theme:not(.light-theme) #setup-card .btn-primary,
+.lions-theme:not(.light-theme) #setup-card .slider-opt.active,
+.lions-theme.light-theme .btn-primary,
+.lions-theme.light-theme .slider-opt.active {
     color: #ffffff;
+    font-weight: 700;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
@@ -1138,7 +1142,7 @@ button:disabled, button.disabled { opacity: 0.4; cursor: not-allowed; pointer-ev
 
 .ll-pos { flex: 0 0 64px; }
 .ll-name { flex: 0 0 190px; min-width: 0; }
-.ll-nation { flex: 0 0 40px; text-align: left; }
+.ll-nation { flex: 0 0 62px; text-align: left; }
 .ll-rating { flex: 0 0 30px; text-align: right; }
 
 /* Two-column scorer breakdown (T/C/P) shown under each match result */
