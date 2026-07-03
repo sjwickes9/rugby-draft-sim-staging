@@ -1144,7 +1144,13 @@ button:disabled, button.disabled { opacity: 0.4; cursor: not-allowed; pointer-ev
 }
 
 .ll-pos { flex: 0 0 64px; }
-.ll-name { flex: 0 0 190px; min-width: 0; }
+.ll-name {
+    flex: 0 1 190px;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
 .ll-nation { flex: 0 0 62px; text-align: left; }
 .ll-rating { flex: 0 0 30px; text-align: right; }
 
