@@ -230,6 +230,12 @@ const simResults      = document.getElementById("sim-results");
 const restartBtn      = document.getElementById("restart-btn");
 const manifestTeamBox = document.getElementById("manifest-team-box");
 
+// Staging-only dev mode: detected by URL pattern so the same app.js works
+// correctly on both sites without manual edits. Dev options simply won't
+// exist when this file is served from production.
+const IS_STAGING_ENV = location.hostname.includes("github.io") &&
+    location.pathname.includes("rugby-draft-sim-staging");
+
 // ============================================================
 // SETUP SCREEN
 // ============================================================
@@ -240,8 +246,6 @@ document.addEventListener("DOMContentLoaded", () => {
     // Staging-only dev mode: detected by URL pattern so the same app.js
     // works correctly on both sites without manual edits. The Cymru
     // option simply won't exist when this file is served from production.
-    const IS_STAGING_ENV = location.hostname.includes("github.io") &&
-        location.pathname.includes("rugby-draft-sim-staging");
 
     function populateTeamSelect(year) {
         if (!teamSelect) return;
@@ -267,6 +271,14 @@ document.addEventListener("DOMContentLoaded", () => {
         yearSelect.addEventListener("change", () => populateTeamSelect(yearSelect.value));
     }
     populateTeamSelect(yearSelect ? yearSelect.value : "2023");
+
+    const lionsDevBtn = document.getElementById("lions-dev-btn");
+    if (lionsDevBtn) {
+        lionsDevBtn.addEventListener("click", e => {
+            e.preventDefault();
+            activateLionsDevMode();
+        });
+    }
 
     document.getElementById("start-game-btn").addEventListener("click", e => {
         e.preventDefault();
@@ -346,6 +358,37 @@ function activateCymruMode() {
     if (headerResetBtn) headerResetBtn.textContent = "Abandon Campaign";
 }
 
+function activateLionsDevMode() {
+    // Fill userTeam with 99-rated Lions legends, reusing the same roster as
+    // the Lions All Time XV boss fight so there's only one place these
+    // names are maintained. Locks share one "Lock" label in that data, so
+    // split them across Lock 4/Lock 5 the same way bossTeamToLineup does.
+    let lockSlot = 4;
+    BOSS_TEAMS.lions.players.forEach(p => {
+        const pos = p.pos === "Lock" ? "Lock " + (lockSlot++) : p.pos;
+        userTeam[pos] = {
+            name: p.name, score: 99, nation: p.nation,
+            outOfPosition: false, penalty: 0, originalRating: 99,
+            kicker: false
+        };
+    });
+
+    // Move straight to the simulation screen, exactly as a real draft would
+    // once the 15th player is placed.
+    setupCard.classList.add("hidden");
+    draftDashboard.classList.add("hidden");
+    simDashboard.classList.remove("hidden");
+    window.scrollTo(0, 0);
+    populateManifestPreviewWindow();
+    populatePreKickoffSummary();
+    populateTournamentTitle();
+    applyHostTheme();
+    showTip("simIntro");
+
+    const headerResetBtn2 = document.getElementById("header-reset-btn");
+    if (headerResetBtn2) headerResetBtn2.textContent = "Abandon Campaign";
+}
+
 
 // ============================================================
 // SLIDERS
@@ -374,6 +417,8 @@ setupSlider("mode-slider-track", "mode-handle", idx => {
     document.getElementById("tournament-year-group").classList.toggle("hidden", appMode === "lions");
     document.getElementById("team-select-group").classList.toggle("hidden", appMode === "lions");
     document.body.classList.toggle("lions-theme", appMode === "lions");
+    const lionsDevBtn = document.getElementById("lions-dev-btn");
+    if (lionsDevBtn) lionsDevBtn.classList.toggle("hidden", !(appMode === "lions" && IS_STAGING_ENV));
     if (runSimBtn) runSimBtn.textContent = appMode === "lions" ? "Kick Off Tour" : "Kick Off Tournament";
     if (variantCompLabel) variantCompLabel.textContent = appMode === "lions" ? "Tour Rating" : "Tournament Rating";
     if (variantHint && !isCareerMode) variantHint.textContent = appMode === "lions"
@@ -875,10 +920,14 @@ function populateManifestPreviewWindow() {
 function populateTournamentTitle() {
     const box = document.getElementById("tournament-title");
     if (!box) return;
+    if (appMode === "lions") {
+        box.innerHTML = `<div class="tt-line1">Lions Tour, Ultimate Edition</div>`;
+        return;
+    }
     const meta = tournamentMeta[selectedTournamentYear];
     const host = meta ? meta.host : "";
     box.innerHTML = `
-        <div class="tt-line1">Rugby World Cup ${selectedTournamentYear}${host ? " — " + host : ""}</div>
+        <div class="tt-line1">Rugby World Cup ${selectedTournamentYear}${host ? ", " + host : ""}</div>
     `;
 }
 
@@ -900,7 +949,7 @@ function applyHostTheme() {
         "--host-ratings-bg","--host-ratings-text","--host-ready-header",
         "--host-slider-colour","--host-button-bg","--host-button-text"];
 
-    const yearTheme = (typeof simTheme !== "undefined") ? simTheme[selectedTournamentYear] : null;
+    const yearTheme = (typeof simTheme !== "undefined") ? simTheme[appMode === "lions" ? "1999" : selectedTournamentYear] : null;
     if (!yearTheme) {
         dashboard.classList.remove("host-themed");
         allVars.forEach(v => dashboard.style.removeProperty(v));
@@ -1410,7 +1459,7 @@ function drawTournamentSummary(ctx, W, top) {
     const boxBottom = boxTop + 260;
     const radius = 14;
 
-    const yearTheme = (typeof simTheme !== "undefined") ? simTheme[selectedTournamentYear] : null;
+    const yearTheme = (typeof simTheme !== "undefined") ? simTheme[appMode === "lions" ? "1999" : selectedTournamentYear] : null;
     const isLight = document.body.classList.contains("light-theme");
     const spec = yearTheme ? yearTheme[isLight ? "light" : "dark"] : null;
     const boxFill = (spec && spec.teamBg) || "rgba(255,255,255,0.04)";
@@ -2170,7 +2219,8 @@ async function runTournamentSimulation() {
     await addLog("=== QUARTER-FINAL vs " + qfOpp + " ===", "var(--brand-gold)");
     const qfOppR = activeTeamStrengths[qfOpp]||80;
     const qfProb = winProbability(effectiveR, qfOppR);
-    await addLog(oddsText(qfProb) + " (" + qfProb + "% chance of winning)", "var(--text-muted)");
+    await addLog(oddsText(qfProb), "var(--text-muted)");
+    await addLog(qfProb + "% chance of winning", "var(--text-muted)");
     const qf = simulateMatch(effectiveR, qfOppR);
     await addLog((qf.won?"WIN ":"LOSS") + "  " + qf.userScore + "-" + qf.oppScore, qf.won?"#4ade80":"#f87171");
     matchHistory.push({ stage:"QF", opponent:qfOpp, userScore:qf.userScore, oppScore:qf.oppScore, won:qf.won });
@@ -2202,7 +2252,8 @@ async function runTournamentSimulation() {
     await addLog("=== SEMI-FINAL vs " + sfOpp + " ===", "var(--brand-gold)");
     const sfOppR = activeTeamStrengths[sfOpp]||86;
     const sfProb = winProbability(effectiveR, sfOppR);
-    await addLog(oddsText(sfProb) + " (" + sfProb + "% chance of winning)", "var(--text-muted)");
+    await addLog(oddsText(sfProb), "var(--text-muted)");
+    await addLog(sfProb + "% chance of winning", "var(--text-muted)");
     const sf = simulateMatch(effectiveR, sfOppR);
     await addLog((sf.won?"WIN ":"LOSS") + "  " + sf.userScore + "-" + sf.oppScore, sf.won?"#4ade80":"#f87171");
     matchHistory.push({ stage:"SF", opponent:sfOpp, userScore:sf.userScore, oppScore:sf.oppScore, won:sf.won });
@@ -2213,7 +2264,8 @@ async function runTournamentSimulation() {
         await addLog("=== THIRD-PLACE PLAY-OFF vs " + tpOpp + " ===", "var(--brand-gold)");
         const tpOppR = activeTeamStrengths[tpOpp]||84;
         const tpProb = winProbability(effectiveR, tpOppR);
-        await addLog(oddsText(tpProb) + " (" + tpProb + "% chance of winning)", "var(--text-muted)");
+        await addLog(oddsText(tpProb), "var(--text-muted)");
+        await addLog(tpProb + "% chance of winning", "var(--text-muted)");
         const tp = simulateMatch(effectiveR, tpOppR);
         await addLog((tp.won?"WIN ":"LOSS") + "  " + tp.userScore + "-" + tp.oppScore, tp.won?"#4ade80":"#f87171");
         matchHistory.push({ stage:"3rd Place", opponent:tpOpp, userScore:tp.userScore, oppScore:tp.oppScore, won:tp.won });
@@ -2229,7 +2281,8 @@ async function runTournamentSimulation() {
     await addLog("=== FINAL vs " + finOpp + " ===", "var(--brand-gold)");
     const finOppR = activeTeamStrengths[finOpp]||90;
     const finProb = winProbability(effectiveR, finOppR);
-    await addLog(oddsText(finProb) + " (" + finProb + "% chance of winning)", "var(--text-muted)");
+    await addLog(oddsText(finProb), "var(--text-muted)");
+    await addLog(finProb + "% chance of winning", "var(--text-muted)");
     const fin = simulateMatch(effectiveR, finOppR);
     await addLog((fin.won?"WIN ":"LOSS") + "  " + fin.userScore + "-" + fin.oppScore, fin.won?"#4ade80":"#f87171");
     matchHistory.push({ stage:"Final", opponent:finOpp, userScore:fin.userScore, oppScore:fin.oppScore, won:fin.won });
@@ -2440,7 +2493,8 @@ async function runTournamentSimulation1999() {
         await addLog("Lose this and the tournament is over.", "var(--text-muted)");
         const poOppR = activeTeamStrengths[poOpp] || 75;
         const poProb = winProbability(userR, poOppR);
-        await addLog(oddsText(poProb) + " (" + poProb + "% chance of winning)", "var(--text-muted)");
+        await addLog(oddsText(poProb), "var(--text-muted)");
+        await addLog(poProb + "% chance of winning", "var(--text-muted)");
         const po = simulateMatch(userR, poOppR);
         await addLog((po.won?"WIN ":"LOSS") + "  " + po.userScore + "-" + po.oppScore, po.won?"#4ade80":"#f87171");
         matchHistory.push({ stage:"Play-off", opponent:poOpp, userScore:po.userScore, oppScore:po.oppScore, won:po.won });
@@ -2482,7 +2536,8 @@ async function runTournamentSimulation1999() {
     await addLog("=== QUARTER-FINAL (" + userQF.label + ") vs " + qfOpp + " ===", "var(--brand-gold)");
     const qfOppR = activeTeamStrengths[qfOpp] || 80;
     const qfProb = winProbability(effectiveR, qfOppR);
-    await addLog(oddsText(qfProb) + " (" + qfProb + "% chance of winning)", "var(--text-muted)");
+    await addLog(oddsText(qfProb), "var(--text-muted)");
+    await addLog(qfProb + "% chance of winning", "var(--text-muted)");
     const qf = simulateMatch(effectiveR, qfOppR);
     await addLog((qf.won?"WIN ":"LOSS") + "  " + qf.userScore + "-" + qf.oppScore, qf.won?"#4ade80":"#f87171");
     matchHistory.push({ stage:"QF", opponent:qfOpp, userScore:qf.userScore, oppScore:qf.oppScore, won:qf.won });
@@ -2520,7 +2575,8 @@ async function runTournamentSimulation1999() {
     await addLog("=== SEMI-FINAL vs " + sfOpp + " ===", "var(--brand-gold)");
     const sfOppR = activeTeamStrengths[sfOpp] || 82;
     const sfProb = winProbability(effectiveR, sfOppR);
-    await addLog(oddsText(sfProb) + " (" + sfProb + "% chance of winning)", "var(--text-muted)");
+    await addLog(oddsText(sfProb), "var(--text-muted)");
+    await addLog(sfProb + "% chance of winning", "var(--text-muted)");
     const sf = simulateMatch(effectiveR, sfOppR);
     await addLog((sf.won?"WIN ":"LOSS") + "  " + sf.userScore + "-" + sf.oppScore, sf.won?"#4ade80":"#f87171");
     matchHistory.push({ stage:"SF", opponent:sfOpp, userScore:sf.userScore, oppScore:sf.oppScore, won:sf.won });
@@ -2540,7 +2596,8 @@ async function runTournamentSimulation1999() {
         await addLog("=== 3RD PLACE PLAY-OFF vs " + otherSFLoser + " ===", "var(--brand-gold)");
         const tpOppR = activeTeamStrengths[otherSFLoser] || 80;
         const tpProb = winProbability(effectiveR, tpOppR);
-        await addLog(oddsText(tpProb) + " (" + tpProb + "% chance of winning)", "var(--text-muted)");
+        await addLog(oddsText(tpProb), "var(--text-muted)");
+        await addLog(tpProb + "% chance of winning", "var(--text-muted)");
         const tp = simulateMatch(effectiveR, tpOppR);
         await addLog((tp.won?"WIN ":"LOSS") + "  " + tp.userScore + "-" + tp.oppScore, tp.won?"#4ade80":"#f87171");
         matchHistory.push({ stage:"3rd Place", opponent:otherSFLoser, userScore:tp.userScore, oppScore:tp.oppScore, won:tp.won });
@@ -2556,7 +2613,8 @@ async function runTournamentSimulation1999() {
     await addLog("=== FINAL vs " + otherSFWinner + " ===", "var(--brand-gold)");
     const finOppR = activeTeamStrengths[otherSFWinner] || 85;
     const finProb = winProbability(effectiveR, finOppR);
-    await addLog(oddsText(finProb) + " (" + finProb + "% chance of winning)", "var(--text-muted)");
+    await addLog(oddsText(finProb), "var(--text-muted)");
+    await addLog(finProb + "% chance of winning", "var(--text-muted)");
     const fin = simulateMatch(effectiveR, finOppR);
     await addLog((fin.won?"WIN ":"LOSS") + "  " + fin.userScore + "-" + fin.oppScore, fin.won?"#4ade80":"#f87171");
     matchHistory.push({ stage:"Final", opponent:otherSFWinner, userScore:fin.userScore, oppScore:fin.oppScore, won:fin.won });
@@ -2728,7 +2786,8 @@ async function runTournamentSimulation1995() {
     await addLog("=== QUARTER-FINAL vs " + qfOpp + " ===", "var(--brand-gold)");
     const qfOppR = activeTeamStrengths[qfOpp] || 80;
     const qfProb = winProbability(effectiveR, qfOppR);
-    await addLog(oddsText(qfProb) + " (" + qfProb + "% chance of winning)", "var(--text-muted)");
+    await addLog(oddsText(qfProb), "var(--text-muted)");
+    await addLog(qfProb + "% chance of winning", "var(--text-muted)");
     const qf = simulateMatch(effectiveR, qfOppR);
     await addLog((qf.won?"WIN ":"LOSS") + "  " + qf.userScore + "-" + qf.oppScore, qf.won?"#4ade80":"#f87171");
     matchHistory.push({ stage:"QF", opponent:qfOpp, userScore:qf.userScore, oppScore:qf.oppScore, won:qf.won });
@@ -2765,7 +2824,8 @@ async function runTournamentSimulation1995() {
     await addLog("=== SEMI-FINAL vs " + sfOpp + " ===", "var(--brand-gold)");
     const sfOppR = activeTeamStrengths[sfOpp] || 82;
     const sfProb = winProbability(effectiveR, sfOppR);
-    await addLog(oddsText(sfProb) + " (" + sfProb + "% chance of winning)", "var(--text-muted)");
+    await addLog(oddsText(sfProb), "var(--text-muted)");
+    await addLog(sfProb + "% chance of winning", "var(--text-muted)");
     const sf = simulateMatch(effectiveR, sfOppR);
     await addLog((sf.won?"WIN ":"LOSS") + "  " + sf.userScore + "-" + sf.oppScore, sf.won?"#4ade80":"#f87171");
     matchHistory.push({ stage:"SF", opponent:sfOpp, userScore:sf.userScore, oppScore:sf.oppScore, won:sf.won });
@@ -2789,7 +2849,8 @@ async function runTournamentSimulation1995() {
         await addLog("=== 3RD PLACE PLAY-OFF vs " + otherSFLoser + " ===", "var(--brand-gold)");
         const tpOppR = activeTeamStrengths[otherSFLoser] || 80;
         const tpProb = winProbability(effectiveR, tpOppR);
-        await addLog(oddsText(tpProb) + " (" + tpProb + "% chance of winning)", "var(--text-muted)");
+        await addLog(oddsText(tpProb), "var(--text-muted)");
+        await addLog(tpProb + "% chance of winning", "var(--text-muted)");
         const tp = simulateMatch(effectiveR, tpOppR);
         await addLog((tp.won?"WIN ":"LOSS") + "  " + tp.userScore + "-" + tp.oppScore, tp.won?"#4ade80":"#f87171");
         matchHistory.push({ stage:"3rd Place", opponent:otherSFLoser, userScore:tp.userScore, oppScore:tp.oppScore, won:tp.won });
@@ -2805,7 +2866,8 @@ async function runTournamentSimulation1995() {
     await addLog("=== FINAL vs " + otherSFWinner + " ===", "var(--brand-gold)");
     const finOppR = activeTeamStrengths[otherSFWinner] || 85;
     const finProb = winProbability(effectiveR, finOppR);
-    await addLog(oddsText(finProb) + " (" + finProb + "% chance of winning)", "var(--text-muted)");
+    await addLog(oddsText(finProb), "var(--text-muted)");
+    await addLog(finProb + "% chance of winning", "var(--text-muted)");
     const fin = simulateMatch(effectiveR, finOppR);
     await addLog((fin.won?"WIN ":"LOSS") + "  " + fin.userScore + "-" + fin.oppScore, fin.won?"#4ade80":"#f87171");
     matchHistory.push({ stage:"Final", opponent:otherSFWinner, userScore:fin.userScore, oppScore:fin.oppScore, won:fin.won });
@@ -2984,7 +3046,8 @@ async function runTournamentSimulation1991() {
     await addLog("=== QUARTER-FINAL vs " + qfOpp + " ===", "var(--brand-gold)");
     const qfOppR = activeTeamStrengths[qfOpp] || 80;
     const qfProb = winProbability(effectiveR, qfOppR);
-    await addLog(oddsText(qfProb) + " (" + qfProb + "% chance of winning)", "var(--text-muted)");
+    await addLog(oddsText(qfProb), "var(--text-muted)");
+    await addLog(qfProb + "% chance of winning", "var(--text-muted)");
     const qf = simulateMatch(effectiveR, qfOppR);
     await addLog((qf.won?"WIN ":"LOSS") + "  " + qf.userScore + "-" + qf.oppScore, qf.won?"#4ade80":"#f87171");
     matchHistory.push({ stage:"QF", opponent:qfOpp, userScore:qf.userScore, oppScore:qf.oppScore, won:qf.won });
@@ -3020,7 +3083,8 @@ async function runTournamentSimulation1991() {
     await addLog("=== SEMI-FINAL vs " + sfOpp + " ===", "var(--brand-gold)");
     const sfOppR = activeTeamStrengths[sfOpp] || 82;
     const sfProb = winProbability(effectiveR, sfOppR);
-    await addLog(oddsText(sfProb) + " (" + sfProb + "% chance of winning)", "var(--text-muted)");
+    await addLog(oddsText(sfProb), "var(--text-muted)");
+    await addLog(sfProb + "% chance of winning", "var(--text-muted)");
     const sf = simulateMatch(effectiveR, sfOppR);
     await addLog((sf.won?"WIN ":"LOSS") + "  " + sf.userScore + "-" + sf.oppScore, sf.won?"#4ade80":"#f87171");
     matchHistory.push({ stage:"SF", opponent:sfOpp, userScore:sf.userScore, oppScore:sf.oppScore, won:sf.won });
@@ -3044,7 +3108,8 @@ async function runTournamentSimulation1991() {
         await addLog("=== 3RD PLACE PLAY-OFF vs " + otherSFLoser + " ===", "var(--brand-gold)");
         const tpOppR = activeTeamStrengths[otherSFLoser] || 80;
         const tpProb = winProbability(effectiveR, tpOppR);
-        await addLog(oddsText(tpProb) + " (" + tpProb + "% chance of winning)", "var(--text-muted)");
+        await addLog(oddsText(tpProb), "var(--text-muted)");
+        await addLog(tpProb + "% chance of winning", "var(--text-muted)");
         const tp = simulateMatch(effectiveR, tpOppR);
         await addLog((tp.won?"WIN ":"LOSS") + "  " + tp.userScore + "-" + tp.oppScore, tp.won?"#4ade80":"#f87171");
         matchHistory.push({ stage:"3rd Place", opponent:otherSFLoser, userScore:tp.userScore, oppScore:tp.oppScore, won:tp.won });
@@ -3060,7 +3125,8 @@ async function runTournamentSimulation1991() {
     await addLog("=== FINAL vs " + otherSFWinner + " ===", "var(--brand-gold)");
     const finOppR = activeTeamStrengths[otherSFWinner] || 85;
     const finProb = winProbability(effectiveR, finOppR);
-    await addLog(oddsText(finProb) + " (" + finProb + "% chance of winning)", "var(--text-muted)");
+    await addLog(oddsText(finProb), "var(--text-muted)");
+    await addLog(finProb + "% chance of winning", "var(--text-muted)");
     const fin = simulateMatch(effectiveR, finOppR);
     await addLog((fin.won?"WIN ":"LOSS") + "  " + fin.userScore + "-" + fin.oppScore, fin.won?"#4ade80":"#f87171");
     matchHistory.push({ stage:"Final", opponent:otherSFWinner, userScore:fin.userScore, oppScore:fin.oppScore, won:fin.won });
@@ -3267,7 +3333,8 @@ async function runTournamentSimulation1987() {
     await addLog("=== QUARTER-FINAL vs " + qfOpp + " ===", "var(--brand-gold)");
     const qfOppR = activeTeamStrengths[qfOpp] || 80;
     const qfProb = winProbability(effectiveR, qfOppR);
-    await addLog(oddsText(qfProb) + " (" + qfProb + "% chance of winning)", "var(--text-muted)");
+    await addLog(oddsText(qfProb), "var(--text-muted)");
+    await addLog(qfProb + "% chance of winning", "var(--text-muted)");
     const qf = simulateMatch(effectiveR, qfOppR);
     await addLog((qf.won?"WIN ":"LOSS") + "  " + qf.userScore + "-" + qf.oppScore, qf.won?"#4ade80":"#f87171");
     matchHistory.push({ stage:"QF", opponent:qfOpp, userScore:qf.userScore, oppScore:qf.oppScore, won:qf.won });
@@ -3306,7 +3373,8 @@ async function runTournamentSimulation1987() {
     await addLog("=== SEMI-FINAL vs " + sfOpp + " ===", "var(--brand-gold)");
     const sfOppR = activeTeamStrengths[sfOpp] || 82;
     const sfProb = winProbability(effectiveR, sfOppR);
-    await addLog(oddsText(sfProb) + " (" + sfProb + "% chance of winning)", "var(--text-muted)");
+    await addLog(oddsText(sfProb), "var(--text-muted)");
+    await addLog(sfProb + "% chance of winning", "var(--text-muted)");
     const sf = simulateMatch(effectiveR, sfOppR);
     await addLog((sf.won?"WIN ":"LOSS") + "  " + sf.userScore + "-" + sf.oppScore, sf.won?"#4ade80":"#f87171");
     matchHistory.push({ stage:"SF", opponent:sfOpp, userScore:sf.userScore, oppScore:sf.oppScore, won:sf.won });
@@ -3330,7 +3398,8 @@ async function runTournamentSimulation1987() {
         await addLog("=== 3RD PLACE PLAY-OFF vs " + otherSFLoser + " ===", "var(--brand-gold)");
         const tpOppR = activeTeamStrengths[otherSFLoser] || 80;
         const tpProb = winProbability(effectiveR, tpOppR);
-        await addLog(oddsText(tpProb) + " (" + tpProb + "% chance of winning)", "var(--text-muted)");
+        await addLog(oddsText(tpProb), "var(--text-muted)");
+        await addLog(tpProb + "% chance of winning", "var(--text-muted)");
         const tp = simulateMatch(effectiveR, tpOppR);
         await addLog((tp.won?"WIN ":"LOSS") + "  " + tp.userScore + "-" + tp.oppScore, tp.won?"#4ade80":"#f87171");
         matchHistory.push({ stage:"3rd Place", opponent:otherSFLoser, userScore:tp.userScore, oppScore:tp.oppScore, won:tp.won });
@@ -3346,7 +3415,8 @@ async function runTournamentSimulation1987() {
     await addLog("=== FINAL vs " + otherSFWinner + " ===", "var(--brand-gold)");
     const finOppR = activeTeamStrengths[otherSFWinner] || 85;
     const finProb = winProbability(effectiveR, finOppR);
-    await addLog(oddsText(finProb) + " (" + finProb + "% chance of winning)", "var(--text-muted)");
+    await addLog(oddsText(finProb), "var(--text-muted)");
+    await addLog(finProb + "% chance of winning", "var(--text-muted)");
     const fin = simulateMatch(effectiveR, finOppR);
     await addLog((fin.won?"WIN ":"LOSS") + "  " + fin.userScore + "-" + fin.oppScore, fin.won?"#4ade80":"#f87171");
     matchHistory.push({ stage:"Final", opponent:otherSFWinner, userScore:fin.userScore, oppScore:fin.oppScore, won:fin.won });
@@ -3578,6 +3648,115 @@ const BOSS_TEAMS = {
     ]
   }
 };
+
+function getBossRating(team) {
+    return Math.round(team.players.reduce((s,p) => s + p.r, 0) / team.players.length);
+}
+
+// Convert a BOSS_TEAMS entry into the position-map shape used by the
+// score breakdown system. Locks/props in BOSS_TEAMS share one "pos" label
+// for both starting slots, so split them across Lock 4/Lock 5 etc.
+function bossTeamToLineup(team) {
+    const lineup = {};
+    let lockSlot = 4, propSlot = 0;
+    const propOrder = ["Loosehead Prop", "Tighthead Prop"];
+    team.players.forEach(p => {
+        if (p.pos === "Lock") {
+            lineup["Lock " + lockSlot] = { name: p.name, score: p.r };
+            lockSlot++;
+        } else {
+            lineup[p.pos] = { name: p.name, score: p.r };
+        }
+    });
+    return lineup;
+}
+
+async function runBossStage() {
+    const userR = getUserRating();
+    const bossOrder = ["sanzaar","lions","alltimexv"];
+    const bossLabels = {
+        sanzaar:    "⚫ BONUS MATCH, SANZAAR BARBARIANS",
+        lions:      "🔴 BONUS MATCH, BRITISH & IRISH LIONS ALL TIME",
+        alltimexv:  "🏆 BONUS MATCH, ALL TIME WORLD XV"
+    };
+
+    for (const [bossIndex, bossKey] of bossOrder.entries()) {
+        const boss = BOSS_TEAMS[bossKey];
+        const bossR = getBossRating(boss);
+
+        await addLog("", null);
+        await addLog("─────────────────────────────────────", "var(--text-muted)");
+        await addLog(bossLabels[bossKey], "var(--brand-gold)");
+        await addLog(boss.flavour, "var(--text-muted)");
+        await addLog("", null);
+
+        // Show their lineup
+        await addLog("Their XV:", "var(--brand-gold)");
+        for (const p of boss.players) {
+            const shortPos = {
+                "Loosehead Prop":"Prop","Tighthead Prop":"Prop","Hooker":"Hooker",
+                "Lock":"Lock","Blindside Flanker":"Flanker","Openside Flanker":"Flanker",
+                "Number 8":"No.8","Scrum-half":"SH","Fly-half":"FH",
+                "Inside Centre":"Centre","Outside Centre":"Centre",
+                "Left Wing":"Wing","Right Wing":"Wing","Fullback":"FB"
+            }[p.pos] || p.pos;
+            await addLog(
+                shortPos.padEnd(8) + "  " + p.name.padEnd(28) + "  " + p.nation + "  (" + p.r + ")",
+                "var(--text-muted)"
+            );
+        }
+
+        await addLog("", null);
+        await addLog("Their average rating: " + bossR + "  |  Your rating: " + userR, null);
+        await addLog("", null);
+        const bossProb = winProbability(userR, bossR);
+        await addLog(oddsText(bossProb), "var(--text-muted)");
+        await addLog(bossProb + "% chance of winning", "var(--text-muted)");
+        await addLog("", null);
+        await addLog("=== KICK OFF ===", "var(--brand-gold)");
+
+        const res = simulateMatch(userR, bossR);
+        await addLog(
+            (res.won ? "WIN " : "LOSS") + "  " + res.userScore + "-" + res.oppScore,
+            res.won ? "#4ade80" : "#f87171"
+        );
+        matchHistory.push({ stage:"Ultimate " + (bossIndex + 1), opponent:boss.name, userScore:res.userScore, oppScore:res.oppScore, won:res.won });
+        await addScoreBreakdownLogForBoss(userTeam, res.userScore, bossTeamToLineup(boss), res.oppScore);
+
+        if (!res.won) {
+            await addLog("", null);
+            if (bossKey === "sanzaar") {
+                await addLog("The SANZAAR Barbarians were too strong. A valiant effort against the best of the Southern Hemisphere.", "#c5a059");
+                await showResultsSummary();
+                showShareButton("World Champions, fell to SANZAAR Barbarians", "#c5a059");
+            } else if (bossKey === "lions") {
+                await addLog("The Lions held firm. You pushed the greatest British & Irish players in history to the limit.", "#c5a059");
+                await showResultsSummary();
+                showShareButton("World Champions, fell to the Lions", "#c5a059");
+            } else {
+                await addLog("The All Time XV prevail. No team in history has beaten this side, and yours came closer than most.", "#c5a059");
+                await showResultsSummary();
+                showShareButton("World Champions, fell to the All Time XV", "#c5a059");
+            }
+            restartBtn.classList.remove("hidden");
+            return;
+        }
+
+        if (bossKey === "sanzaar") {
+            await addLog("The SANZAAR Barbarians are beaten! Extraordinary. Now face the Lions...", "#4ade80");
+        } else if (bossKey === "lions") {
+            await addLog("The Lions fall! Your Hybrid XV has conquered British & Irish rugby royalty. One final challenge awaits...", "#4ade80");
+        } else {
+            await addLog("", null);
+            await addLog("THE ALL TIME XV ARE BEATEN.", "var(--brand-gold)");
+            await addLog("Your Hybrid XV has done the impossible. World Champions, and conquerors of the greatest teams ever assembled. Legendary.", "var(--brand-gold)");
+            await showResultsSummary();
+            showShareButton("LEGENDARY, beat the All Time XV", "#c5a059");
+            restartBtn.classList.remove("hidden");
+            return;
+        }
+    }
+}
 
 const LIONS_TOUR_ORDER = [1989, 1993, 1997, 2001, 2005, 2009, 2013, 2017, 2021, 2025];
 
@@ -3812,7 +3991,7 @@ async function runLionsGauntlet() {
 
         await addLog("", null);
         await addLog("─────────────────────────────────────", "var(--text-muted)");
-        await addLog("RUNG " + (rung + 1) + " OF " + LIONS_TOUR_ORDER.length + ", " + year + " v " + tour.opponent, "var(--brand-gold)");
+        await addLog("MATCH " + (rung + 1) + " OF " + LIONS_TOUR_ORDER.length + ", " + year + " v " + tour.opponent, "var(--brand-gold)");
         await addLog("The series decider, " + tour.result + " on tour.", "var(--text-muted)");
         await addLog("", null);
 
@@ -3830,7 +4009,8 @@ async function runLionsGauntlet() {
         await addLog("", null);
         await addLog("Their average rating: " + oppR + "  |  Your rating: " + userR, null);
         const prob = winProbability(userR, oppR);
-        await addLog(oddsText(prob) + " (" + prob + "% chance of winning)", "var(--text-muted)");
+        await addLog(oddsText(prob), "var(--text-muted)");
+        await addLog(prob + "% chance of winning", "var(--text-muted)");
         await addLog("", null);
         await addLog("=== KICK OFF ===", "var(--brand-gold)");
 
@@ -3844,9 +4024,9 @@ async function runLionsGauntlet() {
 
         if (!res.won) {
             await addLog("", null);
-            await addLog("The tour ends there. You reached rung " + (rung + 1) + " of " + LIONS_TOUR_ORDER.length + ", beating every Lions team up to " + (rung > 0 ? LIONS_TOUR_ORDER[rung - 1] : "none") + ".", "#f87171");
+            await addLog("The tour ends there. You reached match " + (rung + 1) + " of " + LIONS_TOUR_ORDER.length + ", beating every Lions team up to " + (rung > 0 ? LIONS_TOUR_ORDER[rung - 1] : "none") + ".", "#f87171");
             await showResultsSummary();
-            showShareButton("Lions Tours, reached rung " + (rung + 1) + " of " + LIONS_TOUR_ORDER.length, "#c5a059");
+            showShareButton("Lions Tours, reached match " + (rung + 1) + " of " + LIONS_TOUR_ORDER.length, "#c5a059");
             restartBtn.classList.remove("hidden");
             return;
         }
@@ -3882,7 +4062,8 @@ async function runLionsGauntlet() {
     await addLog("", null);
     await addLog("Their average rating: " + bossR + "  |  Your rating: " + userR, null);
     const bossProb = winProbability(userR, bossR);
-    await addLog(oddsText(bossProb) + " (" + bossProb + "% chance of winning)", "var(--text-muted)");
+    await addLog(oddsText(bossProb), "var(--text-muted)");
+    await addLog(bossProb + "% chance of winning", "var(--text-muted)");
     await addLog("", null);
     await addLog("=== KICK OFF ===", "var(--brand-gold)");
 

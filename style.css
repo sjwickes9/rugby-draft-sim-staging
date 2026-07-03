@@ -32,16 +32,16 @@
 }
 
 /* Lions Tours mode. Dark mode keeps the page surround as the regular
-   navy, with the card panel itself picking up a muted, opaque red rather
-   than the vivid shirt red, which read as too much across a full page.
-   The accent colour uses the same blue as the 1991 Five Nations RWC theme,
-   green text read poorly against the red panel. Light mode has no navy to
+   navy, with the card panel picking up a deeper Welsh red. The accent
+   colour is a true navy rather than the 1991 Five Nations blue, which
+   read as too close to French rugby's blue. Light mode has no navy to
    convert, so the card panel stays white and picks up a green border
    instead, with red taking over the accent role gold normally plays. */
 .lions-theme {
-    --bg-card: #5a1c22;
-    --brand-gold: #0065bd;
-    --brand-gold-hover: #1a7ad9;
+    --bg-card: #7a1220;
+    --border-color: #00843d;
+    --brand-gold: #16305c;
+    --brand-gold-hover: #1f4079;
 }
 
 .lions-theme:not(.light-theme) .roster-panel,
@@ -54,6 +54,10 @@
     --border-color: #00843d;
     --brand-gold: #c8102e;
     --brand-gold-hover: #a80d26;
+}
+
+.lions-theme.light-theme .btn-primary {
+    color: #ffffff;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
