@@ -33,22 +33,32 @@
 
 /* Lions Tours mode. Dark mode keeps the page surround as the regular
    navy, with the card panel picking up a deeper Welsh red. The accent
-   colour is a brighter royal navy, dark enough not to read as French
-   rugby blue, but with enough contrast to still work as text against
-   both the red panel and the navy page background, the previous darker
-   navy all but disappeared in both places. Light mode has no navy to
-   convert, so the card panel stays white and picks up a green border
-   instead, with red taking over the accent role gold normally plays. */
+   colour is a brighter royal navy, enough contrast to read clearly
+   against both the red panel and the navy page background, without
+   reading as French rugby blue.
+
+   The setup screen (Game Mode, Rating Mode, Difficulty) keeps the same
+   navy panel RWC mode uses rather than the red, with red taking over
+   the accent role gold normally plays there, scoped locally via a CSS
+   variable override so it doesn't affect the simulation screen's blue.
+   Light mode has no navy to convert, so the card panel stays white and
+   picks up a green border instead, with red as the accent throughout. */
 .lions-theme {
     --bg-card: #7a1220;
     --border-color: #00843d;
-    --brand-gold: #3a63b0;
-    --brand-gold-hover: #4f7ac9;
+    --brand-gold: #5580cc;
+    --brand-gold-hover: #6d92d6;
 }
 
 .lions-theme:not(.light-theme) .roster-panel,
 .lions-theme:not(.light-theme) #manifest-team-box {
     background: #081933;
+}
+
+.lions-theme:not(.light-theme) #setup-card {
+    background: #081933;
+    --brand-gold: #c8102e;
+    --brand-gold-hover: #a80d26;
 }
 
 .lions-theme.light-theme {
@@ -1120,6 +1130,12 @@ button:disabled, button.disabled { opacity: 0.4; cursor: not-allowed; pointer-ev
     display: flex; gap: 10px; margin-bottom: 5px;
     font-size: 0.85rem; color: var(--text-muted);
 }
+.sim-log-divider {
+    border-top: 1px solid var(--border-color);
+    opacity: 0.6;
+    margin: 4px 0;
+}
+
 .ll-pos { flex: 0 0 64px; }
 .ll-name { flex: 0 0 190px; min-width: 0; }
 .ll-nation { flex: 0 0 40px; text-align: left; }

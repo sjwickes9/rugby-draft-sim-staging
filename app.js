@@ -3685,7 +3685,7 @@ async function runBossStage() {
         const bossR = getBossRating(boss);
 
         await addLog("", null);
-        await addLog("─────────────────────────────────────", "var(--text-muted)");
+        await addLogBlock('<div class="sim-log-divider"></div>');
         await addLog(bossLabels[bossKey], "var(--brand-gold)");
         await addLog(boss.flavour, "var(--text-muted)");
         await addLog("", null);
@@ -3707,8 +3707,7 @@ async function runBossStage() {
         }
 
         await addLog("", null);
-        await addLog("Their average rating: " + bossR, null);
-        await addLog("Your rating: " + userR, null);
+        await addLog("Their average rating: " + bossR + "  |  Your rating: " + userR, null);
         await addLog("", null);
         const bossProb = winProbability(userR, bossR);
         await addLog(oddsText(bossProb), "var(--text-muted)");
@@ -3991,7 +3990,7 @@ async function runLionsGauntlet() {
         const oppR = getLionsTourRating(tour);
 
         await addLog("", null);
-        await addLog("─────────────────────────────────────", "var(--text-muted)");
+        await addLogBlock('<div class="sim-log-divider"></div>');
         await addLog("MATCH " + (rung + 1) + " OF " + LIONS_TOUR_ORDER.length + ", " + year + " v " + tour.opponent, "var(--brand-gold)");
         await addLog("The series decider, " + tour.result + " on tour.", "var(--text-muted)");
         await addLog("", null);
@@ -4008,8 +4007,7 @@ async function runLionsGauntlet() {
         }
 
         await addLog("", null);
-        await addLog("Their average rating: " + oppR, null);
-        await addLog("Your rating: " + userR, null);
+        await addLog("Their average rating: " + oppR + "  |  Your rating: " + userR, null);
         const prob = winProbability(userR, oppR);
         await addLog(oddsText(prob), "var(--text-muted)");
         await addLog(prob + "% chance of winning", "var(--text-muted)");
@@ -4047,7 +4045,7 @@ async function runLionsGauntlet() {
     const bossR = getBossRating(boss);
 
     await addLog("", null);
-    await addLog("─────────────────────────────────────", "var(--text-muted)");
+    await addLogBlock('<div class="sim-log-divider"></div>');
     await addLog("🔴 BOSS, BRITISH & IRISH LIONS ALL TIME", "var(--brand-gold)");
     await addLog(boss.flavour, "var(--text-muted)");
     await addLog("", null);
@@ -4062,8 +4060,7 @@ async function runLionsGauntlet() {
         );
     }
     await addLog("", null);
-    await addLog("Their average rating: " + bossR, null);
-    await addLog("Your rating: " + userR, null);
+    await addLog("Their average rating: " + bossR + "  |  Your rating: " + userR, null);
     const bossProb = winProbability(userR, bossR);
     await addLog(oddsText(bossProb), "var(--text-muted)");
     await addLog(bossProb + "% chance of winning", "var(--text-muted)");
