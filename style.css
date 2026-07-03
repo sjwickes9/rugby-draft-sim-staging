@@ -33,15 +33,17 @@
 
 /* Lions Tours mode. Dark mode keeps the page surround as the regular
    navy, with the card panel picking up a deeper Welsh red. The accent
-   colour is a true navy rather than the 1991 Five Nations blue, which
-   read as too close to French rugby's blue. Light mode has no navy to
+   colour is a brighter royal navy, dark enough not to read as French
+   rugby blue, but with enough contrast to still work as text against
+   both the red panel and the navy page background, the previous darker
+   navy all but disappeared in both places. Light mode has no navy to
    convert, so the card panel stays white and picks up a green border
    instead, with red taking over the accent role gold normally plays. */
 .lions-theme {
     --bg-card: #7a1220;
     --border-color: #00843d;
-    --brand-gold: #16305c;
-    --brand-gold-hover: #1f4079;
+    --brand-gold: #3a63b0;
+    --brand-gold-hover: #4f7ac9;
 }
 
 .lions-theme:not(.light-theme) .roster-panel,
@@ -217,7 +219,7 @@ body {
     padding: 8px 20px;
     border: 1px solid var(--brand-gold);
     border-radius: 6px;
-    background: rgba(197,160,89,0.08);
+    background: color-mix(in srgb, var(--brand-gold) 8%, transparent);
     transition: all 0.2s ease;
 }
 .kofi-text-link:hover,
@@ -281,7 +283,7 @@ body {
     border-radius: 6px;
     cursor: pointer;
 }
-.page-share-menu button:hover { background: rgba(197,160,89,0.12); color: var(--brand-gold); }
+.page-share-menu button:hover { background: color-mix(in srgb, var(--brand-gold) 12%, transparent); color: var(--brand-gold); }
 @media (max-width: 600px) {
     #page-share-wrap { bottom: 8px; right: 8px; }
     #page-share-btn span.share-label { display: none; }
@@ -369,8 +371,8 @@ button:disabled, button.disabled { opacity: 0.4; cursor: not-allowed; pointer-ev
 
 /* ── Explainer box ── */
 .explainer-box {
-    background: rgba(197,160,89,0.08);
-    border: 1px solid rgba(197,160,89,0.3);
+    background: color-mix(in srgb, var(--brand-gold) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--brand-gold) 30%, transparent);
     border-radius: 8px;
     padding: 16px 18px;
     margin-bottom: 24px;
@@ -501,7 +503,7 @@ button:disabled, button.disabled { opacity: 0.4; cursor: not-allowed; pointer-ev
 }
 .radio-box input:checked + .radio-label {
     border-color: var(--brand-gold);
-    background: rgba(197,160,89,0.1);
+    background: color-mix(in srgb, var(--brand-gold) 10%, transparent);
     color: var(--brand-gold);
 }
 
@@ -882,7 +884,7 @@ button:disabled, button.disabled { opacity: 0.4; cursor: not-allowed; pointer-ev
     border: 1px solid transparent;
 }
 .player-row:hover:not(.claimed-lockout) { background: rgba(255,255,255,0.05); }
-.player-row.selected { background: rgba(197,160,89,0.2) !important; border-color: var(--brand-gold); }
+.player-row.selected { background: color-mix(in srgb, var(--brand-gold) 20%, transparent) !important; border-color: var(--brand-gold); }
 /* player-num removed */
 .player-name { font-size: 0.85rem; font-weight: 600; min-width: 0; overflow-wrap: break-word; }
 .player-pos-label { font-size: 0.68rem; color: var(--text-muted); white-space: nowrap; }
@@ -1119,8 +1121,8 @@ button:disabled, button.disabled { opacity: 0.4; cursor: not-allowed; pointer-ev
     font-size: 0.85rem; color: var(--text-muted);
 }
 .ll-pos { flex: 0 0 64px; }
-.ll-name { flex: 1 1 auto; min-width: 0; }
-.ll-nation { flex: 0 0 40px; text-align: right; }
+.ll-name { flex: 0 0 190px; min-width: 0; }
+.ll-nation { flex: 0 0 40px; text-align: left; }
 
 /* Two-column scorer breakdown (T/C/P) shown under each match result */
 .score-breakdown {
@@ -1157,7 +1159,7 @@ button:disabled, button.disabled { opacity: 0.4; cursor: not-allowed; pointer-ev
     color: var(--brand-gold);
     font-weight: 700;
     padding: 4px 6px;
-    border-bottom: 1px solid rgba(197,160,89,0.3);
+    border-bottom: 1px solid color-mix(in srgb, var(--brand-gold) 30%, transparent);
     white-space: nowrap;
 }
 .standings-table td {
@@ -1179,7 +1181,7 @@ button:disabled, button.disabled { opacity: 0.4; cursor: not-allowed; pointer-ev
 }
 .standings-table .st-user-row td {
     color: var(--text-main);
-    background: rgba(197,160,89,0.08);
+    background: color-mix(in srgb, var(--brand-gold) 8%, transparent);
 }
 .standings-table .st-user-row .st-team { color: var(--brand-gold); }
 @media (max-width: 600px) {
@@ -1191,9 +1193,9 @@ button:disabled, button.disabled { opacity: 0.4; cursor: not-allowed; pointer-ev
 .results-summary {
     margin: 10px 0 14px 0;
     padding: 14px 16px;
-    border: 1px solid rgba(197,160,89,0.3);
+    border: 1px solid color-mix(in srgb, var(--brand-gold) 30%, transparent);
     border-radius: 10px;
-    background: rgba(197,160,89,0.06);
+    background: color-mix(in srgb, var(--brand-gold) 6%, transparent);
 }
 .results-summary-title {
     font-family: Georgia, serif;

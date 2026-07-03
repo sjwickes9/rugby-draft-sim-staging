@@ -3707,7 +3707,8 @@ async function runBossStage() {
         }
 
         await addLog("", null);
-        await addLog("Their average rating: " + bossR + "  |  Your rating: " + userR, null);
+        await addLog("Their average rating: " + bossR, null);
+        await addLog("Your rating: " + userR, null);
         await addLog("", null);
         const bossProb = winProbability(userR, bossR);
         await addLog(oddsText(bossProb), "var(--text-muted)");
@@ -4007,7 +4008,8 @@ async function runLionsGauntlet() {
         }
 
         await addLog("", null);
-        await addLog("Their average rating: " + oppR + "  |  Your rating: " + userR, null);
+        await addLog("Their average rating: " + oppR, null);
+        await addLog("Your rating: " + userR, null);
         const prob = winProbability(userR, oppR);
         await addLog(oddsText(prob), "var(--text-muted)");
         await addLog(prob + "% chance of winning", "var(--text-muted)");
@@ -4060,7 +4062,8 @@ async function runLionsGauntlet() {
         );
     }
     await addLog("", null);
-    await addLog("Their average rating: " + bossR + "  |  Your rating: " + userR, null);
+    await addLog("Their average rating: " + bossR, null);
+    await addLog("Your rating: " + userR, null);
     const bossProb = winProbability(userR, bossR);
     await addLog(oddsText(bossProb), "var(--text-muted)");
     await addLog(bossProb + "% chance of winning", "var(--text-muted)");
