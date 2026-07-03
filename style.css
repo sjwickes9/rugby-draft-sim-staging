@@ -34,17 +34,23 @@
 /* Lions Tours mode. Dark mode keeps the page surround as the regular
    navy, with the card panel itself picking up a muted, opaque red rather
    than the vivid shirt red, which read as too much across a full page.
-   The gold accent still becomes Irish green. Light mode has no navy to
+   The accent colour uses the same blue as the 1991 Five Nations RWC theme,
+   green text read poorly against the red panel. Light mode has no navy to
    convert, so the card panel stays white and picks up a green border
    instead, with red taking over the accent role gold normally plays. */
 .lions-theme {
     --bg-card: #5a1c22;
-    --brand-gold: #00843d;
-    --brand-gold-hover: #159354;
+    --brand-gold: #0065bd;
+    --brand-gold-hover: #1a7ad9;
+}
+
+.lions-theme:not(.light-theme) .roster-panel,
+.lions-theme:not(.light-theme) #manifest-team-box {
+    background: #081933;
 }
 
 .lions-theme.light-theme {
-    --bg-main: #ffffff;
+    --bg-card: #ffffff;
     --border-color: #00843d;
     --brand-gold: #c8102e;
     --brand-gold-hover: #a80d26;
@@ -947,7 +953,7 @@ button:disabled, button.disabled { opacity: 0.4; cursor: not-allowed; pointer-ev
 }
 .pitch-circle.highlight-eligible {
     border-color: var(--brand-gold); border-style: solid;
-    background: rgba(197,160,89,0.35);
+    background: color-mix(in srgb, var(--brand-gold) 35%, transparent);
     transform: scale(1.1);
     box-shadow: 0 0 12px var(--brand-gold);
     cursor: pointer;

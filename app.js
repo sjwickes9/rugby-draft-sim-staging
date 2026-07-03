@@ -374,6 +374,7 @@ setupSlider("mode-slider-track", "mode-handle", idx => {
     document.getElementById("tournament-year-group").classList.toggle("hidden", appMode === "lions");
     document.getElementById("team-select-group").classList.toggle("hidden", appMode === "lions");
     document.body.classList.toggle("lions-theme", appMode === "lions");
+    if (runSimBtn) runSimBtn.textContent = appMode === "lions" ? "Kick Off Tour" : "Kick Off Tournament";
     if (variantCompLabel) variantCompLabel.textContent = appMode === "lions" ? "Tour Rating" : "Tournament Rating";
     if (variantHint && !isCareerMode) variantHint.textContent = appMode === "lions"
         ? "Players are rated for their form nearest to each Lions tour they face."
@@ -1707,7 +1708,7 @@ function oddsText(prob) {
     if (prob >= 47) return "This is too close to call.";
     if (prob >= 35) return "Your team are slight underdogs.";
     if (prob >= 22) return "Your team are significant underdogs.";
-    return "Your team are heavy underdogs — an upset would be historic.";
+    return "Your team are heavy underdogs.";
 }
 
 // ============================================================
@@ -3964,12 +3965,14 @@ const TIPS = {
     draftIntro: {
         icon: "🎲",
         title: "Building Your Squad",
-        body: "Click <strong>Spin Team</strong> to draw a random historical squad. Pick any player from it, then click an open position on the pitch to slot them in. Gold positions are their natural fit; amber positions carry a rating penalty. Once you've placed them, the button changes back to <strong>Spin Team</strong> again ready for the next pick. Repeat until all 15 spots are filled."
+        body: () => `Click <strong>Spin Team</strong> to draw a random historical squad. Pick any player from it, then click an open position on the pitch to slot them in. ${appMode === "lions" ? "Green" : "Gold"} positions are their natural fit; amber positions carry a rating penalty. Once you've placed them, the button changes back to <strong>Spin Team</strong> again ready for the next pick. Repeat until all 15 spots are filled.`
     },
     simIntro: {
         icon: "🏉",
         title: "Ready to Simulate",
-        body: "Choose a <strong>Simulation Speed</strong>, then click <strong>Kick Off Tournament</strong>. The whole World Cup — pool stage through to the Final — plays out automatically. Just sit back and watch the results roll in."
+        body: () => appMode === "lions"
+            ? `Choose a <strong>Simulation Speed</strong>, then click <strong>Kick Off Tour</strong>. You'll face every Lions series decider since 1989, one tour at a time, until you either lose or clear the lot. Just sit back and watch the results roll in.`
+            : `Choose a <strong>Simulation Speed</strong>, then click <strong>Kick Off Tournament</strong>. The whole World Cup, pool stage through to the Final, plays out automatically. Just sit back and watch the results roll in.`
     }
 };
 
@@ -3990,7 +3993,7 @@ function showTip(key) {
 
     document.getElementById("tip-icon").textContent = tip.icon;
     document.getElementById("tip-title").textContent = tip.title;
-    document.getElementById("tip-body").innerHTML = tip.body;
+    document.getElementById("tip-body").innerHTML = typeof tip.body === "function" ? tip.body() : tip.body;
     document.getElementById("tip-dontshow-checkbox").checked = false;
     overlay.classList.remove("hidden");
 
