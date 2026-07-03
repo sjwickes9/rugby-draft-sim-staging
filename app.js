@@ -3693,16 +3693,13 @@ async function runBossStage() {
         // Show their lineup
         await addLog("Their XV:", "var(--brand-gold)");
         for (const p of boss.players) {
-            const shortPos = {
-                "Loosehead Prop":"Prop","Tighthead Prop":"Prop","Hooker":"Hooker",
-                "Lock":"Lock","Blindside Flanker":"Flanker","Openside Flanker":"Flanker",
-                "Number 8":"No.8","Scrum-half":"SH","Fly-half":"FH",
-                "Inside Centre":"Centre","Outside Centre":"Centre",
-                "Left Wing":"Wing","Right Wing":"Wing","Fullback":"FB"
-            }[p.pos] || p.pos;
-            await addLog(
-                shortPos.padEnd(8) + "  " + p.name.padEnd(28) + "  " + p.nation + "  (" + p.r + ")",
-                "var(--text-muted)"
+            const shortPos = LIONS_SHORT_POS[p.pos] || p.pos;
+            const nation = p.nation.replace(/\s*'\d\d$/, "");
+            await addLogBlock(
+                '<div class="lions-lineup-row"><span class="ll-pos">' + shortPos +
+                '</span><span class="ll-name">' + p.name +
+                '</span><span class="ll-nation">' + nation +
+                '</span><span class="ll-rating">' + p.r + '</span></div>'
             );
         }
 

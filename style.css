@@ -1139,6 +1139,7 @@ button:disabled, button.disabled { opacity: 0.4; cursor: not-allowed; pointer-ev
 .ll-pos { flex: 0 0 64px; }
 .ll-name { flex: 0 0 190px; min-width: 0; }
 .ll-nation { flex: 0 0 40px; text-align: left; }
+.ll-rating { flex: 0 0 30px; text-align: right; }
 
 /* Two-column scorer breakdown (T/C/P) shown under each match result */
 .score-breakdown {
