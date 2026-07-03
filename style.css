@@ -398,6 +398,9 @@ button:disabled, button.disabled { opacity: 0.4; cursor: not-allowed; pointer-ev
     margin-bottom: 10px;
     line-height: 1.4;
 }
+.lions-theme .explainer-lead {
+    color: #00843d;
+}
 .explainer-body {
     font-size: 0.81rem;
     color: var(--text-muted);

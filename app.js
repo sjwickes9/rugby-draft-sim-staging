@@ -3623,6 +3623,33 @@ const BOSS_TEAMS = {
     ]
   },
 
+  // ── Six Nations All Time ──────────────────────────────────────
+  // The finest specialist from each of the six nations at career peak.
+  // Sella takes outside centre rather than O'Driscoll, who's already the
+  // All Time World XV's number 13, to avoid repeating a player across
+  // the two boss teams.
+  sixnations: {
+    name: "Six Nations All Time",
+    flavour: "The finest specialist in every position from England, France, Ireland, Italy, Scotland and Wales, at their career peak.",
+    players: [
+      { pos:"Loosehead Prop",    name:"Jason Leonard",                nation:"ENG",  r:97 },
+      { pos:"Hooker",            name:"Keith Wood",                   nation:"IRE",  r:93 },
+      { pos:"Tighthead Prop",    name:"Martin Castrogiovanni",        nation:"ITA",  r:89 },
+      { pos:"Lock",              name:"Martin Johnson",               nation:"ENG",  r:98 },
+      { pos:"Lock",              name:"Alun Wyn Jones",               nation:"WAL",  r:96 },
+      { pos:"Blindside Flanker", name:"Richard Hill",                 nation:"ENG",  r:97 },
+      { pos:"Openside Flanker",  name:"Thierry Dusautoir",            nation:"FRA",  r:96 },
+      { pos:"Number 8",          name:"Sergio Parisse",               nation:"ITA",  r:93 },
+      { pos:"Scrum-half",        name:"Antoine Dupont",               nation:"FRA",  r:99 },
+      { pos:"Fly-half",          name:"Jonny Wilkinson",              nation:"ENG",  r:99 },
+      { pos:"Left Wing",         name:"Shane Williams",               nation:"WAL",  r:95 },
+      { pos:"Inside Centre",     name:"Yannick Jauzion",              nation:"FRA",  r:91 },
+      { pos:"Outside Centre",    name:"Philippe Sella",               nation:"FRA",  r:94 },
+      { pos:"Right Wing",        name:"Jason Robinson",               nation:"ENG",  r:96 },
+      { pos:"Fullback",          name:"Stuart Hogg",                  nation:"SCO",  r:93 },
+    ]
+  },
+
   // ── All Time World XV ───────────────────────────────────────
   // The single greatest specialist at every position in rugby history
   // Spans pre-RWC greats through to the modern era
@@ -3673,11 +3700,11 @@ function bossTeamToLineup(team) {
 
 async function runBossStage() {
     const userR = getUserRating();
-    const bossOrder = ["sanzaar","lions","alltimexv"];
+    const bossOrder = ["sanzaar","sixnations","alltimexv"];
     const bossLabels = {
-        sanzaar:    "⚫ BONUS MATCH, SANZAAR BARBARIANS",
-        lions:      "🔴 BONUS MATCH, BRITISH & IRISH LIONS ALL TIME",
-        alltimexv:  "🏆 BONUS MATCH, ALL TIME WORLD XV"
+        sanzaar:     "⚫ BONUS MATCH, SANZAAR BARBARIANS",
+        sixnations:  "🔴 BONUS MATCH, SIX NATIONS ALL TIME",
+        alltimexv:   "🏆 BONUS MATCH, ALL TIME WORLD XV"
     };
 
     for (const [bossIndex, bossKey] of bossOrder.entries()) {
@@ -3725,10 +3752,10 @@ async function runBossStage() {
                 await addLog("The SANZAAR Barbarians were too strong. A valiant effort against the best of the Southern Hemisphere.", "#c5a059");
                 await showResultsSummary();
                 showShareButton("World Champions, fell to SANZAAR Barbarians", "#c5a059");
-            } else if (bossKey === "lions") {
-                await addLog("The Lions held firm. You pushed the greatest British & Irish players in history to the limit.", "#c5a059");
+            } else if (bossKey === "sixnations") {
+                await addLog("The Six Nations All Time XV held firm. You pushed the greatest players in the competition's history to the limit.", "#c5a059");
                 await showResultsSummary();
-                showShareButton("World Champions, fell to the Lions", "#c5a059");
+                showShareButton("World Champions, fell to Six Nations All Time", "#c5a059");
             } else {
                 await addLog("The All Time XV prevail. No team in history has beaten this side, and yours came closer than most.", "#c5a059");
                 await showResultsSummary();
@@ -3739,9 +3766,9 @@ async function runBossStage() {
         }
 
         if (bossKey === "sanzaar") {
-            await addLog("The SANZAAR Barbarians are beaten! Extraordinary. Now face the Lions...", "#4ade80");
-        } else if (bossKey === "lions") {
-            await addLog("The Lions fall! Your Hybrid XV has conquered British & Irish rugby royalty. One final challenge awaits...", "#4ade80");
+            await addLog("The SANZAAR Barbarians are beaten! Extraordinary. Now face the Six Nations All Time XV...", "#4ade80");
+        } else if (bossKey === "sixnations") {
+            await addLog("The Six Nations All Time XV fall! Your Hybrid XV has conquered the finest players the competition has ever produced. One final challenge awaits...", "#4ade80");
         } else {
             await addLog("", null);
             await addLog("THE ALL TIME XV ARE BEATEN.", "var(--brand-gold)");
@@ -3765,7 +3792,7 @@ const LIONS_TOUR_ORDER = [1989, 1993, 1997, 2001, 2005, 2009, 2013, 2017, 2021, 
 // than the result, and clear bumps for the 2013 and 2025 series wins.
 const LIONS_TOURS = {
     1989: {
-        opponent: "Australia", result: "Won 2-1", teamRating: 82,
+        opponent: "Australia", result: "Won 2-1", teamRating: 83,
         players: [
             { pos:"Loosehead Prop", name:"David Sole", nation:"SCO '89" },
             { pos:"Hooker", name:"Brian Moore", nation:"ENG '89" },
@@ -3805,7 +3832,7 @@ const LIONS_TOURS = {
         ]
     },
     1997: {
-        opponent: "South Africa", result: "Won 2-1", teamRating: 88,
+        opponent: "South Africa", result: "Won 2-1", teamRating: 89,
         players: [
             { pos:"Loosehead Prop", name:"Tom Smith", nation:"SCO '97" },
             { pos:"Hooker", name:"Keith Wood", nation:"IRE '97" },
@@ -3825,7 +3852,7 @@ const LIONS_TOURS = {
         ]
     },
     2001: {
-        opponent: "Australia", result: "Lost 2-1", teamRating: 85,
+        opponent: "Australia", result: "Lost 2-1", teamRating: 87,
         players: [
             { pos:"Loosehead Prop", name:"Tom Smith", nation:"SCO '01" },
             { pos:"Hooker", name:"Keith Wood", nation:"IRE '01" },
@@ -3845,7 +3872,7 @@ const LIONS_TOURS = {
         ]
     },
     2005: {
-        opponent: "New Zealand", result: "Lost 3-0", teamRating: 82,
+        opponent: "New Zealand", result: "Lost 3-0", teamRating: 83,
         players: [
             { pos:"Loosehead Prop", name:"Gethin Jenkins", nation:"WAL '05" },
             { pos:"Hooker", name:"Steve Thompson", nation:"ENG '05" },
@@ -3865,7 +3892,7 @@ const LIONS_TOURS = {
         ]
     },
     2009: {
-        opponent: "South Africa", result: "Lost 2-1", teamRating: 90,
+        opponent: "South Africa", result: "Lost 2-1", teamRating: 89,
         players: [
             { pos:"Loosehead Prop", name:"Gethin Jenkins", nation:"WAL '09" },
             { pos:"Hooker", name:"Lee Mears", nation:"ENG '09" },
@@ -3885,7 +3912,7 @@ const LIONS_TOURS = {
         ]
     },
     2013: {
-        opponent: "Australia", result: "Won 2-1", teamRating: 93,
+        opponent: "Australia", result: "Won 2-1", teamRating: 90,
         players: [
             { pos:"Loosehead Prop", name:"Alex Corbisiero", nation:"ENG '13" },
             { pos:"Hooker", name:"Richard Hibbard", nation:"WAL '13" },
@@ -3905,7 +3932,7 @@ const LIONS_TOURS = {
         ]
     },
     2017: {
-        opponent: "New Zealand", result: "Drawn 1-1", teamRating: 94,
+        opponent: "New Zealand", result: "Drawn 1-1", teamRating: 91,
         players: [
             { pos:"Loosehead Prop", name:"Mako Vunipola", nation:"ENG '17" },
             { pos:"Hooker", name:"Jamie George", nation:"ENG '17" },
@@ -3925,7 +3952,7 @@ const LIONS_TOURS = {
         ]
     },
     2021: {
-        opponent: "South Africa", result: "Lost 2-1", teamRating: 95,
+        opponent: "South Africa", result: "Lost 2-1", teamRating: 92,
         players: [
             { pos:"Loosehead Prop", name:"Wyn Jones", nation:"WAL '21" },
             { pos:"Hooker", name:"Ken Owens", nation:"WAL '21" },
@@ -3945,7 +3972,7 @@ const LIONS_TOURS = {
         ]
     },
     2025: {
-        opponent: "Australia", result: "Won 2-1", teamRating: 97,
+        opponent: "Australia", result: "Won 2-1", teamRating: 94,
         players: [
             { pos:"Loosehead Prop", name:"Andrew Porter", nation:"IRE '25" },
             { pos:"Hooker", name:"Dan Sheehan", nation:"IRE '25" },
