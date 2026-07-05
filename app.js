@@ -4118,7 +4118,7 @@ async function runLionsGauntlet() {
 // out after a minimum display time so it registers as intentional rather
 // than a flicker. Skipped entirely on repeat visits within the same
 // session (Play Again / Abandon Campaign trigger a real page reload via
-// hardReload(), which sets the sessionStorage flag below) — the user has
+// hardReload(), which sets the sessionStorage flag below), the user has
 // already seen it once and is just restarting a game, not opening the
 // site fresh.
 (function () {
@@ -4145,10 +4145,15 @@ async function runLionsGauntlet() {
         }, wait);
     }
 
-    if (document.readyState === "complete") {
+    // DOMContentLoaded fires once data.js and app.js have downloaded and
+    // run, which is what the app actually needs to be ready. The previous
+    // window "load" event also waits on every image and favicon finishing
+    // their own download, which added unrelated delay on slower
+    // connections for no real benefit here.
+    if (document.readyState === "interactive" || document.readyState === "complete") {
         dismissLoadingScreen();
     } else {
-        window.addEventListener("load", dismissLoadingScreen);
+        document.addEventListener("DOMContentLoaded", dismissLoadingScreen);
     }
 })();
 
