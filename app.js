@@ -4169,7 +4169,7 @@ const TIPS = {
     draftIntro: {
         icon: "🎲",
         title: "Building Your Squad",
-        body: () => `Click <strong>Spin Team</strong> to draw a random historical squad. Pick any player from it, then click an open position on the pitch to slot them in. ${appMode === "lions" ? "Green" : "Gold"} positions are their natural fit; amber positions carry a rating penalty. Once you've placed them, the button changes back to <strong>Spin Team</strong> again ready for the next pick. Repeat until all 15 spots are filled.`
+        body: () => `Click <strong>Spin Team</strong> to draw a random historical squad. Pick any player from it, then click an open position on the pitch to slot them in. ${appMode === "lions" ? "Blue" : "Gold"} positions are their natural fit; amber positions carry a rating penalty. Once you've placed them, the button changes back to <strong>Spin Team</strong> again ready for the next pick. Repeat until all 15 spots are filled.`
     },
     simIntro: {
         icon: "🏉",
