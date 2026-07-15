@@ -584,7 +584,7 @@ const allSquads = {
             {name:"Martín Landajo",positions:["Scrum-half", "Fly-half"],num:20,rating:86,careerRating:86},
             {name:"Tomás Cubelli",positions:["Scrum-half"],num:21,rating:84,careerRating:89},
             {name:"Juan Martín Hernández",positions:["Outside Centre", "Fullback"],num:22,rating:89,careerRating:89,kicker:true},
-            {name:"Marcelo Bosch",positions:["Inside Centre", "Flyhalf"],num:23,rating:84,careerRating:84},
+            {name:"Marcelo Bosch",positions:["Inside Centre", "Fly-half"],num:23,rating:84,careerRating:84},
             {name:"Nicolás Sánchez",positions:["Fly-half"],num:24,rating:86,careerRating:91,kicker:true},
             {name:"Santiago González Iglesias",positions:["Fly-half", "Inside Centre"],num:25,rating:83,careerRating:83},
             {name:"Jerónimo de la Fuente",positions:["Inside Centre", "Outside Centre"],num:26,rating:86,careerRating:91},
