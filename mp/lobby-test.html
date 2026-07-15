@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rugby XV Draft: multiplayer test</title>
+<style>
+    :root { --line: #d8d8d8; --ink: #1a1a1a; --muted: #666; --accent: #1f6feb; --ok: #2a9d3a; --bad: #c0392b; }
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, sans-serif; color: var(--ink); margin: 0; padding: 20px; line-height: 1.45; }
+    main { max-width: 460px; margin: 0 auto; }
+    h1 { font-size: 1.25rem; margin: 0 0 2px; }
+    .provisional { font-size: 0.8rem; color: var(--muted); margin: 0 0 18px; }
+    fieldset { border: 1px solid var(--line); border-radius: 8px; margin: 0 0 16px; padding: 14px; }
+    legend { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); padding: 0 6px; }
+    label { display: block; font-size: 0.85rem; margin: 8px 0 3px; }
+    input, select, button { font: inherit; }
+    input[type=text], select { width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: 6px; }
+    input[type=color] { width: 48px; height: 34px; padding: 0; border: 1px solid var(--line); border-radius: 6px; vertical-align: middle; }
+    button { padding: 9px 14px; border: 1px solid var(--ink); background: var(--ink); color: #fff; border-radius: 6px; cursor: pointer; margin-top: 10px; }
+    button.secondary { background: #fff; color: var(--ink); }
+    button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid var(--accent); outline-offset: 1px; }
+    .row { display: flex; gap: 10px; align-items: end; }
+    .row > * { flex: 1; }
+    .status { font-size: 0.85rem; color: var(--muted); margin: 6px 0 0; min-height: 1.2em; }
+    .status.err { color: var(--bad); }
+    .code { font-size: 2rem; letter-spacing: 0.18em; font-weight: 700; margin: 4px 0; }
+    ul { list-style: none; padding: 0; margin: 8px 0 0; }
+    li { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+    .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--bad); flex: none; }
+    .dot.on { background: var(--ok); }
+    .kit { width: 14px; height: 14px; border-radius: 3px; border: 1px solid rgba(0,0,0,.2); flex: none; }
+    .tag { font-size: 0.72rem; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 1px 7px; }
+    .hidden { display: none; }
+</style>
+</head>
+<body>
+<main>
+    <h1>Multiplayer test</h1>
+    <p class="provisional">Provisional harness for verifying create, join and live presence. Not the real lobby.</p>
+
+    <p class="status" id="auth">Connecting...</p>
+
+    <fieldset>
+        <legend>You</legend>
+        <div class="row">
+            <div>
+                <label for="name">Display name</label>
+                <input type="text" id="name" maxlength="20" value="Player" autocomplete="off">
+            </div>
+            <div style="flex:0 0 auto">
+                <label for="kit">Kit</label>
+                <input type="color" id="kit" value="#1f6feb">
+            </div>
+        </div>
+    </fieldset>
+
+    <fieldset id="startBox">
+        <legend>Start</legend>
+        <label for="preset">Pool for this test</label>
+        <select id="preset">
+            <option value="small">Small: Six Nations, 2003</option>
+            <option value="medium">Medium: Home Nations, all years</option>
+            <option value="full">Full: all nations, all years (about 1MB)</option>
+        </select>
+        <button id="create">Create room</button>
+
+        <div class="row" style="margin-top:14px">
+            <div>
+                <label for="join">Join with a code</label>
+                <input type="text" id="join" maxlength="4" placeholder="ABCD" autocomplete="off" style="text-transform:uppercase">
+            </div>
+            <div style="flex:0 0 auto">
+                <button class="secondary" id="joinBtn">Join</button>
+            </div>
+        </div>
+        <p class="status" id="startStatus"></p>
+    </fieldset>
+
+    <fieldset id="roomBox" class="hidden">
+        <legend>Room</legend>
+        <div class="code" id="roomCode"></div>
+        <p class="status" id="roomStatus"></p>
+        <strong style="font-size:0.85rem">Players</strong>
+        <ul id="members"></ul>
+        <button class="secondary" id="leave">Leave room</button>
+    </fieldset>
+</main>
+
+<!-- Firebase compat SDK, loaded from the CDN. No build step. -->
+<script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-database-compat.js"></script>
+
+<!-- App data and logic. Order matters: data and engine before net. -->
+<script>window.MP_DATA_VERSION = "test";</script>
+<script src="../data.js"></script>
+<script src="engine.js"></script>
+<script src="firebase-config.js"></script>
+<script src="net.js"></script>
+
+<script>
+(function () {
+    const $ = function (id) { return document.getElementById(id); };
+    let currentCode = null;
+    let unwatch = null;
+
+    const PRESETS = {
+        small:  { mode: "tournament", countries: MPEngine.GEO_GROUPS["Six Nations"], yearMin: "2003", yearMax: "2003", geoLabel: "Six Nations" },
+        medium: { mode: "tournament", countries: MPEngine.GEO_GROUPS["Home Nations"], geoLabel: "Home Nations" },
+        full:   { mode: "tournament", geoLabel: "All nations" }
+    };
+
+    function setErr(el, msg) { el.textContent = msg; el.classList.add("err"); }
+    function setOk(el, msg) { el.textContent = msg; el.classList.remove("err"); }
+
+    function profile() {
+        return { name: ($("name").value || "Player").trim(), kit: $("kit").value };
+    }
+
+    function showRoom(code) {
+        currentCode = code;
+        $("startBox").classList.add("hidden");
+        $("roomBox").classList.remove("hidden");
+        $("roomCode").textContent = code;
+        if (unwatch) unwatch();
+        unwatch = MPNet.watchRoom(code, render);
+    }
+
+    function render(room) {
+        if (!room) {   // room was closed under us
+            setErr($("roomStatus"), "This room has closed.");
+            $("members").innerHTML = "";
+            return;
+        }
+        setOk($("roomStatus"), "Status: " + (room.meta ? room.meta.status : "unknown")
+            + " | pool: " + (room.pool ? room.pool.length : 0) + " players");
+        const members = room.members || {};
+        const hostUid = room.meta ? room.meta.hostUid : null;
+        const rows = Object.keys(members).map(function (k) {
+            const m = members[k];
+            const you = (k === MPNet.currentUid()) ? " (you)" : "";
+            return "<li>"
+                + "<span class='dot " + (m.connected ? "on" : "") + "'></span>"
+                + "<span class='kit' style='background:" + (m.kit || "#999") + "'></span>"
+                + "<span>" + escapeHtml(m.name || "Player") + you + "</span>"
+                + (k === hostUid ? "<span class='tag'>host</span>" : "")
+                + "</li>";
+        });
+        $("members").innerHTML = rows.join("");
+    }
+
+    function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, function (c) {
+            return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+        });
+    }
+
+    // Boot
+    MPNet.init().then(function (uid) {
+        setOk($("auth"), "Connected. You are " + uid.slice(0, 6) + "...");
+    }).catch(function (err) {
+        setErr($("auth"), err.message);
+    });
+
+    $("create").addEventListener("click", function () {
+        setOk($("startStatus"), "Creating room and snapshotting the pool...");
+        MPNet.createRoom(PRESETS[$("preset").value], profile(), {})
+            .then(showRoom)
+            .catch(function (err) { setErr($("startStatus"), err.message); });
+    });
+
+    $("joinBtn").addEventListener("click", function () {
+        const code = $("join").value.toUpperCase().trim();
+        if (code.length !== 4) { setErr($("startStatus"), "A room code is four characters."); return; }
+        setOk($("startStatus"), "Joining " + code + "...");
+        MPNet.joinRoom(code, profile())
+            .then(showRoom)
+            .catch(function (err) { setErr($("startStatus"), err.message); });
+    });
+
+    $("leave").addEventListener("click", function () {
+        if (!currentCode) return;
+        MPNet.leaveRoom(currentCode).then(function () {
+            if (unwatch) { unwatch(); unwatch = null; }
+            currentCode = null;
+            $("roomBox").classList.add("hidden");
+            $("startBox").classList.remove("hidden");
+            setOk($("startStatus"), "Left the room.");
+        });
+    });
+})();
+</script>
+</body>
+</html>
