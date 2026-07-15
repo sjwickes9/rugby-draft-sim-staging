@@ -127,7 +127,6 @@ window.MPNet = (function () {
             const snapshot = buildSnapshot(filters);
             return reserveCode().then(function (code) {
                 const now = firebase.database.ServerValue.TIMESTAMP;
-                const roomRef = db.ref("rooms/" + code);
                 const room = {
                     meta: {
                         createdAt: now,
@@ -152,7 +151,18 @@ window.MPNet = (function () {
                     connected: true,
                     joinedAt: now
                 };
-                return roomRef.set(room).then(function () {
+                // Write the child paths in one fan-out update. A set() on the
+                // parent rooms/{code} would be denied: write rules cascade
+                // downward, so the granular child rules do not authorise a
+                // write aimed at the parent. Addressing each child path
+                // directly lets each land on its own rule.
+                const base = "rooms/" + code + "/";
+                const updates = {};
+                updates[base + "meta"] = room.meta;
+                updates[base + "settings"] = room.settings;
+                updates[base + "pool"] = room.pool;
+                updates[base + "members/" + uid] = room.members[uid];
+                return db.ref().update(updates).then(function () {
                     trackPresence(code);
                     return code;
                 });
