@@ -28,7 +28,7 @@
 
         "members": {
           "$uid": {
-            ".write": "auth != null && $uid === auth.uid && (data.exists() || !newData.exists() || newData.parent().numChildren() <= 8)",
+            ".write": "auth != null && $uid === auth.uid",
             "name": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 20" },
             "kit":  { ".validate": "newData.isString() && newData.val().length <= 12" },
             "connected": { ".validate": "newData.isBoolean()" },
