@@ -12,9 +12,12 @@
 <body>
 <main>
 
-    <div class="bug">
-        <h1>Rugby XV Draft</h1>
-        <span class="sub">Multiplayer</span>
+    <div class="topbar">
+        <div class="bug">
+            <h1>Rugby XV Draft</h1>
+            <span class="sub">Multiplayer</span>
+        </div>
+        <button class="theme-toggle" id="themeToggle" aria-label="Switch theme">Day</button>
     </div>
     <div class="rule-line"></div>
 
@@ -29,8 +32,11 @@
                     <input type="text" id="name" maxlength="20" value="" placeholder="Your name" autocomplete="off">
                 </div>
                 <div>
-                    <label class="field" for="kit">Kit</label>
-                    <input type="color" id="kit" value="#12D6C4">
+                    <label class="field" for="kit1">Kit</label>
+                    <div class="kits">
+                        <input type="color" id="kit1" value="#16E0CD" aria-label="Primary kit colour">
+                        <input type="color" id="kit2" value="#FFC24D" aria-label="Second kit colour">
+                    </div>
                 </div>
             </div>
             <div class="flash" id="youFlash">
@@ -49,6 +55,29 @@
             </div>
         </section>
 
+        <section class="block">
+            <p class="eyebrow">Players</p>
+            <div class="stepper-row">
+                <div class="stepper">
+                    <label class="field">Table size</label>
+                    <div class="cap">
+                        <button id="sizeDown" aria-label="Fewer players">&minus;</button>
+                        <span class="num" id="sizeNum">4</span>
+                        <button id="sizeUp" aria-label="More players">+</button>
+                    </div>
+                </div>
+                <div class="stepper">
+                    <label class="field">AI drafters</label>
+                    <div class="cap">
+                        <button id="aiDown" aria-label="Fewer AI">&minus;</button>
+                        <span class="num" id="aiNum">0</span>
+                        <button id="aiUp" aria-label="More AI">+</button>
+                    </div>
+                </div>
+            </div>
+            <p class="format-line" id="formatLine"></p>
+        </section>
+
         <section class="block" id="yearsBlock">
             <p class="eyebrow">Years</p>
             <div class="years-wrap">
@@ -63,7 +92,7 @@
         </section>
 
         <section class="block">
-            <p class="eyebrow">Nations</p>
+            <p class="eyebrow">Nations pool <small>which countries players can be drafted from</small></p>
             <div class="chips" id="geoChips"></div>
         </section>
 
@@ -72,6 +101,7 @@
             <div class="rules" id="ruleList"></div>
         </section>
 
+        <p class="eyebrow">Pool check</p>
         <div class="strap" id="strap">
             <span class="live-dot"></span>
             <span id="strapText">Reading the pool...</span>

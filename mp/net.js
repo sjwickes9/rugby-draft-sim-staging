@@ -122,7 +122,8 @@ window.MPNet = (function () {
     // filters: { mode, yearMin, yearMax, countries, geoLabel }
     // host:    { name, kit }
     // rules:   { maxPerTournament, maxPerCountry, onePerTournament } (booleans)
-    function createRoom(filters, host, rules) {
+    function createRoom(filters, host, rules, extra) {
+        extra = extra || {};
         return whenReady().then(function () {
             const snapshot = buildSnapshot(filters);
             return reserveCode().then(function (code) {
@@ -140,6 +141,8 @@ window.MPNet = (function () {
                         yearMax: filters.yearMax || null,
                         geoLabel: filters.geoLabel || "All nations",
                         countries: filters.countries || null,
+                        tableSize: extra.tableSize || 4,
+                        aiCount: extra.aiCount || 0,
                         rules: rules || { maxPerTournament: false, maxPerCountry: false, onePerTournament: false }
                     },
                     members: {},
@@ -147,7 +150,8 @@ window.MPNet = (function () {
                 };
                 room.members[uid] = {
                     name: (host && host.name) || "Host",
-                    kit: (host && host.kit) || "#1f6feb",
+                    kit: (host && host.kit) || "#16E0CD",
+                    kit2: (host && host.kit2) || "#FFC24D",
                     connected: true,
                     joinedAt: now
                 };
@@ -181,18 +185,23 @@ window.MPNet = (function () {
                 return db.ref("rooms/" + code + "/members").get().then(function (memSnap) {
                     const members = memSnap.val() || {};
                     const already = Object.prototype.hasOwnProperty.call(members, uid);
-                    if (!already && Object.keys(members).length >= MAX_MEMBERS) {
-                        throw new Error("That room is full (" + MAX_MEMBERS + " players).");
-                    }
-                    const now = firebase.database.ServerValue.TIMESTAMP;
-                    return db.ref("rooms/" + code + "/members/" + uid).update({
-                        name: (profile && profile.name) || "Player",
-                        kit: (profile && profile.kit) || "#d97757",
-                        connected: true,
-                        joinedAt: already ? members[uid].joinedAt : now
-                    }).then(function () {
-                        trackPresence(code);
-                        return code;
+                    return db.ref("rooms/" + code + "/settings").get().then(function (setSnap) {
+                        const s = setSnap.val() || {};
+                        const humanSeats = s.tableSize ? (s.tableSize - (s.aiCount || 0)) : MAX_MEMBERS;
+                        if (!already && Object.keys(members).length >= humanSeats) {
+                            throw new Error("That room is full (" + humanSeats + " human seats).");
+                        }
+                        const now = firebase.database.ServerValue.TIMESTAMP;
+                        return db.ref("rooms/" + code + "/members/" + uid).update({
+                            name: (profile && profile.name) || "Player",
+                            kit: (profile && profile.kit) || "#FFC24D",
+                            kit2: (profile && profile.kit2) || "#16E0CD",
+                            connected: true,
+                            joinedAt: already ? members[uid].joinedAt : now
+                        }).then(function () {
+                            trackPresence(code);
+                            return code;
+                        });
                     });
                 });
             });
