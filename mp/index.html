@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rugby XV Draft: Multiplayer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="lobby.css">
+</head>
+<body>
+<main>
+
+    <div class="bug">
+        <h1>Rugby XV Draft</h1>
+        <span class="sub">Multiplayer</span>
+    </div>
+    <div class="rule-line"></div>
+
+    <!-- ══ LOBBY VIEW ══ -->
+    <div id="lobbyView">
+
+        <section class="block">
+            <p class="eyebrow">You</p>
+            <div class="you-row">
+                <div class="name">
+                    <label class="field" for="name">Display name</label>
+                    <input type="text" id="name" maxlength="20" value="" placeholder="Your name" autocomplete="off">
+                </div>
+                <div>
+                    <label class="field" for="kit">Kit</label>
+                    <input type="color" id="kit" value="#12D6C4">
+                </div>
+            </div>
+            <div class="flash" id="youFlash">
+                <span class="num">XV</span>
+                <span class="who" id="youName">Your name</span>
+            </div>
+        </section>
+
+        <section class="block">
+            <p class="eyebrow">Mode</p>
+            <div class="seg" role="group" aria-label="Game mode">
+                <button id="modeCareer" aria-pressed="true">Career peak
+                    <span class="hint">One card per player, best rating</span></button>
+                <button id="modeTournament" aria-pressed="false">Tournament
+                    <span class="hint">Every World Cup version is a pick</span></button>
+            </div>
+        </section>
+
+        <section class="block" id="yearsBlock">
+            <p class="eyebrow">Years</p>
+            <div class="years-wrap">
+                <div class="year-ticks" id="yearTicks"></div>
+                <div class="slider">
+                    <div class="track"></div>
+                    <div class="fill" id="yearFill"></div>
+                    <input type="range" id="yMin" min="0" max="9" step="1" value="0" aria-label="Earliest tournament">
+                    <input type="range" id="yMax" min="0" max="9" step="1" value="9" aria-label="Latest tournament">
+                </div>
+            </div>
+        </section>
+
+        <section class="block">
+            <p class="eyebrow">Nations</p>
+            <div class="chips" id="geoChips"></div>
+        </section>
+
+        <section class="block">
+            <p class="eyebrow">Rules</p>
+            <div class="rules" id="ruleList"></div>
+        </section>
+
+        <div class="strap" id="strap">
+            <span class="live-dot"></span>
+            <span id="strapText">Reading the pool...</span>
+        </div>
+
+        <button class="cta" id="create"><span>Create room</span></button>
+
+        <p class="or">or</p>
+        <div class="join-row">
+            <input type="text" id="join" maxlength="4" placeholder="CODE" autocomplete="off" aria-label="Room code">
+            <button class="cta ghost" id="joinBtn"><span>Join</span></button>
+        </div>
+        <p class="status" id="lobbyStatus"></p>
+
+    </div>
+
+    <!-- ══ ROOM VIEW ══ -->
+    <div id="roomView" class="hidden">
+        <p class="eyebrow">Room</p>
+        <div class="room-code" id="roomCode">----<small>share this code</small></div>
+        <div class="strap ready" id="roomStrap"><span id="roomStrapText"></span></div>
+        <ul class="members" id="members"></ul>
+        <button class="cta ghost" id="leave"><span>Leave room</span></button>
+        <p class="status" id="roomStatus"></p>
+    </div>
+
+</main>
+
+<!-- Firebase compat SDK (CDN, no build step) -->
+<script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-database-compat.js"></script>
+
+<!-- Data and logic. Order matters: data and engines before net and lobby. -->
+<script>window.MP_DATA_VERSION = "v1-mp-lobby";</script>
+<script src="../data.js"></script>
+<script src="engine.js"></script>
+<script src="rules.js"></script>
+<script src="firebase-config.js"></script>
+<script src="net.js"></script>
+<script src="lobby.js"></script>
+</body>
+</html>
