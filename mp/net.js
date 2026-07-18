@@ -137,10 +137,10 @@ window.MPNet = (function () {
                     },
                     settings: {
                         mode: filters.mode || "tournament",
-                        yearMin: filters.yearMin || null,
-                        yearMax: filters.yearMax || null,
+                        yearMin: filters.yearMin || "",
+                        yearMax: filters.yearMax || "",
                         geoLabel: filters.geoLabel || "All nations",
-                        countries: filters.countries || null,
+                        countries: filters.countries || "",
                         tableSize: extra.tableSize || 4,
                         aiCount: extra.aiCount || 0,
                         rules: rules || { maxPerTournament: false, maxPerCountry: false, onePerTournament: false }
@@ -155,20 +155,18 @@ window.MPNet = (function () {
                     connected: true,
                     joinedAt: now
                 };
-                // Write the child paths in one fan-out update. A set() on the
-                // parent rooms/{code} would be denied: write rules cascade
-                // downward, so the granular child rules do not authorise a
-                // write aimed at the parent. Addressing each child path
-                // directly lets each land on its own rule.
-                const base = "rooms/" + code + "/";
-                const updates = {};
-                updates[base + "meta"] = room.meta;
-                updates[base + "settings"] = room.settings;
-                updates[base + "pool"] = room.pool;
-                updates[base + "members/" + uid] = room.members[uid];
-                return db.ref().update(updates).then(function () {
+                // Single atomic write of the whole room. The room-level
+                // create rule grants this when the room does not yet exist
+                // and you are naming yourself host. Writing the parent in
+                // one go avoids cross-path rule lookups that cannot resolve
+                // at creation time.
+                return db.ref("rooms/" + code).set(room).then(function () {
                     trackPresence(code);
                     return code;
+                }).catch(function (err) {
+                    throw new Error("Could not create the room (" + (err.code || err.message) + "). "
+                        + "If this says permission denied, re-publish database.rules.json in the "
+                        + "Firebase console under Realtime Database, Rules.");
                 });
             });
         });
