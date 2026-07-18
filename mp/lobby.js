@@ -296,6 +296,9 @@
             $("roomView").classList.remove("hidden");
         });
         $("resumeDraft").addEventListener("click", showDraft);
+        $("spSlow").addEventListener("click", function () { setSpeed(1.8); });
+        $("spMed").addEventListener("click", function () { setSpeed(1); });
+        $("spFast").addEventListener("click", function () { setSpeed(0.4); });
         $("playBtn").addEventListener("click", function () {
             if (!latestRoom) return;
             $("playBtn").disabled = true;
@@ -360,7 +363,15 @@
 
     function onCloseRoom() {
         if (!currentCode) return;
-        if (!window.confirm("Close this room for everyone? This cannot be undone.")) return;
+        modal({
+            title: "Close this room?",
+            body: "This ends the room for everyone in it. It cannot be undone.",
+            ok: "Close room", cancel: "Keep playing"
+        }).then(function (yes) { if (yes) doCloseRoom(); });
+    }
+
+    function doCloseRoom() {
+        if (!currentCode) return;
         const code = currentCode;
         if (unwatch) { unwatch(); unwatch = null; }
         currentCode = null;
@@ -404,6 +415,11 @@
     // ── Room view ───────────────────────────────────────────
     function enterRoom(code) {
         currentCode = code;
+        commitShown = false;
+        compShown = false;
+        seenDrafting = false;
+        draftReady = false;
+        if (window.MPCommit && MPCommit.reset) MPCommit.reset();
         $("lobbyView").classList.add("hidden");
         $("roomView").classList.remove("hidden");
         $("roomCode").innerHTML = code + "<small>share this code</small>";
@@ -413,6 +429,9 @@
     let latestRoom = null;
     let seenDrafting = false;
     let compShown = false;
+    let simSpeed = 1;          // 1.8 slow, 1 medium, 0.4 fast, as in app.js
+    let playingBack = false;
+    let revealed = {};         // fixture index -> true, during playback
     function renderRoom(room) {
         latestRoom = room;
         if (!room) {
@@ -662,12 +681,53 @@
         });
 
         const standings = MPSim.buildTable(order, results);
-        return MPNet.playFixtures(currentCode, results, standings);
+        // Play them out one at a time before writing, so everyone watches
+        // the round unfold rather than seeing a finished table appear.
+        return playBack(results).then(function () {
+            return MPNet.playFixtures(currentCode, results, standings);
+        });
+    }
+
+    // ── Playback ────────────────────────────────────────────
+    // Reveals results one fixture at a time at the chosen speed, matching
+    // the pacing of the single-player app (900ms base).
+    function delay(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
+    function playBack(results) {
+        playingBack = true;
+        revealed = {};
+        renderFixtures(latestRoom, results, revealed);
+        let chain = Promise.resolve();
+        results.forEach(function (r) {
+            chain = chain.then(function () {
+                return delay(900 * simSpeed).then(function () {
+                    revealed[r.i] = true;
+                    renderFixtures(latestRoom, results, revealed, r.i);
+                });
+            });
+        });
+        return chain.then(function () {
+            return delay(500 * simSpeed).then(function () { playingBack = false; });
+        });
+    }
+
+    function setSpeed(v) {
+        simSpeed = v;
+        $("spSlow").setAttribute("aria-pressed", String(v === 1.8));
+        $("spMed").setAttribute("aria-pressed", String(v === 1));
+        $("spFast").setAttribute("aria-pressed", String(v === 0.4));
+        try { localStorage.setItem("mp-sim-speed", String(v)); } catch (e) {}
+    }
+
+    function initSpeed() {
+        let v = 1;
+        try { v = parseFloat(localStorage.getItem("mp-sim-speed")) || 1; } catch (e) {}
+        setSpeed(v);
     }
 
     // ── Fixtures ────────────────────────────────────────────
-    function renderFixtures(room) {
-        const comp = room.comp;
+    function renderFixtures(room, liveResults, liveRevealed, justPlayed) {
+        const comp = room && room.comp;
         if (!comp) return;
         $("compName").textContent = comp.name || "";
         $("compDecided").textContent = comp.decidedBy ? ("Decided by: " + comp.decidedBy) : "";
@@ -685,18 +745,28 @@
         };
 
         const results = {};
-        (comp.results || []).forEach(function (r) { results[r.i] = r; });
-        const played = (comp.results || []).length > 0;
+        const source = liveResults || comp.results || [];
+        source.forEach(function (r) {
+            if (!liveRevealed || liveRevealed[r.i]) results[r.i] = r;
+        });
+        const played = (comp.results || []).length > 0 || playingBack;
 
         // Host can play the fixtures once, and only once.
         const isHost = (room.meta || {}).hostUid === me;
         $("playBtn").classList.toggle("hidden", played || !isHost);
-        $("compStatus").textContent = played
-            ? ""
-            : (isHost ? "" : "Waiting for the host to play the fixtures.");
+        $("speedRow").classList.toggle("hidden", played || !isHost);
+        $("compStatus").textContent = playingBack
+            ? "Playing..."
+            : (played ? "" : (isHost ? "" : "Waiting for the host to play the fixtures."));
 
-        if (!renderSeries(room, comp)) renderTable(room, comp);
-        else $("tableWrap").classList.add("hidden");
+        if (playingBack) {
+            $("tableWrap").classList.add("hidden");
+            $("seriesWrap").classList.add("hidden");
+        } else if (!renderSeries(room, comp)) {
+            renderTable(room, comp);
+        } else {
+            $("tableWrap").classList.add("hidden");
+        }
 
         let lastRound = null;
         const rows = (comp.fixtures || []).map(function (f) {
@@ -714,7 +784,11 @@
                   + "<span class='vs'>-</span>"
                   + "<span class='score" + (res.winner === "b" ? " winner" : "") + "'>" + res.b + "</span>"
                 : "<span class='vs'>v</span>";
-            return head + "<div class='fx" + (mine ? " mine" : "") + (res ? " played" : "") + "'>"
+            const idx = comp.fixtures.indexOf(f);
+            const cls = (mine ? " mine" : "") + (res ? " played" : "")
+                + (playingBack && !res ? " pending-play" : "")
+                + (justPlayed === idx ? " just-played" : "");
+            return head + "<div class='fx" + cls + "'>"
                 + (hn ? "<span class='kit-dot' style='background:" + kit(f.home) + "'></span>" : "")
                 + "<span class='side" + (hn ? "" : " pending") + "'>"
                 + esc(hn || MPFixtures.placeholderLabel(f.home)) + "</span>"
@@ -802,6 +876,38 @@
     }
 
     // ── Helpers ─────    // ── Helpers ─────────────────────────────────────────────
+    // Designed confirmation dialogue, replacing window.confirm.
+    function modal(opts) {
+        return new Promise(function (resolve) {
+            $("modalTitle").textContent = opts.title || "Are you sure?";
+            $("modalBody").innerHTML = opts.body || "";
+            $("modalOk").textContent = opts.ok || "Confirm";
+            $("modalCancel").textContent = opts.cancel || "Cancel";
+            $("modal").classList.remove("hidden");
+            $("modalScrim").classList.remove("hidden");
+
+            const close = function (val) {
+                $("modal").classList.add("hidden");
+                $("modalScrim").classList.add("hidden");
+                $("modalOk").onclick = null;
+                $("modalCancel").onclick = null;
+                $("modalScrim").onclick = null;
+                document.removeEventListener("keydown", onKey);
+                resolve(val);
+            };
+            const onKey = function (e) {
+                if (e.key === "Escape") close(false);
+                if (e.key === "Enter") close(true);
+            };
+            $("modalOk").onclick = function () { close(true); };
+            $("modalCancel").onclick = function () { close(false); };
+            $("modalScrim").onclick = function () { close(false); };
+            document.addEventListener("keydown", onKey);
+            $("modalOk").focus();
+        });
+    }
+    window.MPModal = modal;
+
     function showNotice(msg) {
         if (!msg) { $("notice").classList.add("hidden"); return; }
         $("noticeText").textContent = msg;
@@ -820,6 +926,7 @@
 
     function boot() {
         initTheme();
+        initSpeed();
         randomKit();
         buildTicks();
         buildChips();

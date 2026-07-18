@@ -552,3 +552,37 @@ input[type=color] {
 .series-score { font-family: var(--display); font-size: 2.6rem; line-height: 1; letter-spacing: 0.06em; }
 .series-winner { font-family: var(--display); text-transform: uppercase; letter-spacing: 0.08em; font-size: 1.15rem; color: var(--teal); margin-top: 8px; }
 .series-note { font-size: 0.82rem; color: var(--slate); margin-top: 6px; }
+
+
+/* Designed modal, replacing the browser confirm */
+.modal-scrim { position: fixed; inset: 0; background: rgba(4,10,18,0.74); z-index: 60; }
+.modal {
+    position: fixed; z-index: 61; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    width: calc(100% - 40px); max-width: 420px;
+    background: var(--panel); border: 1px solid var(--line);
+    border-top: 5px solid var(--amber); border-radius: 12px;
+    padding: 22px; box-shadow: 0 18px 50px rgba(0,0,0,0.5);
+}
+.modal-title {
+    font-family: var(--display); text-transform: uppercase; letter-spacing: 0.07em;
+    font-size: 1.25rem; margin: 0 0 10px;
+}
+.modal-body { font-size: 0.92rem; color: var(--label); line-height: 1.5; }
+.modal-body strong { color: var(--pitch); }
+.modal-body .warn { display: block; margin-top: 10px; color: var(--amber); }
+.modal-actions { display: flex; gap: 10px; margin-top: 20px; }
+.modal-btn {
+    flex: 1; padding: 12px; border-radius: 8px; cursor: pointer; border: 0;
+    font-family: var(--display); text-transform: uppercase; letter-spacing: 0.07em; font-size: 0.95rem;
+}
+.modal-btn.primary { background: var(--teal); color: var(--navy); font-weight: 700; }
+.modal-btn.ghost { background: transparent; color: var(--pitch); border: 1px solid var(--line); }
+
+
+/* Simulation speed and playback */
+.speed-row { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; }
+.fx.pending-play { opacity: 0.4; }
+.fx.playing { border-color: var(--amber); box-shadow: 0 0 0 1px var(--amber); }
+.fx .score { transition: color 0.2s; }
+@keyframes flashIn { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
+.fx.just-played { animation: flashIn 0.35s ease-out; }

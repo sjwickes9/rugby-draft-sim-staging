@@ -246,6 +246,14 @@
         <p class="eyebrow">Fixtures <small id="compName"></small></p>
         <p class="list-hint" id="compDecided"></p>
         <div id="fixtureList" class="fixtures"></div>
+        <div id="speedRow" class="speed-row hidden">
+            <span class="axis-label">Speed</span>
+            <div class="axis" role="group" aria-label="Simulation speed">
+                <button id="spSlow" aria-pressed="false">Slow</button>
+                <button id="spMed" aria-pressed="true">Medium</button>
+                <button id="spFast" aria-pressed="false">Fast</button>
+            </div>
+        </div>
         <button class="cta hidden" id="playBtn"><span>Play the fixtures</span></button>
         <p class="status" id="compStatus"></p>
         <div id="seriesWrap" class="hidden">
@@ -279,6 +287,17 @@
     </div>
 
 </main>
+
+<!-- ══ MODAL ══ -->
+<div id="modalScrim" class="modal-scrim hidden"></div>
+<div id="modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <p class="modal-title" id="modalTitle"></p>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-actions">
+        <button class="modal-btn ghost" id="modalCancel">Cancel</button>
+        <button class="modal-btn primary" id="modalOk">Confirm</button>
+    </div>
+</div>
 
 <!-- Firebase compat SDK (CDN, no build step) -->
 <script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-app-compat.js"></script>

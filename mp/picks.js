@@ -27,9 +27,9 @@
         { id: "N8",  node: "Number 8",          num: 8,  label: "Number 8" },
         { id: "SH",  node: "Scrum-half",        num: 9,  label: "Scrum-half" },
         { id: "FH",  node: "Fly-half",          num: 10, label: "Fly-half" },
+        { id: "LW",  node: "Left Wing",         num: 11, label: "Left Wing" },
         { id: "IC",  node: "Inside Centre",     num: 12, label: "Inside Centre" },
         { id: "OC",  node: "Outside Centre",    num: 13, label: "Outside Centre" },
-        { id: "LW",  node: "Left Wing",         num: 11, label: "Left Wing" },
         { id: "RW",  node: "Right Wing",        num: 14, label: "Right Wing" },
         { id: "FB",  node: "Fullback",          num: 15, label: "Fullback" }
     ];

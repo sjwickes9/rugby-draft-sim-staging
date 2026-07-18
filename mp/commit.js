@@ -20,6 +20,7 @@ window.MPCommit = (function () {
         myUid: null,
         code: null,
         hostUid: null,
+        onLocked: null,
         kickerSlot: null,
         strategy: 50,
         locked: false
@@ -146,7 +147,31 @@ window.MPCommit = (function () {
     }
 
     // ── Public ──────────────────────────────────────────────
+    // Reset everything that belongs to a single competition. Without this
+    // the previous room's kicker, strategy and locked flag leak into the
+    // next one, which made the screen think you had already committed.
+    function reset() {
+        state.squad = null;
+        state.commits = {};
+        state.kickerSlot = null;
+        state.strategy = 50;
+        state.locked = false;
+        const sl = $("strategy");
+        if (sl) { sl.value = 50; sl.disabled = false; }
+        const btn = $("commitBtn");
+        if (btn) {
+            btn.disabled = true;
+            const sp = btn.querySelector("span");
+            if (sp) sp.textContent = "Lock in and kick off";
+        }
+        const sc = $("startComp");
+        if (sc) { sc.classList.add("hidden"); sc.disabled = false; }
+        const cs = $("commitStatus");
+        if (cs) { cs.textContent = ""; cs.classList.remove("err"); }
+    }
+
     function show(opts) {
+        reset();
         state.squad = opts.squad;
         state.members = opts.members || {};
         state.commits = opts.commits || {};
@@ -178,6 +203,7 @@ window.MPCommit = (function () {
     }
 
     function wire(onLocked, onStarted) {
+        state.onLocked = onLocked;
         const sc = $("startComp");
         if (sc) sc.addEventListener("click", function () {
             sc.disabled = true;
@@ -203,21 +229,30 @@ window.MPCommit = (function () {
         $("commitBtn").addEventListener("click", function () {
             if (state.locked || !state.kickerSlot) return;
             const p = state.squad[state.kickerSlot];
-            if (!window.confirm("Lock in " + p.name + " as your goal kicker and this strategy?"
-                + "\n\nNeither can be changed for the whole competition.")) return;
-            $("commitBtn").disabled = true;
-            MPNet.submitCommit(state.code, state.kickerSlot, state.strategy)
-                .then(function () {
-                    state.locked = true;
-                    refresh();
-                    if (onLocked) onLocked();
-                })
-                .catch(function (err) {
-                    $("commitStatus").textContent = err.message;
-                    $("commitStatus").classList.add("err");
-                    $("commitBtn").disabled = false;
-                });
+            const pct = Math.round(strategyForwardWeight(state.strategy) * 100);
+            window.MPModal({
+                title: "Lock in your choices?",
+                body: "<strong>" + esc(p.name) + "</strong> takes the goal kicks, and your forwards "
+                    + "carry <strong>" + pct + "%</strong> of the weight."
+                    + "<span class='warn'>Neither can be changed for the whole competition.</span>",
+                ok: "Lock in", cancel: "Go back"
+            }).then(function (yes) { if (yes) doLock(); });
         });
+    }
+
+    function doLock() {
+        $("commitBtn").disabled = true;
+        MPNet.submitCommit(state.code, state.kickerSlot, state.strategy)
+            .then(function () {
+                state.locked = true;
+                refresh();
+                if (state.onLocked) state.onLocked();
+            })
+            .catch(function (err) {
+                $("commitStatus").textContent = err.message;
+                $("commitStatus").classList.add("err");
+                $("commitBtn").disabled = false;
+            });
     }
 
     function esc(s) {
@@ -227,7 +262,7 @@ window.MPCommit = (function () {
     }
 
     return {
-        show: show, update: update, wire: wire,
+        show: show, update: update, wire: wire, reset: reset,
         strategyForwardWeight: strategyForwardWeight,
         kickerRate: kickerRate
     };
