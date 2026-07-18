@@ -258,6 +258,7 @@
         $("create").addEventListener("click", onCreate);
         $("joinBtn").addEventListener("click", onJoin);
         $("leave").addEventListener("click", onLeave);
+        $("closeRoom").addEventListener("click", onCloseRoom);
     }
 
     // Rules as stored on the room, including the resolved nation cap.
@@ -288,14 +289,42 @@
             .catch(function (err) { setStatus("lobbyStatus", err.message, true); });
     }
     function onLeave() {
+        if (!currentCode) { backToLobby("") ; return; }
+        const code = currentCode;
+        // Stop watching first, so the room disappearing underneath us
+        // cannot repaint the room view while we are leaving it.
+        if (unwatch) { unwatch(); unwatch = null; }
+        currentCode = null;
+        setStatus("roomStatus", "Leaving...", false);
+        MPNet.leaveRoom(code)
+            .then(function () { backToLobby("Left the room."); })
+            .catch(function (err) {
+                // Even if the write fails, do not strand the user on a dead
+                // screen. Return to the lobby and report what happened.
+                backToLobby("Left the room, but the server reported: " + err.message);
+            });
+    }
+
+    function onCloseRoom() {
         if (!currentCode) return;
-        MPNet.leaveRoom(currentCode).then(function () {
-            if (unwatch) { unwatch(); unwatch = null; }
-            currentCode = null;
-            $("roomView").classList.add("hidden");
-            $("lobbyView").classList.remove("hidden");
-            setStatus("lobbyStatus", "Left the room.", false);
-        });
+        if (!window.confirm("Close this room for everyone? This cannot be undone.")) return;
+        const code = currentCode;
+        if (unwatch) { unwatch(); unwatch = null; }
+        currentCode = null;
+        MPNet.closeRoom(code)
+            .then(function () { backToLobby("Room closed."); })
+            .catch(function (err) { backToLobby("Could not close the room: " + err.message); });
+    }
+
+    function backToLobby(msg) {
+        if (unwatch) { unwatch(); unwatch = null; }
+        currentCode = null;
+        $("roomView").classList.add("hidden");
+        $("lobbyView").classList.remove("hidden");
+        setStatus("roomStatus", "", false);
+        setStatus("lobbyStatus", msg || "", false);
+        $("create").disabled = false;
+        refresh();
     }
 
     // ── Room view ───────────────────────────────────────────
@@ -308,7 +337,13 @@
         unwatch = MPNet.watchRoom(code, renderRoom);
     }
     function renderRoom(room) {
-        if (!room) { setStatus("roomStatus", "This room has closed.", true); $("members").innerHTML = ""; return; }
+        if (!room) {
+            // The host closed the room while we were in it. Do not strand
+            // the user on an empty screen; return them to the lobby.
+            $("members").innerHTML = "";
+            backToLobby("That room was closed by the host.");
+            return;
+        }
         const s = room.settings || {};
         const yrs = (s.mode === "tournament" && s.yearMin)
             ? (s.yearMin === s.yearMax ? s.yearMin : s.yearMin + " to " + s.yearMax) : "all years";
@@ -319,6 +354,8 @@
 
         const members = room.members || {};
         const hostUid = room.meta ? room.meta.hostUid : null;
+        // Only the host can close a room.
+        $("closeRoom").classList.toggle("hidden", hostUid !== MPNet.currentUid());
         $("members").innerHTML = Object.keys(members).map(function (k) {
             const m = members[k];
             const you = (k === MPNet.currentUid());

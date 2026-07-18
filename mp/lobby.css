@@ -208,6 +208,7 @@ input[type=color] {
 .cta span { display: block; transform: skewX(calc(-1 * var(--skew))); }
 .cta:disabled { background: var(--panel-2); color: var(--slate); cursor: not-allowed; }
 .cta.ghost { background: transparent; color: var(--pitch); border: 2px solid var(--line); }
+.cta.danger { background: transparent; color: var(--bad); border: 2px solid var(--bad); margin-top: 10px; }
 
 .or { text-align: center; color: var(--slate); font-family: var(--display); letter-spacing: 0.2em; text-transform: uppercase; font-size: 0.78rem; margin: 20px 0; }
 .join-row { display: flex; gap: 10px; }
