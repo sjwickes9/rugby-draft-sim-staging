@@ -361,6 +361,22 @@ window.MPNet = (function () {
         });
     }
 
+    // ── Play the fixtures (host only) ──────────────────────
+    // Runs the seeded simulation and stores the results. Every client
+    // could compute the same scores from the same seed, but storing them
+    // makes the record authoritative and cheap to read.
+    function playFixtures(code, results, standings) {
+        return whenReady().then(function () {
+            const updates = {};
+            updates["rooms/" + code + "/comp/results"] = results;
+            updates["rooms/" + code + "/comp/standings"] = standings;
+            updates["rooms/" + code + "/comp/playedAt"] = firebase.database.ServerValue.TIMESTAMP;
+            return db.ref().update(updates).catch(function (err) {
+                throw new Error("Could not save the results (" + (err.code || err.message) + ").");
+            });
+        });
+    }
+
     // ── Watch a room ────────────────────────────────────────
     // cb receives the whole room object on every change. Returns an
     // unsubscribe function.
@@ -416,6 +432,7 @@ window.MPNet = (function () {
         makePick: makePick,
         submitCommit: submitCommit,
         startCompetition: startCompetition,
+        playFixtures: playFixtures,
         rememberRoom: rememberRoom,
         lastRoom: lastRoom,
         forgetRoom: forgetRoom,

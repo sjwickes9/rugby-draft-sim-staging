@@ -46,7 +46,7 @@
         yMin: 0,
         yMax: YEARS.length - 1,
         geo: null,
-        size: 4,           // human users, 1 to 8
+        size: 2,           // human users, 1 to 8
         season: 3,         // competitions in the season, 1 to 15
         path: "create",    // "create" | "join"
         countryCap: null,  // null = use the engine's auto value
@@ -295,6 +295,17 @@
             $("roomView").classList.remove("hidden");
         });
         $("resumeDraft").addEventListener("click", showDraft);
+        $("playBtn").addEventListener("click", function () {
+            if (!latestRoom) return;
+            $("playBtn").disabled = true;
+            $("compStatus").textContent = "Playing the fixtures...";
+            runFixtures(latestRoom)
+                .then(function () { $("compStatus").textContent = ""; })
+                .catch(function (err) {
+                    $("compStatus").textContent = err.message;
+                    $("playBtn").disabled = false;
+                });
+        });
         $("compBack").addEventListener("click", function () {
             $("compView").classList.add("hidden");
             $("roomView").classList.remove("hidden");
@@ -590,6 +601,52 @@
         scrollTop();
     }
 
+    // ── Playing the fixtures ────────────────────────────────
+    // Every client could compute these scores from the stored seed, but
+    // only the host runs and writes them, so the record is authoritative.
+    function runFixtures(room) {
+        const comp = room.comp || {};
+        const draft = room.draft || {};
+        const pool = room.pool || [];
+        const commits = room.commit || {};
+        const order = draft.order || [];
+
+        // Rebuild every squad from the shared pick list.
+        const squads = {};
+        order.forEach(function (u) { squads[u] = MPPicks.emptySquad(); });
+        const picks = draft.picks || {};
+        Object.keys(picks).forEach(function (k) {
+            const pk = picks[k];
+            const p = pool[pk.i];
+            if (p && squads[pk.by]) squads[pk.by][pk.slot] = p;
+        });
+
+        // Ratings and kicker rates.
+        const rating = {}, kicker = {};
+        order.forEach(function (u) {
+            const c = commits[u] || {};
+            rating[u] = MPSim.teamRating(squads[u], c.strategy).overall;
+            const kp = c.kickerSlot ? squads[u][c.kickerSlot] : null;
+            kicker[u] = MPCommit.kickerRate(kp);
+        });
+
+        const rng = MPDraft.makeRng((draft.seed || 1) ^ 0x5f3759df);
+        const fixtures = comp.fixtures || [];
+        const results = [];
+        fixtures.forEach(function (f, i) {
+            if (MPFixtures.isPlaceholder(f.home) || MPFixtures.isPlaceholder(f.away)) return;
+            const m = MPSim.simulateMatch(rng, rating[f.home], rating[f.away], kicker[f.home], kicker[f.away]);
+            results.push({
+                i: i, home: f.home, away: f.away, stage: f.stage,
+                a: m.a, b: m.b, drawn: m.drawn, winner: m.winner,
+                aPts: m.aPts, bPts: m.bPts
+            });
+        });
+
+        const standings = MPSim.buildTable(order, results);
+        return MPNet.playFixtures(currentCode, results, standings);
+    }
+
     // ── Fixtures ────────────────────────────────────────────
     function renderFixtures(room) {
         const comp = room.comp;
@@ -609,6 +666,19 @@
             return m.kit || "#6E8CA6";
         };
 
+        const results = {};
+        (comp.results || []).forEach(function (r) { results[r.i] = r; });
+        const played = (comp.results || []).length > 0;
+
+        // Host can play the fixtures once, and only once.
+        const isHost = (room.meta || {}).hostUid === me;
+        $("playBtn").classList.toggle("hidden", played || !isHost);
+        $("compStatus").textContent = played
+            ? ""
+            : (isHost ? "" : "Waiting for the host to play the fixtures.");
+
+        renderTable(room, comp);
+
         let lastRound = null;
         const rows = (comp.fixtures || []).map(function (f) {
             let head = "";
@@ -619,17 +689,44 @@
             }
             const hn = name(f.home), an = name(f.away);
             const mine = (f.home === me || f.away === me);
-            return head + "<div class='fx" + (mine ? " mine" : "") + "'>"
+            const res = results[comp.fixtures.indexOf(f)];
+            const scoreHtml = res
+                ? "<span class='score" + (res.winner === "a" ? " winner" : "") + "'>" + res.a + "</span>"
+                  + "<span class='vs'>-</span>"
+                  + "<span class='score" + (res.winner === "b" ? " winner" : "") + "'>" + res.b + "</span>"
+                : "<span class='vs'>v</span>";
+            return head + "<div class='fx" + (mine ? " mine" : "") + (res ? " played" : "") + "'>"
                 + (hn ? "<span class='kit-dot' style='background:" + kit(f.home) + "'></span>" : "")
                 + "<span class='side" + (hn ? "" : " pending") + "'>"
                 + esc(hn || MPFixtures.placeholderLabel(f.home)) + "</span>"
-                + "<span class='vs'>v</span>"
+                + scoreHtml
                 + "<span class='side away" + (an ? "" : " pending") + "'>"
                 + esc(an || MPFixtures.placeholderLabel(f.away)) + "</span>"
                 + (an ? "<span class='kit-dot' style='background:" + kit(f.away) + "'></span>" : "")
                 + "</div>";
         }).join("");
         $("fixtureList").innerHTML = rows;
+    }
+
+    function renderTable(room, comp) {
+        const standings = comp.standings;
+        const wrap = $("tableWrap");
+        if (!standings || !standings.length) { wrap.classList.add("hidden"); return; }
+        wrap.classList.remove("hidden");
+        const members = room.members || {};
+        const me = MPNet.currentUid();
+        const head = "<tr><th class='pos'></th><th class='team'>Team</th><th>P</th><th>W</th>"
+            + "<th>D</th><th>L</th><th>PF</th><th>PA</th><th>PD</th><th>Pts</th></tr>";
+        const body = standings.map(function (r, i) {
+            const m = members[r.uid] || {};
+            return "<tr" + (r.uid === me ? " class='mine'" : "") + ">"
+                + "<td class='pos'>" + (i + 1) + "</td>"
+                + "<td class='team'>" + esc(m.name || "User") + "</td>"
+                + "<td>" + r.played + "</td><td>" + r.won + "</td><td>" + r.drawn + "</td><td>" + r.lost + "</td>"
+                + "<td>" + r.pf + "</td><td>" + r.pa + "</td>"
+                + "<td>" + (r.pd > 0 ? "+" : "") + r.pd + "</td><td>" + r.points + "</td></tr>";
+        }).join("");
+        $("leagueTable").innerHTML = "<table class='ltable'>" + head + body + "</table>";
     }
 
     function showDraft() {
