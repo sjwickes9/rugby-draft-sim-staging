@@ -36,6 +36,16 @@
           }
         },
 
+        "commit": {
+          "$uid": {
+            ".write": "auth != null && $uid === auth.uid && !data.exists()",
+            ".validate": "newData.hasChildren(['kickerSlot','strategy'])",
+            "kickerSlot": { ".validate": "newData.isString()" },
+            "strategy": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100" },
+            "at": { ".validate": "newData.isNumber()" }
+          }
+        },
+
         "draft": {
           ".write": "auth != null && root.child('rooms/' + $code + '/meta/hostUid').val() === auth.uid && !data.child('picks').exists()",
 
