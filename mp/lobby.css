@@ -284,9 +284,10 @@ input[type=color] {
 /* Draft tabs */
 .draft-tabs { display: flex; gap: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 4px; margin-bottom: 14px; }
 .draft-tabs button {
-    flex: 1; padding: 11px 6px; border: 0; border-radius: 7px; cursor: pointer;
+    flex: 1 1 0; min-width: 0; padding: 11px 4px; border: 0; border-radius: 7px; cursor: pointer;
     background: transparent; color: var(--slate);
-    font-family: var(--display); text-transform: uppercase; letter-spacing: 0.07em; font-size: 0.95rem;
+    font-family: var(--display); text-transform: uppercase; letter-spacing: 0.03em; font-size: 0.86rem;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .draft-tabs button[aria-pressed="true"] { background: var(--teal); color: var(--navy); font-weight: 700; }
 
@@ -314,7 +315,7 @@ input[type=color] {
 .axis button[aria-pressed="true"] { background: var(--pitch); color: var(--navy); font-weight: 700; }
 
 .list-hint { font-size: 0.78rem; color: var(--slate); margin: 0 0 10px; }
-.panel-body { max-height: 62vh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.panel-body { max-height: 62vh; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; }
 
 /* Nation accordion */
 .nation { border-bottom: 1px solid var(--line); }
@@ -325,9 +326,9 @@ input[type=color] {
     font-size: 0.95rem; padding: 13px 2px;
 }
 .nation-head .caret { color: var(--teal); font-size: 0.8rem; width: 14px; flex: none; }
-.nation-head .ncount { margin-left: auto; font-size: 0.78rem; color: var(--slate); letter-spacing: 0.04em; }
+.nation-head .ncount { margin-left: auto; padding-right: 2px; font-size: 0.74rem; color: var(--slate); letter-spacing: 0.04em; text-align: right; }
 .nation-head .nfit { color: var(--teal); }
-.nation-body { padding: 0 0 8px 6px; }
+.nation-body { padding: 0 0 8px 4px; }
 .posgroup {
     display: flex; align-items: center; gap: 8px; width: 100%; cursor: pointer;
     background: none; border: 0; border-bottom: 1px solid var(--line); text-align: left;
@@ -335,28 +336,57 @@ input[type=color] {
     font-size: 0.78rem; color: var(--label); padding: 10px 0 6px;
 }
 .posgroup .caret { color: var(--teal); font-size: 0.7rem; width: 12px; flex: none; }
-.posgroup .scount { margin-left: auto; color: var(--slate); letter-spacing: 0.04em; font-size: 0.72rem; }
+.posgroup .scount { margin-left: auto; padding-right: 2px; color: var(--slate); letter-spacing: 0.04em; font-size: 0.7rem; text-align: right; }
 .posgroup .sfit { color: var(--teal); }
-.sub-body { padding-left: 8px; }
+.sub-body { padding-left: 6px; }
 .board-head { font-family: var(--display); text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.78rem; color: var(--label); padding: 12px 0 5px; border-bottom: 1px solid var(--line); }
 
-.prow { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--line); }
-.prow .star { background: none; border: 0; color: var(--slate); font-size: 1.15rem; cursor: pointer; padding: 2px 4px; flex: none; }
+/* Shared right-hand column width, so header counts and row ratings line up */
+:root { --rate-col: 46px; --act-col: 62px; }
+
+.prow { display: flex; align-items: center; gap: 8px; padding: 9px 0; border-bottom: 1px solid var(--line); }
+.prow .star { background: none; border: 0; color: var(--slate); font-size: 1.05rem; cursor: pointer; padding: 0 2px; flex: none; width: 22px; }
 .prow .star.on { color: var(--amber); }
-.prow .pinfo { flex: 1; min-width: 0; }
-.prow .pname { font-family: var(--display); text-transform: uppercase; letter-spacing: 0.03em; font-size: 1rem; }
-.prow .pmeta { font-size: 0.74rem; color: var(--slate); }
+.prow .pinfo { flex: 1 1 auto; min-width: 0; }
+.prow .pname { font-family: var(--display); text-transform: uppercase; letter-spacing: 0.03em; font-size: 0.98rem; overflow-wrap: anywhere; }
+.prow .pmeta { font-size: 0.72rem; color: var(--slate); overflow-wrap: anywhere; line-height: 1.35; }
 .prow .pen { color: var(--amber); }
-.prow .prate { font-family: var(--display); font-size: 1.15rem; min-width: 32px; text-align: right; }
-.prow .prate .was { display: block; font-size: 0.68rem; color: var(--slate); text-decoration: line-through; }
-.prow .take { padding: 7px 12px; border-radius: 6px; cursor: pointer; background: var(--teal); color: var(--navy); border: 0; font-family: var(--display); text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.8rem; }
+.prow .prate {
+    flex: 0 0 var(--rate-col); width: var(--rate-col);
+    font-family: var(--display); font-size: 1.1rem; text-align: right;
+}
+.prow .prate .was { display: block; font-size: 0.66rem; color: var(--slate); text-decoration: line-through; }
+.prow .take {
+    flex: 0 0 auto; padding: 7px 10px; border-radius: 6px; cursor: pointer;
+    background: var(--teal); color: var(--navy); border: 0;
+    font-family: var(--display); text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.78rem;
+}
 .prow.blocked { opacity: 0.5; }
 .prow.taken .pname { text-decoration: line-through; }
 .prow.taken .prate { color: var(--slate); }
 .prow .gone { color: var(--amber); }
-.prow.blocked .take { display: none; }
-.prow .why-not { font-size: 0.72rem; color: var(--bad); }
-.prow .chev { background: none; border: 0; color: var(--teal); cursor: pointer; font-size: 0.8rem; font-family: var(--display); letter-spacing: 0.05em; }
-.versions { padding: 0 0 6px 30px; }
+.prow .why-not { font-size: 0.7rem; color: var(--bad); }
+.prow .chev { flex: 0 0 auto; background: none; border: 0; color: var(--teal); cursor: pointer; font-size: 0.76rem; font-family: var(--display); letter-spacing: 0.04em; padding: 4px 2px; }
+.versions { padding: 0 0 6px 22px; }
 .versions .prow { border-bottom: 1px dashed var(--line); }
 .panel-empty { color: var(--slate); padding: 22px 0; text-align: center; }
+
+
+/* Picks tab */
+.picks-body { max-height: 66vh; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; }
+.pickrow {
+    display: flex; align-items: center; gap: 10px; padding: 10px 10px 10px 8px;
+    border-left: 4px solid var(--pk, var(--slate)); background: var(--panel);
+    margin-bottom: 5px; border-radius: 0 6px 6px 0;
+}
+.pickrow.mine { background: var(--panel-2); }
+.pickrow .pknum { flex: 0 0 30px; font-family: var(--display); font-size: 0.92rem; color: var(--slate); text-align: right; }
+.pickrow .pkinfo { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.pickrow .pkname { font-family: var(--display); text-transform: uppercase; letter-spacing: 0.03em; font-size: 0.98rem; overflow-wrap: anywhere; }
+.pickrow .pkmeta { font-size: 0.71rem; color: var(--slate); overflow-wrap: anywhere; }
+.pickrow .pkby {
+    flex: 0 0 auto; max-width: 34%; text-align: right;
+    font-family: var(--display); text-transform: uppercase; letter-spacing: 0.04em;
+    font-size: 0.82rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.pickrow .pkround { display: block; font-size: 0.66rem; color: var(--slate); letter-spacing: 0.06em; }

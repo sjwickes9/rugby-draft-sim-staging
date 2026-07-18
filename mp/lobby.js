@@ -471,6 +471,7 @@
             constraints: active,
             ruleCtx: ctx,
             myUid: MPNet.currentUid(),
+            roomCode: currentCode,
             live: true,
             onPick: function (slotId, poolIndex, done) {
                 const d = latestRoom && latestRoom.draft;

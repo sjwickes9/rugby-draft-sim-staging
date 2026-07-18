@@ -16,7 +16,7 @@
 
 window.MPDraftUI = (function () {
     const $ = function (id) { return document.getElementById(id); };
-    const STAR_KEY = "mp-bigboard";
+    const STAR_ROOT = "mp-bigboard";
     const AXIS_KEY = "mp-list-axis";
 
     const state = {
@@ -24,6 +24,7 @@ window.MPDraftUI = (function () {
         squad: null,
         taken: {},
         starred: [],
+        roomCode: null,
         activeSlot: null,   // null = browsing, otherwise picking for this slot
         tab: "xv",          // "xv" | "board" | "all"
         search: "",
@@ -41,6 +42,7 @@ window.MPDraftUI = (function () {
         order: [],
         members: {},
         pickIndex: 0,
+        picksList: [],
         complete: false
     };
 
@@ -52,13 +54,14 @@ window.MPDraftUI = (function () {
         state.pool = opts.pool || [];
         state.squad = opts.squad || MPPicks.emptySquad();
         state.taken = opts.taken || {};
-        state.starred = loadStars();
         state.axis = loadAxis();
         state.constraints = opts.constraints || [];
         state.ruleCtx = opts.ruleCtx || null;
         state.onPick = opts.onPick || null;
         state.myUid = opts.myUid || null;
+        state.roomCode = opts.roomCode || null;
         state.live = !!opts.live;
+        state.starred = loadStars();
         buildIndex();
         renderAxis();
         setTab("xv");
@@ -84,12 +87,16 @@ window.MPDraftUI = (function () {
         $("axisPosition").setAttribute("aria-pressed", String(state.axis === "position"));
     }
 
+    // The Big Board is scoped to a room. A different room means a
+    // different pool, so a board carried over from another room would list
+    // players who are not even in this draft.
+    function starKey() { return STAR_ROOT + ":" + (state.roomCode || "none"); }
     function loadStars() {
-        try { return JSON.parse(localStorage.getItem(STAR_KEY) || "[]"); }
+        try { return JSON.parse(localStorage.getItem(starKey()) || "[]"); }
         catch (e) { return []; }
     }
     function saveStars() {
-        try { localStorage.setItem(STAR_KEY, JSON.stringify(state.starred)); } catch (e) {}
+        try { localStorage.setItem(starKey(), JSON.stringify(state.starred)); } catch (e) {}
     }
 
     // ── Live state from the room ────────────────────────────
@@ -110,12 +117,17 @@ window.MPDraftUI = (function () {
         state.squad = MPPicks.emptySquad();
         state.taken = {};
         const picks = draft.picks || {};
+        state.picksList = Object.keys(picks)
+            .map(function (k) { return { idx: parseInt(k, 10), pick: picks[k] }; })
+            .sort(function (a, b) { return a.idx - b.idx; });
         Object.keys(picks).forEach(function (k) {
             const pk = picks[k];
             const p = pool[pk.i];
             if (!p) return;
             const who = state.members[pk.by];
-            state.taken[MPPicks.playerKey(p)] = (who && who.name) || "another user";
+            state.taken[MPPicks.playerKey(p)] = (pk.by === state.myUid)
+                ? "you"
+                : ((who && who.name) || "another user");
             if (pk.by === state.myUid) state.squad[pk.slot] = p;
         });
 
@@ -123,7 +135,8 @@ window.MPDraftUI = (function () {
         renderTeamsheet();
         // Always repaint the list, so taken players grey out the instant
         // another user picks, whichever tab is showing.
-        if (state.tab !== "xv") renderList();
+        if (state.tab === "picks") renderPicks();
+        else if (state.tab !== "xv") renderList();
         renderBoardBadge();
     }
 
@@ -242,9 +255,48 @@ window.MPDraftUI = (function () {
         $("tabXV").setAttribute("aria-pressed", String(tab === "xv"));
         $("tabBoard").setAttribute("aria-pressed", String(tab === "board"));
         $("tabAll").setAttribute("aria-pressed", String(tab === "all"));
+        $("tabPicks").setAttribute("aria-pressed", String(tab === "picks"));
         $("paneXV").classList.toggle("hidden", tab !== "xv");
-        $("paneList").classList.toggle("hidden", tab === "xv");
-        if (tab !== "xv") renderList();
+        $("paneList").classList.toggle("hidden", tab === "xv" || tab === "picks");
+        $("panePicks").classList.toggle("hidden", tab !== "picks");
+        if (tab === "picks") renderPicks();
+        else if (tab !== "xv") renderList();
+    }
+
+    // ── Picks tab ───────────────────────────────────────────
+    // Every pick, latest first, so the newest is at the top and you can
+    // scroll back to the first pick of the draft.
+    function renderPicks() {
+        const el = $("picksBody");
+        if (!el) return;
+        if (!state.picksList.length) {
+            el.innerHTML = "<p class='panel-empty'>No picks yet.</p>";
+            return;
+        }
+        const pool = state.pool;
+        const n = state.order.length || 1;
+        el.innerHTML = state.picksList.slice().reverse().map(function (row) {
+            const pk = row.pick;
+            const p = pool[pk.i];
+            if (!p) return "";
+            const who = state.members[pk.by] || {};
+            const mine = pk.by === state.myUid;
+            const slot = MPPicks.slotById(pk.slot);
+            const round = Math.floor(row.idx / n) + 1;
+            const pen = slot ? MPPicks.oopPenalty(p, slot.node) : 0;
+            return "<div class='pickrow" + (mine ? " mine" : "") + "' style='--pk:"
+                + (who.kit || "#6E8CA6") + "'>"
+                + "<span class='pknum'>" + (row.idx + 1) + "</span>"
+                + "<span class='pkinfo'>"
+                + "<span class='pkname'>" + esc(p.name) + "</span>"
+                + "<span class='pkmeta'>" + esc(p.country) + (p.year ? " " + p.year : "")
+                + " | " + (slot ? esc(slot.label) : "")
+                + (pen > 0 ? " <span class='pen'>minus " + pen + "</span>" : "")
+                + "</span></span>"
+                + "<span class='pkby'>" + (mine ? "You" : esc(who.name || "User"))
+                + "<span class='pkround'>R" + round + "</span></span>"
+                + "</div>";
+        }).join("");
     }
 
     // ── Team sheet ──────────────────────────────────────────
@@ -608,6 +660,7 @@ window.MPDraftUI = (function () {
         $("tabXV").addEventListener("click", function () { setTab("xv"); });
         $("tabBoard").addEventListener("click", function () { setTab("board"); });
         $("tabAll").addEventListener("click", function () { setTab("all"); });
+        $("tabPicks").addEventListener("click", function () { setTab("picks"); });
         $("bannerCancel").addEventListener("click", cancelPicking);
         $("axisNation").addEventListener("click", function () { setAxis("nation"); });
         $("axisPosition").addEventListener("click", function () { setAxis("position"); });
