@@ -262,13 +262,28 @@ window.MPNet = (function () {
                 const competition = settings.competition || 1;
                 const seed = MPDraft.newSeed();
 
+                // Re-snapshot the pool, so any settings the host changed
+                // between competitions take effect and every user drafts
+                // from the same frozen list.
+                const filters = {
+                    mode: settings.mode || "tournament",
+                    yearMin: settings.yearMin || undefined,
+                    yearMax: settings.yearMax || undefined,
+                    countries: settings.countries || null
+                };
+                let freshPool = null;
+                try { freshPool = MPEngine.buildPool(allSquads, filters); } catch (e) {}
+
                 // First competition uses the lottery. Later ones use reverse
                 // standings, so the bottom of the room tally picks first.
                 let order;
                 if (competition <= 1) {
                     order = MPDraft.lottery(uids, seed);
                 } else {
-                    order = MPDraft.reverseStandingsOrder(uids, room.tally || {}, (room.draft && room.draft.order) || uids);
+                    // The tally holds objects, so flatten to a single score
+                    // first: titles dominate, points break ties.
+                    order = MPDraft.reverseStandingsOrder(uids, tallyPoints(room.tally),
+                        (room.draft && room.draft.order) || uids);
                 }
 
                 const updates = {};
@@ -280,6 +295,9 @@ window.MPNet = (function () {
                     startedAt: firebase.database.ServerValue.TIMESTAMP,
                     competition: competition
                 };
+                if (freshPool && freshPool.length) {
+                    updates["rooms/" + code + "/pool"] = freshPool;
+                }
                 updates["rooms/" + code + "/meta/status"] = "drafting";
                 return db.ref().update(updates).then(function () { return order; });
             });
@@ -396,10 +414,6 @@ window.MPNet = (function () {
                 const total = settings.seasonLength || 1;
                 if (done >= total) throw new Error("The season is already complete.");
 
-                const order = (room.draft && room.draft.order) || [];
-                const seed = MPDraft.newSeed();
-                const nextOrder = MPDraft.reverseStandingsOrder(order, tallyPoints(room.tally), order);
-
                 const updates = {};
                 updates["rooms/" + code + "/history/" + done] = {
                     name: (room.comp || {}).name || null,
@@ -408,16 +422,12 @@ window.MPNet = (function () {
                 };
                 updates["rooms/" + code + "/comp"] = null;
                 updates["rooms/" + code + "/commit"] = null;
-                updates["rooms/" + code + "/draft"] = {
-                    seed: seed,
-                    order: nextOrder,
-                    pickIndex: 0,
-                    currentPicker: nextOrder[0],
-                    startedAt: firebase.database.ServerValue.TIMESTAMP,
-                    competition: done + 1
-                };
+                updates["rooms/" + code + "/draft"] = null;
                 updates["rooms/" + code + "/settings/competition"] = done + 1;
-                updates["rooms/" + code + "/meta/status"] = "drafting";
+                // Back to the lobby, not straight into a draft. The host may
+                // change the pool and the rules between competitions, and the
+                // pool snapshot is re-taken when they start the next draft.
+                updates["rooms/" + code + "/meta/status"] = "lobby";
                 return db.ref().update(updates).catch(function (err) {
                     throw new Error("Could not start the next competition ("
                         + (err.code || err.message) + "). Re-publish database.rules.json if this says permission denied.");

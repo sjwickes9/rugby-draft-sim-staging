@@ -4,6 +4,9 @@
 // ============================================================
 
 (function () {
+    // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
+    const VERSION = "v1.2607182009";
+
     const $ = function (id) { return document.getElementById(id); };
     const YEARS = MPEngine.ALL_YEARS;
     const GEO = MPEngine.GEO_GROUPS;
@@ -313,16 +316,17 @@
         $("nextComp").addEventListener("click", function () {
             modal({
                 title: "Start the next competition?",
-                body: "Everyone drafts a new XV from a fresh pool. "
-                    + "<strong>Your current squad is retired.</strong>"
+                body: "This returns the room to the setup screen, where you can change "
+                    + "the pool and the rules before the next draft. "
+                    + "<strong>Every squad is retired.</strong>"
                     + "<span class='warn'>The draft order reverses, so whoever is bottom of the tally picks first.</span>",
-                ok: "Start drafting", cancel: "Not yet"
+                ok: "Set up next competition", cancel: "Not yet"
             }).then(function (yes) {
                 if (!yes) return;
                 $("nextComp").disabled = true;
                 $("nextHint").textContent = "Setting up the next draft...";
                 MPNet.nextCompetition(currentCode)
-                    .then(function () { compShown = false; seenDrafting = false; })
+                    .then(function () { /* the room state drives the reset */ })
                     .catch(function (err) {
                         $("nextHint").textContent = err.message;
                         $("nextComp").disabled = false;
@@ -448,12 +452,35 @@
     let latestRoom = null;
     let seenDrafting = false;
     let compShown = false;
+    let viewCompNo = 1;
     let simSpeed = 1;          // 1.8 slow, 1 medium, 0.4 fast, as in app.js
     let playingBack = false;
     let revealed = {};         // fixture index -> true, during playback
     let liveFixtures = null;   // resolved fixtures while playing back
     function renderRoom(room) {
         latestRoom = room;
+
+        // A new competition must reset every one-shot view flag. Doing this
+        // from the room state means all clients reset, not just the host who
+        // pressed the button.
+        const compNo = (room.settings || {}).competition || 1;
+        if (compNo !== viewCompNo) {
+            viewCompNo = compNo;
+            seenDrafting = false;
+            commitShown = false;
+            compShown = false;
+            draftReady = false;
+            playingBack = false;
+            const pb = $("playBtn");
+            if (pb) pb.disabled = false;
+            const nc = $("nextComp");
+            if (nc) nc.disabled = false;
+            if (window.MPCommit && MPCommit.reset) MPCommit.reset();
+            if (window.MPDraftUI && MPDraftUI.stopAuto) MPDraftUI.stopAuto();
+            $("draftView").classList.add("hidden");
+            $("commitView").classList.add("hidden");
+            $("compView").classList.add("hidden");
+        }
         if (!room) {
             // The host closed the room while we were in it. Do not strand
             // the user on an empty screen; return them to the lobby.
@@ -519,6 +546,15 @@
             else setStatus("startHint", MPDraft.formatFor(count).name + ". Everyone is here.", false);
         }
 
+        // Between competitions the room returns to lobby status so the host
+        // can change the pool and rules before the next draft.
+        if (status === "lobby" && compNo > 1) {
+            $("compView").classList.add("hidden");
+            $("commitView").classList.add("hidden");
+            $("draftView").classList.add("hidden");
+            $("roomView").classList.remove("hidden");
+        }
+
         if (status === "competing") {
             renderFixtures(room);
             if (!compShown) { compShown = true; showComp(); }
@@ -529,13 +565,6 @@
         if (status === "drafting") {
             // A new competition writes a fresh draft node, so rebuild the
             // draft UI rather than reusing the finished one.
-            const compNo = (room.draft || {}).competition || 1;
-            if (draftReady && compNo !== draftCompNo) {
-                draftReady = false;
-                commitShown = false;
-                if (window.MPCommit && MPCommit.reset) MPCommit.reset();
-            }
-            draftCompNo = compNo;
             ensureDraftInit(room);
             MPDraftUI.applyRoom(room);
             maybeCommit(room);
@@ -570,7 +599,6 @@
 
     // ── Draft view ──────────────────────────────────────────
     let draftReady = false;
-    let draftCompNo = 1;
 
     function ensureDraftInit(room) {
         if (draftReady) return;
@@ -904,6 +932,7 @@
         // Host can play the fixtures once, and only once.
         const isHost = (room.meta || {}).hostUid === me;
         $("playBtn").classList.toggle("hidden", played || !isHost);
+        if (!played) $("playBtn").disabled = false;
         $("speedRow").classList.toggle("hidden", played || !isHost);
         $("compStatus").textContent = playingBack
             ? "Playing..."
@@ -1155,6 +1184,8 @@
     }
 
     function boot() {
+        const v = $("version");
+        if (v) v.textContent = VERSION;
         initTheme();
         initSpeed();
         randomKit();

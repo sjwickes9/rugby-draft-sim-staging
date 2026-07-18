@@ -132,8 +132,24 @@ window.MPDraftUI = (function () {
         if (n) n.textContent = msg || "";
     }
 
+    function stopAuto() {
+        state.autoMode = false;
+        state.autoBusy = false;
+        const b = $("autoPickBtn");
+        if (b) b.setAttribute("aria-pressed", "false");
+        note("");
+    }
+
     function maybeAutoPick() {
-        if (!state.autoMode || !state.live || state.complete) return;
+        if (!state.autoMode) return;
+        // Switch off once there is nothing left to pick, so it cannot carry
+        // into the next competition and draft a squad without being asked.
+        if (state.complete || !MPPicks.emptySlots(state.squad).length) {
+            stopAuto();
+            note("Auto-pick finished and switched itself off.");
+            return;
+        }
+        if (!state.live) return;
         if (!state.isMyTurn || state.autoBusy) return;
         state.autoBusy = true;
         setTimeout(function () {
@@ -841,7 +857,7 @@ window.MPDraftUI = (function () {
     }
 
     return {
-        init: init, wire: wire, applyRoom: applyRoom,
+        init: init, wire: wire, applyRoom: applyRoom, stopAuto: stopAuto,
         renderTeamsheet: renderTeamsheet,
         squad: function () { return state.squad; },
         starred: function () { return state.starred; }

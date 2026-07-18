@@ -612,3 +612,10 @@ input[type=color] {
 .champion .winner-name { font-size: 2.3rem; }
 .champion { border-left-width: 8px; }
 .ltable td.titles { color: #F0B90B; font-family: var(--display); }
+
+
+/* Version stamp */
+.version {
+    font-family: var(--display); text-transform: uppercase; letter-spacing: 0.14em;
+    font-size: 0.66rem; color: var(--slate); margin: 0 0 16px; opacity: 0.75;
+}
