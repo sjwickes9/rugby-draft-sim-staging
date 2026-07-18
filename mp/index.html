@@ -66,6 +66,14 @@
                         <button id="sizeUp" aria-label="More users">+</button>
                     </div>
                 </div>
+                <div class="stepper">
+                    <label class="field">Competitions in season</label>
+                    <div class="cap">
+                        <button id="seasonDown" aria-label="Shorter season">&minus;</button>
+                        <span class="num" id="seasonNum">3</span>
+                        <button id="seasonUp" aria-label="Longer season">+</button>
+                    </div>
+                </div>
             </div>
             <p class="format-line" id="formatLine"></p>
         </section>
@@ -115,7 +123,14 @@
         <p class="eyebrow">Room</p>
         <div class="room-code" id="roomCode">----<small>share this code</small></div>
         <div class="strap ready" id="roomStrap"><span id="roomStrapText"></span></div>
+        <p class="season-line" id="seasonLine"></p>
         <ul class="members" id="members"></ul>
+        <div id="lotteryPanel" class="lottery hidden">
+            <p class="eyebrow">Draft order</p>
+            <ol class="lottery-list" id="lotteryList"></ol>
+        </div>
+        <button class="cta hidden" id="startDraft"><span>Start draft</span></button>
+        <p class="status" id="startHint"></p>
         <button class="cta ghost" id="leave"><span>Leave room</span></button>
         <button class="cta danger hidden" id="closeRoom"><span>Close room</span></button>
         <p class="status" id="roomStatus"></p>
@@ -133,6 +148,7 @@
 <script src="../data.js"></script>
 <script src="engine.js"></script>
 <script src="rules.js"></script>
+<script src="draft.js"></script>
 <script src="firebase-config.js"></script>
 <script src="net.js"></script>
 <script src="lobby.js"></script>

@@ -142,6 +142,8 @@ window.MPNet = (function () {
                         geoLabel: filters.geoLabel || "All nations",
                         countries: filters.countries || "",
                         tableSize: extra.tableSize || 4,
+                        seasonLength: extra.seasonLength || 3,
+                        competition: 1,
                         aiCount: extra.aiCount || 0,
                         rules: rules || { maxPerTournament: false, maxPerCountry: false, onePerTournament: false }
                     },
@@ -220,6 +222,50 @@ window.MPNet = (function () {
         });
     }
 
+    // ── Start the draft (host only) ────────────────────────
+    // Writes the draft node and flips the room to "drafting". Once the
+    // status leaves "lobby" the settings rule locks the settings block,
+    // which is what fixes the season length for the duration.
+    function startDraft(code) {
+        return whenReady().then(function () {
+            return db.ref("rooms/" + code).get().then(function (snap) {
+                const room = snap.val();
+                if (!room) throw new Error("That room no longer exists.");
+                if (room.meta.hostUid !== uid) throw new Error("Only the host can start the draft.");
+                if (room.meta.status !== "lobby") throw new Error("The draft has already started.");
+
+                const members = room.members || {};
+                const uids = Object.keys(members);
+                if (uids.length < 2) throw new Error("You need at least two users to start.");
+
+                const settings = room.settings || {};
+                const competition = settings.competition || 1;
+                const seed = MPDraft.newSeed();
+
+                // First competition uses the lottery. Later ones use reverse
+                // standings, so the bottom of the room tally picks first.
+                let order;
+                if (competition <= 1) {
+                    order = MPDraft.lottery(uids, seed);
+                } else {
+                    order = MPDraft.reverseStandingsOrder(uids, room.tally || {}, (room.draft && room.draft.order) || uids);
+                }
+
+                const updates = {};
+                updates["rooms/" + code + "/draft"] = {
+                    seed: seed,
+                    order: order,
+                    pickIndex: 0,
+                    currentPicker: order[0],
+                    startedAt: firebase.database.ServerValue.TIMESTAMP,
+                    competition: competition
+                };
+                updates["rooms/" + code + "/meta/status"] = "drafting";
+                return db.ref().update(updates).then(function () { return order; });
+            });
+        });
+    }
+
     // ── Watch a room ────────────────────────────────────────
     // cb receives the whole room object on every change. Returns an
     // unsubscribe function.
@@ -271,6 +317,7 @@ window.MPNet = (function () {
         whenReady: whenReady,
         currentUid: currentUid,
         createRoom: createRoom,
+        startDraft: startDraft,
         joinRoom: joinRoom,
         watchRoom: watchRoom,
         leaveRoom: leaveRoom,

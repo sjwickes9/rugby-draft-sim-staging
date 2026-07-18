@@ -218,6 +218,12 @@ input[type=color] {
 .status { font-size: 0.88rem; color: var(--slate); margin: 12px 0 0; min-height: 1.1em; }
 .status.err { color: var(--bad); }
 
+.season-line { font-family: var(--display); text-transform: uppercase; letter-spacing: 0.1em; font-size: 0.9rem; color: var(--amber); margin: 4px 0 0; }
+.lottery { margin: 16px 0; }
+.lottery-list { list-style: none; counter-reset: pick; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.lottery-list li { counter-increment: pick; display: flex; align-items: center; gap: 12px; padding: 9px 14px; background: var(--panel); border-left: 4px solid var(--teal); font-family: var(--display); text-transform: uppercase; letter-spacing: 0.04em; }
+.lottery-list li::before { content: counter(pick); color: var(--slate); min-width: 18px; }
+
 /* ── Room view ─────────────────────────────────────────── */
 .room-code { font-family: var(--display); font-size: 3.2rem; letter-spacing: 0.2em; line-height: 1; }
 .room-code small { display: block; font-size: 0.72rem; letter-spacing: 0.2em; color: var(--slate); }

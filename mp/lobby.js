@@ -8,16 +8,6 @@
     const YEARS = MPEngine.ALL_YEARS;
     const GEO = MPEngine.GEO_GROUPS;
 
-    // Competition format per table size (spec section 12).
-    const FORMATS = {
-        2: "Test series, best of three",
-        3: "Tri Nations, home and away",
-        4: "Pool of four, then a final",
-        5: "Five Nations round robin",
-        6: "Six Nations round robin",
-        7: "Seven Nations round robin",
-        8: "Two pools of four, then playoffs"
-    };
 
     // Friendly rule copy (the engine ids are terse).
     const RULE_TEXT = {
@@ -43,7 +33,8 @@
         yMin: 0,
         yMax: YEARS.length - 1,
         geo: null,
-        size: 4,           // human drafters, 1 to 8
+        size: 4,           // human users, 1 to 8
+        season: 3,         // competitions in the season, 1 to 15
         countryCap: null,  // null = use the engine's auto value
         rules: { maxPerTournament: false, maxPerCountry: false, onePerTournament: false }
     };
@@ -103,12 +94,19 @@
     function renderPlayers() {
         if (state.size < 1) state.size = 1;
         if (state.size > 8) state.size = 8;
+        if (state.season < 1) state.season = 1;
+        if (state.season > 15) state.season = 15;
         $("sizeNum").textContent = state.size;
+        $("seasonNum").textContent = state.season;
         $("sizeDown").disabled = state.size <= 1;
         $("sizeUp").disabled = state.size >= 8;
-        const fmt = FORMATS[state.size] || "Solo draft, no competition yet";
+        $("seasonDown").disabled = state.season <= 1;
+        $("seasonUp").disabled = state.season >= 15;
+        const fmt = MPDraft.formatFor(state.size).name;
         $("formatLine").innerHTML = fmt
-            + "<br><span class='split'>" + state.size + " user" + (state.size === 1 ? "" : "s") + "</span>";
+            + "<br><span class='split'>" + state.size + " user" + (state.size === 1 ? "" : "s")
+            + ", " + state.season + " competition" + (state.season === 1 ? "" : "s")
+            + " (locked once the first draft begins)</span>";
     }
 
     // ── Year slider ─────────────────────────────────────────
@@ -231,6 +229,8 @@
 
         $("sizeDown").addEventListener("click", function () { step("size", -1); });
         $("sizeUp").addEventListener("click", function () { step("size", 1); });
+        $("seasonDown").addEventListener("click", function () { step("season", -1); });
+        $("seasonUp").addEventListener("click", function () { step("season", 1); });
 
         $("yMin").addEventListener("input", function (e) {
             let v = +e.target.value; if (v > state.yMax) state.yMax = v; state.yMin = v; refresh();
@@ -259,6 +259,7 @@
         $("joinBtn").addEventListener("click", onJoin);
         $("leave").addEventListener("click", onLeave);
         $("closeRoom").addEventListener("click", onCloseRoom);
+        $("startDraft").addEventListener("click", onStartDraft);
     }
 
     // Rules as stored on the room, including the resolved nation cap.
@@ -277,7 +278,7 @@
     function onCreate() {
         setStatus("lobbyStatus", "Creating room and snapshotting the pool...", false);
         $("create").disabled = true;
-        MPNet.createRoom(filters(), profile(), rulesForCreate(), { tableSize: state.size, aiCount: 0 })
+        MPNet.createRoom(filters(), profile(), rulesForCreate(), { tableSize: state.size, aiCount: 0, seasonLength: state.season })
             .then(enterRoom)
             .catch(function (err) { setStatus("lobbyStatus", err.message, true); $("create").disabled = false; });
     }
@@ -316,6 +317,18 @@
             .catch(function (err) { backToLobby("Could not close the room: " + err.message); });
     }
 
+    function onStartDraft() {
+        if (!currentCode) return;
+        $("startDraft").disabled = true;
+        setStatus("startHint", "Drawing the draft lottery...", false);
+        MPNet.startDraft(currentCode)
+            .then(function () { setStatus("startHint", "", false); })
+            .catch(function (err) {
+                setStatus("startHint", err.message, true);
+                $("startDraft").disabled = false;
+            });
+    }
+
     function backToLobby(msg) {
         if (unwatch) { unwatch(); unwatch = null; }
         currentCode = null;
@@ -348,14 +361,23 @@
         const yrs = (s.mode === "tournament" && s.yearMin)
             ? (s.yearMin === s.yearMax ? s.yearMin : s.yearMin + " to " + s.yearMax) : "all years";
         const modeTxt = s.mode === "career" ? "Career peak" : "Tournament";
-        const seats = s.tableSize ? (Object.keys(room.members || {}).length + "/" + s.tableSize + " seats | ") : "";
-        $("roomStrapText").textContent = seats + modeTxt + " | " + (s.geoLabel || "All nations")
+        const seatTxt = s.tableSize ? (Object.keys(room.members || {}).length + "/" + s.tableSize + " seats | ") : "";
+        $("roomStrapText").textContent = seatTxt + modeTxt + " | " + (s.geoLabel || "All nations")
             + (s.mode === "career" ? "" : " | " + yrs) + " | " + (room.pool ? room.pool.length : 0) + " players";
 
         const members = room.members || {};
         const hostUid = room.meta ? room.meta.hostUid : null;
-        // Only the host can close a room.
-        $("closeRoom").classList.toggle("hidden", hostUid !== MPNet.currentUid());
+        const isHost = (hostUid === MPNet.currentUid());
+        const status = room.meta ? room.meta.status : "lobby";
+        const count = Object.keys(members).length;
+        const seats = s.tableSize || count;
+
+        $("closeRoom").classList.toggle("hidden", !isHost);
+
+        // Season position
+        $("seasonLine").textContent = "Competition " + (s.competition || 1)
+            + " of " + (s.seasonLength || 1);
+
         $("members").innerHTML = Object.keys(members).map(function (k) {
             const m = members[k];
             const you = (k === MPNet.currentUid());
@@ -365,6 +387,33 @@
                 + (k === hostUid ? "<span class='htag'>Host</span>" : "")
                 + "</li>";
         }).join("");
+
+        // Draft order, once drawn
+        const draft = room.draft;
+        if (draft && draft.order) {
+            $("lotteryPanel").classList.remove("hidden");
+            $("lotteryList").innerHTML = draft.order.map(function (u) {
+                const m = members[u] || {};
+                const you = (u === MPNet.currentUid());
+                return "<li style='border-left-color:" + (m.kit || "#16E0CD") + "'>"
+                    + esc(m.name || "Player") + (you ? " (you)" : "") + "</li>";
+            }).join("");
+        } else {
+            $("lotteryPanel").classList.add("hidden");
+        }
+
+        // Start button: host only, lobby only, needs a full table
+        const canShow = isHost && status === "lobby";
+        $("startDraft").classList.toggle("hidden", !canShow);
+        if (canShow) {
+            const ready = count >= 2 && count >= seats;
+            $("startDraft").disabled = !ready;
+            if (count < 2) setStatus("startHint", "Waiting for at least one more user to join.", false);
+            else if (count < seats) setStatus("startHint", "Waiting for " + (seats - count) + " more of " + seats + " users.", false);
+            else setStatus("startHint", MPDraft.formatFor(count).name + ". Everyone is here.", false);
+        } else if (status === "drafting") {
+            setStatus("startHint", "Draft in progress. The board arrives in the next build.", false);
+        }
     }
 
     // ── Helpers ─────────────────────────────────────────────
