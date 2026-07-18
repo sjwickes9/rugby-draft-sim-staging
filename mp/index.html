@@ -138,29 +138,41 @@
 
     <!-- ══ DRAFT VIEW ══ -->
     <div id="draftView" class="hidden">
-        <p class="eyebrow">Your XV <small id="squadProgress"></small></p>
-        <div class="teamsheet" id="teamsheet"></div>
+
+        <div class="draft-tabs" role="group" aria-label="Draft sections">
+            <button id="tabXV" aria-pressed="true">Your XV</button>
+            <button id="tabBoard" aria-pressed="false">Big Board</button>
+            <button id="tabAll" aria-pressed="false">Full Draft</button>
+        </div>
+
+        <div id="pickBanner" class="pick-banner hidden">
+            <span>Picking <strong id="bannerSlot"></strong></span>
+            <button id="bannerCancel">Cancel</button>
+        </div>
+
+        <!-- Your XV -->
+        <div id="paneXV">
+            <p class="eyebrow">Your XV <small id="squadProgress"></small></p>
+            <div class="teamsheet" id="teamsheet"></div>
+        </div>
+
+        <!-- Big Board / Full Draft share the list body -->
+        <div id="paneList" class="hidden">
+            <input type="text" id="panelSearch" placeholder="Search name, nation or year" autocomplete="off" aria-label="Search players">
+            <div class="axis-row">
+                <span class="axis-label">Group by</span>
+                <div class="axis" role="group" aria-label="Group list by">
+                    <button id="axisNation" aria-pressed="true">Nation</button>
+                    <button id="axisPosition" aria-pressed="false">Position</button>
+                </div>
+            </div>
+            <p class="list-hint" id="listHint"></p>
+            <div class="panel-body" id="panelBody"></div>
+        </div>
+
         <p class="status" id="draftStatus"></p>
         <button class="cta ghost" id="backToRoom"><span>Back to room</span></button>
     </div>
-
-    <!-- ══ PICK PANEL (overlay) ══ -->
-    <div id="pickPanel" class="panel hidden" role="dialog" aria-modal="true" aria-label="Choose a player">
-        <div class="panel-head">
-            <div>
-                <p class="panel-slot" id="panelSlot">Slot</p>
-                <p class="panel-sub" id="panelSub"></p>
-            </div>
-            <button class="panel-close" id="panelClose" aria-label="Close">&times;</button>
-        </div>
-        <div class="panel-tabs" role="group">
-            <button id="tabBoard" aria-pressed="false">Big Board</button>
-            <button id="tabAll" aria-pressed="true">Full list</button>
-        </div>
-        <input type="text" id="panelSearch" placeholder="Search name, nation or year" autocomplete="off" aria-label="Search players">
-        <div class="panel-body" id="panelBody"></div>
-    </div>
-    <div id="panelScrim" class="scrim hidden"></div>
 
     <!-- ══ ROOM VIEW ══ -->
     <div id="roomView" class="hidden">
