@@ -365,16 +365,75 @@ window.MPNet = (function () {
     // Runs the seeded simulation and stores the results. Every client
     // could compute the same scores from the same seed, but storing them
     // makes the record authoritative and cheap to read.
-    function playFixtures(code, results, standings) {
+    function finishCompetition(code, comp, tally) {
         return whenReady().then(function () {
             const updates = {};
-            updates["rooms/" + code + "/comp/results"] = results;
-            updates["rooms/" + code + "/comp/standings"] = standings;
+            updates["rooms/" + code + "/comp/fixtures"] = comp.fixtures;
+            updates["rooms/" + code + "/comp/results"] = comp.results;
+            updates["rooms/" + code + "/comp/standings"] = comp.standings;
+            updates["rooms/" + code + "/comp/winner"] = comp.winner;
             updates["rooms/" + code + "/comp/playedAt"] = firebase.database.ServerValue.TIMESTAMP;
+            updates["rooms/" + code + "/tally"] = tally;
             return db.ref().update(updates).catch(function (err) {
                 throw new Error("Could not save the results (" + (err.code || err.message) + ").");
             });
         });
+    }
+
+    // ── Next competition (host only) ───────────────────────
+    // Archives the finished competition, clears the draft and commitments,
+    // and starts a fresh draft in reverse standings order so the bottom of
+    // the room tally picks first.
+    function nextCompetition(code) {
+        return whenReady().then(function () {
+            return db.ref("rooms/" + code).get().then(function (snap) {
+                const room = snap.val();
+                if (!room) throw new Error("That room no longer exists.");
+                if (room.meta.hostUid !== uid) throw new Error("Only the host can start the next competition.");
+
+                const settings = room.settings || {};
+                const done = settings.competition || 1;
+                const total = settings.seasonLength || 1;
+                if (done >= total) throw new Error("The season is already complete.");
+
+                const order = (room.draft && room.draft.order) || [];
+                const seed = MPDraft.newSeed();
+                const nextOrder = MPDraft.reverseStandingsOrder(order, tallyPoints(room.tally), order);
+
+                const updates = {};
+                updates["rooms/" + code + "/history/" + done] = {
+                    name: (room.comp || {}).name || null,
+                    standings: (room.comp || {}).standings || null,
+                    winner: (room.comp || {}).winner || null
+                };
+                updates["rooms/" + code + "/comp"] = null;
+                updates["rooms/" + code + "/commit"] = null;
+                updates["rooms/" + code + "/draft"] = {
+                    seed: seed,
+                    order: nextOrder,
+                    pickIndex: 0,
+                    currentPicker: nextOrder[0],
+                    startedAt: firebase.database.ServerValue.TIMESTAMP,
+                    competition: done + 1
+                };
+                updates["rooms/" + code + "/settings/competition"] = done + 1;
+                updates["rooms/" + code + "/meta/status"] = "drafting";
+                return db.ref().update(updates).catch(function (err) {
+                    throw new Error("Could not start the next competition ("
+                        + (err.code || err.message) + "). Re-publish database.rules.json if this says permission denied.");
+                });
+            });
+        });
+    }
+
+    function tallyPoints(tally) {
+        const out = {};
+        Object.keys(tally || {}).forEach(function (u) {
+            const t = tally[u] || {};
+            // Reverse standings uses titles first, then points.
+            out[u] = (t.titles || 0) * 1000 + (t.points || 0);
+        });
+        return out;
     }
 
     // ── Watch a room ────────────────────────────────────────
@@ -432,7 +491,8 @@ window.MPNet = (function () {
         makePick: makePick,
         submitCommit: submitCommit,
         startCompetition: startCompetition,
-        playFixtures: playFixtures,
+        finishCompetition: finishCompetition,
+        nextCompetition: nextCompetition,
         rememberRoom: rememberRoom,
         lastRoom: lastRoom,
         forgetRoom: forgetRoom,

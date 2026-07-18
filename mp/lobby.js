@@ -310,6 +310,25 @@
                     $("playBtn").disabled = false;
                 });
         });
+        $("nextComp").addEventListener("click", function () {
+            modal({
+                title: "Start the next competition?",
+                body: "Everyone drafts a new XV from a fresh pool. "
+                    + "<strong>Your current squad is retired.</strong>"
+                    + "<span class='warn'>The draft order reverses, so whoever is bottom of the tally picks first.</span>",
+                ok: "Start drafting", cancel: "Not yet"
+            }).then(function (yes) {
+                if (!yes) return;
+                $("nextComp").disabled = true;
+                $("nextHint").textContent = "Setting up the next draft...";
+                MPNet.nextCompetition(currentCode)
+                    .then(function () { compShown = false; seenDrafting = false; })
+                    .catch(function (err) {
+                        $("nextHint").textContent = err.message;
+                        $("nextComp").disabled = false;
+                    });
+            });
+        });
         $("compBack").addEventListener("click", function () {
             $("compView").classList.add("hidden");
             $("roomView").classList.remove("hidden");
@@ -432,6 +451,7 @@
     let simSpeed = 1;          // 1.8 slow, 1 medium, 0.4 fast, as in app.js
     let playingBack = false;
     let revealed = {};         // fixture index -> true, during playback
+    let liveFixtures = null;   // resolved fixtures while playing back
     function renderRoom(room) {
         latestRoom = room;
         if (!room) {
@@ -460,6 +480,7 @@
         $("closeRoom").classList.toggle("hidden", !isHost);
 
         // Season position
+        renderBrief(room);
         $("seasonLine").textContent = "Competition " + (s.competition || 1)
             + " of " + (s.seasonLength || 1);
 
@@ -506,6 +527,15 @@
         }
 
         if (status === "drafting") {
+            // A new competition writes a fresh draft node, so rebuild the
+            // draft UI rather than reusing the finished one.
+            const compNo = (room.draft || {}).competition || 1;
+            if (draftReady && compNo !== draftCompNo) {
+                draftReady = false;
+                commitShown = false;
+                if (window.MPCommit && MPCommit.reset) MPCommit.reset();
+            }
+            draftCompNo = compNo;
             ensureDraftInit(room);
             MPDraftUI.applyRoom(room);
             maybeCommit(room);
@@ -540,6 +570,7 @@
 
     // ── Draft view ──────────────────────────────────────────
     let draftReady = false;
+    let draftCompNo = 1;
 
     function ensureDraftInit(room) {
         if (draftReady) return;
@@ -650,41 +681,73 @@
             if (p && squads[pk.by]) squads[pk.by][pk.slot] = p;
         });
 
-        // Ratings and kicker rates.
-        const rating = {}, kicker = {};
+        const rating = {}, kicker = {}, kickerName = {};
         order.forEach(function (u) {
             const c = commits[u] || {};
             rating[u] = MPSim.teamRating(squads[u], c.strategy).overall;
             const kp = c.kickerSlot ? squads[u][c.kickerSlot] : null;
             kicker[u] = MPCommit.kickerRate(kp);
+            kickerName[u] = kp ? kp.name : null;
         });
 
         const rng = MPDraft.makeRng((draft.seed || 1) ^ 0x5f3759df);
-        const fixtures = comp.fixtures || [];
+        const fixtures = (comp.fixtures || []).slice();
         const results = [];
-        fixtures.forEach(function (f, i) {
-            if (MPFixtures.isPlaceholder(f.home) || MPFixtures.isPlaceholder(f.away)) return;
+
+        const playOne = function (f, i) {
             const m = MPSim.simulateMatch(rng, rating[f.home], rating[f.away], kicker[f.home], kicker[f.away]);
-            const kn = function (u) {
-                const c = commits[u] || {};
-                const kp = c.kickerSlot ? squads[u][c.kickerSlot] : null;
-                return kp ? kp.name : null;
-            };
-            const bdA = MPSim.buildScoreBreakdown(rng, m.a, squads[f.home], kn(f.home));
-            const bdB = MPSim.buildScoreBreakdown(rng, m.b, squads[f.away], kn(f.away));
+            let final = m, note = null;
+            // Knockouts cannot end level: extra time, sudden death, then kicks.
+            const isKO = (f.stage === "final" || f.stage === "playoff");
+            if (isKO && m.drawn) {
+                const res = MPSim.resolveKnockout(rng, m, kicker[f.home], kicker[f.away]);
+                final = res.result;
+                note = res.path;
+            }
+            const bdA = MPSim.buildScoreBreakdown(rng, final.a, squads[f.home], kickerName[f.home]);
+            const bdB = MPSim.buildScoreBreakdown(rng, final.b, squads[f.away], kickerName[f.away]);
             results.push({
                 i: i, home: f.home, away: f.away, stage: f.stage,
-                a: m.a, b: m.b, drawn: m.drawn, winner: m.winner,
-                aPts: m.aPts, bPts: m.bPts,
-                bdA: bdA, bdB: bdB
+                a: final.a, b: final.b, drawn: final.drawn, winner: final.winner,
+                aPts: final.aPts, bPts: final.bPts,
+                note: note, bdA: bdA, bdB: bdB
             });
+        };
+
+        // Stage one: every fixture with two known teams.
+        fixtures.forEach(function (f, i) {
+            if (MPFixtures.isPlaceholder(f.home) || MPFixtures.isPlaceholder(f.away)) return;
+            playOne(f, i);
         });
 
+        // Stage two: resolve the placeholders from the stage standings, then
+        // play those too, so a competition finishes in one go.
+        const byStage = {};
+        ["pool", "poolA", "poolB", "league"].forEach(function (st) {
+            const t = MPSim.stageStandings(order, results, st);
+            if (t.length) byStage[st] = t;
+        });
+        const resolved = fixtures.map(function (f) { return Object.assign({}, f); });
+        fixtures.forEach(function (f, i) {
+            if (!MPFixtures.isPlaceholder(f.home) && !MPFixtures.isPlaceholder(f.away)) return;
+            const h = MPFixtures.isPlaceholder(f.home) ? MPSim.resolvePlaceholder(f.home, byStage) : f.home;
+            const a = MPFixtures.isPlaceholder(f.away) ? MPSim.resolvePlaceholder(f.away, byStage) : f.away;
+            if (!h || !a) return;
+            resolved[i].home = h;
+            resolved[i].away = a;
+            playOne({ home: h, away: a, stage: f.stage, label: f.label }, i);
+        });
+
+        results.sort(function (x, y) { return x.i - y.i; });
+
         const standings = MPSim.buildTable(order, results);
-        // Play them out one at a time before writing, so everyone watches
-        // the round unfold rather than seeing a finished table appear.
-        return playBack(results).then(function () {
-            return MPNet.playFixtures(currentCode, results, standings);
+        const winner = MPSim.competitionWinner(order, { fixtures: resolved }, results);
+        const tally = MPSim.updateTally(room.tally, order, winner, standings);
+
+        return playBack(results, resolved).then(function () {
+            return MPNet.finishCompetition(currentCode, {
+                fixtures: resolved, results: results, standings: standings, winner: winner
+            }, tally);
         });
     }
 
@@ -693,9 +756,10 @@
     // the pacing of the single-player app (900ms base).
     function delay(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
 
-    function playBack(results) {
+    function playBack(results, resolvedFixtures) {
         playingBack = true;
         revealed = {};
+        liveFixtures = resolvedFixtures || null;
         renderFixtures(latestRoom, results, revealed);
         let chain = Promise.resolve();
         results.forEach(function (r) {
@@ -707,7 +771,7 @@
             });
         });
         return chain.then(function () {
-            return delay(500 * simSpeed).then(function () { playingBack = false; });
+            return delay(500 * simSpeed).then(function () { playingBack = false; liveFixtures = null; });
         });
     }
 
@@ -727,7 +791,8 @@
 
     // ── Fixtures ────────────────────────────────────────────
     function renderFixtures(room, liveResults, liveRevealed, justPlayed) {
-        const comp = room && room.comp;
+        let comp = room && room.comp;
+        if (comp && liveFixtures) comp = Object.assign({}, comp, { fixtures: liveFixtures });
         if (!comp) return;
         $("compName").textContent = comp.name || "";
         $("compDecided").textContent = comp.decidedBy ? ("Decided by: " + comp.decidedBy) : "";
@@ -759,6 +824,7 @@
             ? "Playing..."
             : (played ? "" : (isHost ? "" : "Waiting for the host to play the fixtures."));
 
+        renderSeason(room, comp);
         if (playingBack) {
             $("tableWrap").classList.add("hidden");
             $("seriesWrap").classList.add("hidden");
@@ -816,8 +882,9 @@
             return lines.join("<br>");
         };
         const a = side(res.bdA), b = side(res.bdB);
-        if (!a && !b) return "";
-        return "<div class='fx-scorers'><div class='col'>" + a
+        const note = res.note ? "<div class='fx-note'>Decided in " + esc(res.note) + "</div>" : "";
+        if (!a && !b) return note;
+        return note + "<div class='fx-scorers'><div class='col'>" + a
             + "</div><div class='col away'>" + b + "</div></div>";
     }
 
@@ -845,6 +912,84 @@
             + ". Aggregate " + r.aggregateA + " to " + r.aggregateB + ".</div>"
             + "</div>";
         return true;
+    }
+
+    // Competition winner, season tally, and what happens next.
+    function renderSeason(room, comp) {
+        const st = room.settings || {};
+        const members = room.members || {};
+        const me = MPNet.currentUid();
+        const nameOf = function (u) { return (members[u] || {}).name || "User"; };
+        const now = st.competition || 1;
+        const total = st.seasonLength || 1;
+        const played = (comp.results || []).length > 0 && !playingBack;
+
+        const wb = $("winnerBox");
+        const tw = $("tallyWrap");
+        const nb = $("nextComp");
+
+        if (!played) {
+            wb.classList.add("hidden");
+            tw.classList.add("hidden");
+            nb.classList.add("hidden");
+            $("nextHint").textContent = "";
+            return;
+        }
+
+        const seasonOver = now >= total;
+        const tally = room.tally || {};
+        const rankedTally = MPSim.tallyOrder(tally);
+        const champion = seasonOver && rankedTally.length ? rankedTally[0].uid : null;
+
+        // Winner box: this competition, or the season champion at the end.
+        wb.classList.remove("hidden");
+        if (seasonOver && champion) {
+            wb.innerHTML = "<div class='winner-box champion'>"
+                + "<div class='winner-lbl'>Season champion</div>"
+                + "<div class='winner-name'>" + esc(nameOf(champion)) + "</div>"
+                + "<div class='winner-sub'>" + rankedTally[0].titles + " of " + total
+                + " competition" + (total === 1 ? "" : "s") + " won</div></div>";
+        } else if (comp.winner) {
+            wb.innerHTML = "<div class='winner-box'>"
+                + "<div class='winner-lbl'>Competition " + now + " of " + total + "</div>"
+                + "<div class='winner-name'>" + esc(nameOf(comp.winner)) + "</div>"
+                + "<div class='winner-sub'>takes the title</div></div>";
+        } else {
+            wb.classList.add("hidden");
+        }
+
+        // Room tally, once there is more than one competition in play.
+        if (total > 1 && rankedTally.length) {
+            tw.classList.remove("hidden");
+            $("tallySub").textContent = "after " + now + " of " + total;
+            const head = "<tr><th class='pos'></th><th class='team'>Team</th><th>Titles</th>"
+                + "<th>Played</th><th>Pts</th><th>PD</th></tr>";
+            const body = rankedTally.map(function (r, i) {
+                return "<tr" + (r.uid === me ? " class='mine'" : "") + ">"
+                    + "<td class='pos'>" + (i + 1) + "</td>"
+                    + "<td class='team'>" + esc(nameOf(r.uid)) + "</td>"
+                    + "<td class='titles'>" + r.titles + "</td>"
+                    + "<td>" + r.played + "</td><td>" + r.points + "</td>"
+                    + "<td>" + (r.pd > 0 ? "+" : "") + r.pd + "</td></tr>";
+            }).join("");
+            $("tallyTable").innerHTML = "<table class='ltable'>" + head + body + "</table>";
+        } else {
+            tw.classList.add("hidden");
+        }
+
+        // Next competition, host only.
+        const isHost = (room.meta || {}).hostUid === me;
+        if (seasonOver) {
+            nb.classList.add("hidden");
+            $("nextHint").textContent = "The season is complete. The host can close the room or start a new one.";
+        } else if (isHost) {
+            nb.classList.remove("hidden");
+            nb.disabled = false;
+            $("nextHint").textContent = "The next draft picks in reverse order, so the bottom of the tally picks first.";
+        } else {
+            nb.classList.add("hidden");
+            $("nextHint").textContent = "Waiting for the host to start competition " + (now + 1) + " of " + total + ".";
+        }
     }
 
     function renderTable(room, comp) {

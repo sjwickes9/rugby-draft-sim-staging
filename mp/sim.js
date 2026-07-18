@@ -265,6 +265,77 @@
         };
     }
 
+    // ── Resolving knockout placeholders ─────────────────────
+    // Pool fixtures are played first, then "@poolA:1" style tokens are
+    // replaced with whoever actually finished there.
+    function resolvePlaceholder(token, standingsByStage) {
+        var bits = String(token).replace("@", "").split(":");
+        var stage = bits[0], place = parseInt(bits[1], 10);
+        var table = standingsByStage[stage];
+        if (!table || !table[place - 1]) return null;
+        return table[place - 1].uid;
+    }
+
+    // Standings for one stage only, from that stage's results.
+    function stageStandings(uids, results, stage) {
+        var subset = results.filter(function (r) { return r.stage === stage; });
+        var involved = {};
+        subset.forEach(function (r) { involved[r.home] = 1; involved[r.away] = 1; });
+        var list = uids.filter(function (u) { return involved[u]; });
+        return buildTable(list, subset);
+    }
+
+    // Who won the competition, by format.
+    function competitionWinner(uids, comp, results) {
+        var fixtures = comp.fixtures || [];
+        // A final or playoff decides it where one exists.
+        var decider = null;
+        fixtures.forEach(function (f, i) {
+            if (f.label === "Final") decider = i;
+        });
+        if (decider !== null) {
+            var r = results.filter(function (x) { return x.i === decider; })[0];
+            if (r) return r.winner === "a" ? r.home : r.away;
+        }
+        if (uids.length === 2) {
+            var s = seriesResult(uids, results);
+            return s.winner;
+        }
+        var table = buildTable(uids, results);
+        return table.length ? table[0].uid : null;
+    }
+
+    // ── Room tally (spec section 14) ────────────────────────
+    // Accumulates across the season: titles won, competitions played, and
+    // aggregate points difference as the tie-break.
+    function updateTally(previous, uids, winner, standings) {
+        var out = {};
+        uids.forEach(function (u) {
+            var prev = (previous && previous[u]) || { titles: 0, played: 0, points: 0, pd: 0 };
+            var row = null;
+            (standings || []).forEach(function (r) { if (r.uid === u) row = r; });
+            out[u] = {
+                titles: (prev.titles || 0) + (u === winner ? 1 : 0),
+                played: (prev.played || 0) + 1,
+                points: (prev.points || 0) + (row ? row.points : 0),
+                pd: (prev.pd || 0) + (row ? row.pd : 0)
+            };
+        });
+        return out;
+    }
+
+    function tallyOrder(tally) {
+        return Object.keys(tally || {}).map(function (u) {
+            var t = tally[u];
+            return { uid: u, titles: t.titles || 0, played: t.played || 0, points: t.points || 0, pd: t.pd || 0 };
+        }).sort(function (a, b) {
+            if (b.titles !== a.titles) return b.titles - a.titles;
+            if (b.points !== a.points) return b.points - a.points;
+            if (b.pd !== a.pd) return b.pd - a.pd;
+            return a.uid.localeCompare(b.uid);
+        });
+    }
+
     // ── League table (spec sections 11, 14) ─────────────────
     function emptyRow(uid) {
         return { uid: uid, played: 0, won: 0, drawn: 0, lost: 0, pf: 0, pa: 0, pd: 0, bonus: 0, points: 0 };
@@ -308,6 +379,11 @@
         buildTable: buildTable,
         TRY_WEIGHTS: TRY_WEIGHTS,
         buildScoreBreakdown: buildScoreBreakdown,
-        seriesResult: seriesResult
+        seriesResult: seriesResult,
+        resolvePlaceholder: resolvePlaceholder,
+        stageStandings: stageStandings,
+        competitionWinner: competitionWinner,
+        updateTally: updateTally,
+        tallyOrder: tallyOrder
     };
 });

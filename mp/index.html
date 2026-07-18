@@ -264,6 +264,16 @@
             <p class="eyebrow">Standings</p>
             <div id="leagueTable"></div>
         </div>
+        <div id="winnerBox" class="hidden"></div>
+
+        <div id="tallyWrap" class="hidden">
+            <p class="eyebrow">Room tally <small id="tallySub"></small></p>
+            <div id="tallyTable"></div>
+        </div>
+
+        <button class="cta hidden" id="nextComp"><span>Start the next competition</span></button>
+        <p class="status" id="nextHint"></p>
+
         <button class="cta ghost" id="compBack"><span>Back to room</span></button>
     </div>
 
@@ -273,6 +283,8 @@
         <div class="room-code" id="roomCode">----<small>share this code</small></div>
         <div class="strap ready" id="roomStrap"><span id="roomStrapText"></span></div>
         <p class="season-line" id="seasonLine"></p>
+
+        <div id="roomBrief" class="brief"></div>
         <ul class="members" id="members"></ul>
         <div id="lotteryPanel" class="lottery hidden">
             <p class="eyebrow">Draft order</p>
