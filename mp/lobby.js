@@ -295,6 +295,10 @@
             $("roomView").classList.remove("hidden");
         });
         $("resumeDraft").addEventListener("click", showDraft);
+        $("compBack").addEventListener("click", function () {
+            $("compView").classList.add("hidden");
+            $("roomView").classList.remove("hidden");
+        });
     }
 
     // Rules as stored on the room, including the resolved nation cap.
@@ -388,6 +392,7 @@
     }
     let latestRoom = null;
     let seenDrafting = false;
+    let compShown = false;
     function renderRoom(room) {
         latestRoom = room;
         if (!room) {
@@ -451,6 +456,13 @@
             if (count < 2) setStatus("startHint", "Waiting for at least one more user to join.", false);
             else if (count < seats) setStatus("startHint", "Waiting for " + (seats - count) + " more of " + seats + " users.", false);
             else setStatus("startHint", MPDraft.formatFor(count).name + ". Everyone is here.", false);
+        }
+
+        if (status === "competing") {
+            renderFixtures(room);
+            if (!compShown) { compShown = true; showComp(); }
+            $("resumeDraft").classList.add("hidden");
+            return;
         }
 
         if (status === "drafting") {
@@ -536,13 +548,15 @@
 
         if (!commitWired) {
             commitWired = true;
-            MPCommit.wire(function () { /* locked in; waiting list updates live */ });
+            MPCommit.wire(function () { /* locked in; waiting list updates live */ },
+                function () { /* started; the status watcher moves everyone on */ });
         }
         const payload = {
             squad: MPDraftUI.squad(),
             members: room.members || {},
             commits: room.commit || {},
             myUid: MPNet.currentUid(),
+            hostUid: (room.meta || {}).hostUid,
             code: currentCode
         };
         if (!commitShown) {
@@ -559,6 +573,63 @@
         $("roomView").classList.add("hidden");
         $("lobbyView").classList.add("hidden");
         $("commitView").classList.remove("hidden");
+        scrollTop();
+    }
+
+    function scrollTop() {
+        try { window.scrollTo({ top: 0, behavior: "smooth" }); }
+        catch (e) { window.scrollTo(0, 0); }
+    }
+
+    function showComp() {
+        $("draftView").classList.add("hidden");
+        $("commitView").classList.add("hidden");
+        $("roomView").classList.add("hidden");
+        $("lobbyView").classList.add("hidden");
+        $("compView").classList.remove("hidden");
+        scrollTop();
+    }
+
+    // ── Fixtures ────────────────────────────────────────────
+    function renderFixtures(room) {
+        const comp = room.comp;
+        if (!comp) return;
+        $("compName").textContent = comp.name || "";
+        $("compDecided").textContent = comp.decidedBy ? ("Decided by: " + comp.decidedBy) : "";
+        const members = room.members || {};
+        const me = MPNet.currentUid();
+
+        const name = function (u) {
+            if (MPFixtures.isPlaceholder(u)) return null;
+            const m = members[u] || {};
+            return m.name || "User";
+        };
+        const kit = function (u) {
+            const m = members[u] || {};
+            return m.kit || "#6E8CA6";
+        };
+
+        let lastRound = null;
+        const rows = (comp.fixtures || []).map(function (f) {
+            let head = "";
+            if (f.label) head = "<div class='fx-label'>" + esc(f.label) + "</div>";
+            else if (f.round !== lastRound) {
+                lastRound = f.round;
+                head = "<div class='fx-round'>Round " + f.round + "</div>";
+            }
+            const hn = name(f.home), an = name(f.away);
+            const mine = (f.home === me || f.away === me);
+            return head + "<div class='fx" + (mine ? " mine" : "") + "'>"
+                + (hn ? "<span class='kit-dot' style='background:" + kit(f.home) + "'></span>" : "")
+                + "<span class='side" + (hn ? "" : " pending") + "'>"
+                + esc(hn || MPFixtures.placeholderLabel(f.home)) + "</span>"
+                + "<span class='vs'>v</span>"
+                + "<span class='side away" + (an ? "" : " pending") + "'>"
+                + esc(an || MPFixtures.placeholderLabel(f.away)) + "</span>"
+                + (an ? "<span class='kit-dot' style='background:" + kit(f.away) + "'></span>" : "")
+                + "</div>";
+        }).join("");
+        $("fixtureList").innerHTML = rows;
     }
 
     function showDraft() {

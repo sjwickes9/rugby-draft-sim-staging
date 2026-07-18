@@ -231,7 +231,18 @@
         <div id="commitWaiting" class="hidden">
             <p class="eyebrow">Waiting for</p>
             <ul class="members" id="commitMembers"></ul>
+            <button class="cta hidden" id="startComp"><span>Start the tournament</span></button>
+            <p class="status" id="startCompHint"></p>
         </div>
+    </div>
+
+    <!-- ══ FIXTURES VIEW ══ -->
+    <div id="compView" class="hidden">
+        <p class="eyebrow">Fixtures <small id="compName"></small></p>
+        <p class="list-hint" id="compDecided"></p>
+        <div id="fixtureList" class="fixtures"></div>
+        <p class="status" id="compStatus">Match simulation arrives in the next build.</p>
+        <button class="cta ghost" id="compBack"><span>Back to room</span></button>
     </div>
 
     <!-- ══ ROOM VIEW ══ -->
@@ -271,6 +282,7 @@
 <script src="net.js"></script>
 <script src="lobby.js"></script>
 <script src="draftui.js"></script>
+<script src="fixtures.js"></script>
 <script src="commit.js"></script>
 </body>
 </html>

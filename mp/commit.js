@@ -19,6 +19,7 @@ window.MPCommit = (function () {
         commits: {},
         myUid: null,
         code: null,
+        hostUid: null,
         kickerSlot: null,
         strategy: 50,
         locked: false
@@ -100,10 +101,18 @@ window.MPCommit = (function () {
         const outstanding = uids.filter(function (u) { return !state.commits[u]; });
         if (!state.locked) { $("commitWaiting").classList.add("hidden"); return; }
         $("commitWaiting").classList.remove("hidden");
+        const isHost = state.hostUid === state.myUid;
+        const btn = $("startComp");
         if (!outstanding.length) {
             $("commitMembers").innerHTML = "<li><span class='mname'>Everyone is ready</span></li>";
+            if (btn) {
+                btn.classList.toggle("hidden", !isHost);
+                $("startCompHint").textContent = isHost
+                    ? "" : "Waiting for the host to start the tournament.";
+            }
             return;
         }
+        if (btn) { btn.classList.add("hidden"); $("startCompHint").textContent = ""; }
         $("commitMembers").innerHTML = outstanding.map(function (u) {
             const m = state.members[u] || {};
             return "<li style='--mk1:" + (m.kit || "#6E8CA6") + ";--mk2:" + (m.kit2 || "transparent") + "'>"
@@ -143,6 +152,7 @@ window.MPCommit = (function () {
         state.commits = opts.commits || {};
         state.myUid = opts.myUid;
         state.code = opts.code;
+        state.hostUid = opts.hostUid || null;
         const mine = state.commits[state.myUid];
         if (mine) {
             state.locked = true;
@@ -155,6 +165,7 @@ window.MPCommit = (function () {
 
     function update(opts) {
         state.members = opts.members || state.members;
+        state.hostUid = opts.hostUid || state.hostUid;
         state.commits = opts.commits || {};
         if (state.commits[state.myUid] && !state.locked) {
             state.locked = true;
@@ -166,7 +177,18 @@ window.MPCommit = (function () {
         refresh();
     }
 
-    function wire(onLocked) {
+    function wire(onLocked, onStarted) {
+        const sc = $("startComp");
+        if (sc) sc.addEventListener("click", function () {
+            sc.disabled = true;
+            $("startCompHint").textContent = "Building the fixture list...";
+            MPNet.startCompetition(state.code)
+                .then(function () { if (onStarted) onStarted(); })
+                .catch(function (err) {
+                    $("startCompHint").textContent = err.message;
+                    sc.disabled = false;
+                });
+        });
         $("kickerList").addEventListener("click", function (e) {
             const b = e.target.closest("[data-kicker]");
             if (!b || state.locked) return;

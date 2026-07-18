@@ -148,7 +148,11 @@ window.MPDraftUI = (function () {
             note("Picked " + res.player.name + " at " + MPPicks.slotById(res.slotId).label + ".");
             state.onPick(res.slotId, idx, function (err) {
                 state.autoBusy = false;
-                if (err) note("Auto-pick failed: " + err.message);
+                if (err) { note("Auto-pick failed: " + err.message); return; }
+                // The room watcher may already have repainted while this
+                // pick was in flight, so on a snake turnaround nothing
+                // would retrigger. Ask again now that we are free.
+                maybeAutoPick();
             });
         }, 250);
     }

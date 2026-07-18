@@ -328,6 +328,39 @@ window.MPNet = (function () {
         });
     }
 
+    // ── Start the competition (host only) ──────────────────
+    // Generates the fixture list from the user count and stores it, then
+    // flips the room to competing. Settings are already locked by status.
+    function startCompetition(code) {
+        return whenReady().then(function () {
+            return db.ref("rooms/" + code).get().then(function (snap) {
+                const room = snap.val();
+                if (!room) throw new Error("That room no longer exists.");
+                if (room.meta.hostUid !== uid) throw new Error("Only the host can start the tournament.");
+
+                const order = (room.draft && room.draft.order) || [];
+                const commits = room.commit || {};
+                const missing = order.filter(function (u) { return !commits[u]; });
+                if (missing.length) throw new Error("Not everyone has locked in yet.");
+
+                const comp = MPFixtures.generate(order);
+                const updates = {};
+                updates["rooms/" + code + "/comp"] = {
+                    name: comp.name,
+                    decidedBy: comp.decidedBy,
+                    fixtures: comp.fixtures,
+                    pools: comp.pools || null,
+                    startedAt: firebase.database.ServerValue.TIMESTAMP
+                };
+                updates["rooms/" + code + "/meta/status"] = "competing";
+                return db.ref().update(updates).catch(function (err) {
+                    throw new Error("Could not start the tournament ("
+                        + (err.code || err.message) + "). Re-publish database.rules.json if this says permission denied.");
+                });
+            });
+        });
+    }
+
     // ── Watch a room ────────────────────────────────────────
     // cb receives the whole room object on every change. Returns an
     // unsubscribe function.
@@ -382,6 +415,7 @@ window.MPNet = (function () {
         startDraft: startDraft,
         makePick: makePick,
         submitCommit: submitCommit,
+        startCompetition: startCompetition,
         rememberRoom: rememberRoom,
         lastRoom: lastRoom,
         forgetRoom: forgetRoom,
