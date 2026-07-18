@@ -140,8 +140,8 @@ input[type=color] {
 
 /* ── Year slider ───────────────────────────────────────── */
 .years-wrap { padding: 4px 2px 0; }
-.year-ticks { position: relative; height: 20px; margin-bottom: 4px; }
-.year-ticks span { position: absolute; transform: translateX(-50%); font-family: var(--display); font-size: 0.85rem; color: var(--slate); }
+.year-ticks { position: relative; height: 24px; margin-bottom: 5px; }
+.year-ticks span { position: absolute; transform: translateX(-50%); font-family: var(--display); font-size: 1rem; color: var(--slate); }
 .year-ticks span.in { color: var(--pitch); font-weight: 600; }
 .slider { position: relative; height: 34px; }
 .slider .track { position: absolute; top: 15px; left: 9px; right: 9px; height: 4px; background: var(--panel-2); border-radius: 2px; }
@@ -176,6 +176,15 @@ input[type=color] {
 .sw input:checked + .knob::after { transform: translateX(18px); background: var(--navy); }
 .sw input:disabled { cursor: not-allowed; }
 .sw input:focus-visible + .knob { box-shadow: 0 0 0 3px var(--amber); }
+
+.mini-step { display: inline-flex; align-items: center; gap: 8px; }
+.mini-step button {
+    width: 30px; height: 30px; border-radius: 6px; cursor: pointer;
+    background: var(--panel-2); color: var(--pitch); border: 1px solid var(--line);
+    font-family: var(--display); font-size: 1.1rem; line-height: 1;
+}
+.mini-step button:disabled { opacity: 0.35; cursor: not-allowed; }
+.mini-step .value { min-width: 20px; text-align: center; }
 
 /* ── Pool check strap ──────────────────────────────────── */
 .strap { display: flex; align-items: center; gap: 12px; margin: 6px 0 20px; padding: 13px 15px; background: var(--panel); border-left: 4px solid var(--slate); border-radius: 0 8px 8px 0; font-size: 0.92rem; }

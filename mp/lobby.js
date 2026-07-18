@@ -28,7 +28,7 @@
         },
         maxPerCountry: {
             label: "Max players per nation",
-            desc: "No more than this many players from any single nation.",
+            desc: "No more than this many players from any single nation. Adjustable.",
             value: function (v) { return "Max " + v + " players"; }
         },
         onePerTournament: {
@@ -43,8 +43,8 @@
         yMin: 0,
         yMax: YEARS.length - 1,
         geo: null,
-        size: 4,      // table size (drafters)
-        ai: 0,        // AI drafters
+        size: 4,           // human drafters, 1 to 8
+        countryCap: null,  // null = use the engine's auto value
         rules: { maxPerTournament: false, maxPerCountry: false, onePerTournament: false }
     };
 
@@ -55,17 +55,17 @@
     function applyTheme(theme) {
         if (theme === "light") document.documentElement.setAttribute("data-theme", "light");
         else document.documentElement.removeAttribute("data-theme");
-        $("themeToggle").textContent = (theme === "light") ? "Night" : "Day";
+        $("themeToggle").textContent = (theme === "light") ? "Dark" : "Light";
         try { localStorage.setItem("mp-theme", theme); } catch (e) {}
     }
     function initTheme() {
-        let t = "night";
-        try { t = localStorage.getItem("mp-theme") || "night"; } catch (e) {}
+        let t = "dark";
+        try { t = localStorage.getItem("mp-theme") || "dark"; } catch (e) {}
         applyTheme(t);
     }
     function toggleTheme() {
         const isLight = document.documentElement.getAttribute("data-theme") === "light";
-        applyTheme(isLight ? "night" : "light");
+        applyTheme(isLight ? "dark" : "light");
     }
 
     // ── Filters ─────────────────────────────────────────────
@@ -99,23 +99,16 @@
         $("yearsBlock").classList.toggle("hidden", career);
     }
 
-    // ── Players ─────────────────────────────────────────────
+    // ── Drafters ────────────────────────────────────────────
     function renderPlayers() {
-        if (state.size < 2) state.size = 2;
+        if (state.size < 1) state.size = 1;
         if (state.size > 8) state.size = 8;
-        if (state.ai > state.size - 1) state.ai = state.size - 1;  // at least one human (you)
-        if (state.ai < 0) state.ai = 0;
         $("sizeNum").textContent = state.size;
-        $("aiNum").textContent = state.ai;
-        $("sizeDown").disabled = state.size <= 2;
+        $("sizeDown").disabled = state.size <= 1;
         $("sizeUp").disabled = state.size >= 8;
-        $("aiDown").disabled = state.ai <= 0;
-        $("aiUp").disabled = state.ai >= state.size - 1;
-        const humans = state.size - state.ai;
-        const aiNote = state.ai > 0 ? " (AI drafters arrive in a later build)" : "";
-        $("formatLine").innerHTML = FORMATS[state.size]
-            + "<br><span class='split'>" + humans + " human" + (humans === 1 ? "" : "s")
-            + (state.ai ? " and " + state.ai + " AI" : "") + aiNote + "</span>";
+        const fmt = FORMATS[state.size] || "Solo draft, no competition yet";
+        $("formatLine").innerHTML = fmt
+            + "<br><span class='split'>" + state.size + " drafter" + (state.size === 1 ? "" : "s") + "</span>";
     }
 
     // ── Year slider ─────────────────────────────────────────
@@ -158,20 +151,44 @@
         $("ruleList").innerHTML = rows.map(function (r) {
             const t = RULE_TEXT[r.id];
             const cls = "rule" + (r.available ? (r.enabled ? "" : " off") : " unavailable");
-            const valTxt = (r.available && r.value != null) ? t.value(r.value) : "";
             let why = "";
             if (!r.available) why = "<span class='why'>" + r.unavailableReason + "</span>";
             else if (r.warn) why = "<span class='why'>" + r.warnText + "</span>";
             else why = "<span class='why'>" + t.desc + "</span>";
+
+            // The nation cap is adjustable when on, clamped to the floor
+            // below which fifteen slots cannot be filled.
+            let control;
+            if (r.id === "maxPerCountry" && r.enabled) {
+                const floor = MPRules.effectiveCountryCap(ctx).floor;
+                const val = currentCountryCap(ctx);
+                control = "<span class='mini-step'>"
+                    + "<button data-cap='-1' " + (val <= floor ? "disabled" : "") + " aria-label='Lower cap'>&minus;</button>"
+                    + "<span class='value'>" + val + "</span>"
+                    + "<button data-cap='1' " + (val >= 15 ? "disabled" : "") + " aria-label='Raise cap'>+</button>"
+                    + "</span>";
+            } else {
+                const valTxt = (r.available && r.value != null) ? t.value(r.value) : "";
+                control = valTxt ? "<span class='value'>" + valTxt + "</span>" : "";
+            }
+
             return "<div class='" + cls + "'>"
                 + "<div><span class='label'>" + t.label + "</span>" + why + "</div>"
                 + "<div style='display:flex;align-items:center;gap:12px'>"
-                + (valTxt ? "<span class='value'>" + valTxt + "</span>" : "")
+                + control
                 + "<label class='sw'><input type='checkbox' data-rule='" + r.id + "'"
                 + (r.enabled ? " checked" : "") + (r.available ? "" : " disabled") + ">"
                 + "<span class='knob'></span></label>"
                 + "</div></div>";
         }).join("");
+    }
+
+    // The active nation cap: the host's chosen value if set, otherwise the
+    // engine's auto-derived one. Always clamped to the hard floor.
+    function currentCountryCap(ctx) {
+        const d = MPRules.effectiveCountryCap(ctx);
+        const v = (state.countryCap == null) ? d.cap : state.countryCap;
+        return Math.max(d.floor, Math.min(15, v));
     }
 
     // ── Refresh (readout + gate) ────────────────────────────
@@ -211,8 +228,6 @@
 
         $("sizeDown").addEventListener("click", function () { step("size", -1); });
         $("sizeUp").addEventListener("click", function () { step("size", 1); });
-        $("aiDown").addEventListener("click", function () { step("ai", -1); });
-        $("aiUp").addEventListener("click", function () { step("ai", 1); });
 
         $("yMin").addEventListener("input", function (e) {
             let v = +e.target.value; if (v > state.yMax) state.yMax = v; state.yMin = v; refresh();
@@ -225,6 +240,13 @@
             const btn = e.target.closest(".chip"); if (!btn) return;
             state.geo = btn.getAttribute("data-geo") || null; refresh();
         });
+        $("ruleList").addEventListener("click", function (e) {
+            const b = e.target.closest("button[data-cap]"); if (!b) return;
+            const f = filters();
+            const ctx = MPRules.buildContext(f, MPEngine.feasibility(allSquads, f, positionFamilyMap));
+            state.countryCap = currentCountryCap(ctx) + (+b.getAttribute("data-cap"));
+            refresh();
+        });
         $("ruleList").addEventListener("change", function (e) {
             const cb = e.target.closest("input[data-rule]"); if (!cb) return;
             state.rules[cb.getAttribute("data-rule")] = cb.checked; refresh();
@@ -235,10 +257,23 @@
         $("leave").addEventListener("click", onLeave);
     }
 
+    // Rules as stored on the room, including the resolved nation cap.
+    function rulesForCreate() {
+        const f = filters();
+        const ctx = MPRules.buildContext(f, MPEngine.feasibility(allSquads, f, positionFamilyMap));
+        const out = {
+            maxPerTournament: !!state.rules.maxPerTournament,
+            maxPerCountry: !!state.rules.maxPerCountry,
+            onePerTournament: !!state.rules.onePerTournament
+        };
+        if (out.maxPerCountry) out.countryCap = currentCountryCap(ctx);
+        return out;
+    }
+
     function onCreate() {
         setStatus("lobbyStatus", "Creating room and snapshotting the pool...", false);
         $("create").disabled = true;
-        MPNet.createRoom(filters(), profile(), state.rules, { tableSize: state.size, aiCount: state.ai })
+        MPNet.createRoom(filters(), profile(), rulesForCreate(), { tableSize: state.size, aiCount: 0 })
             .then(enterRoom)
             .catch(function (err) { setStatus("lobbyStatus", err.message, true); $("create").disabled = false; });
     }
