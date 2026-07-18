@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607182009";
+    const VERSION = "v1.2607182018";
 
     const $ = function (id) { return document.getElementById(id); };
     const YEARS = MPEngine.ALL_YEARS;
@@ -313,6 +313,12 @@
                     $("playBtn").disabled = false;
                 });
         });
+        $("setupConfirm").addEventListener("click", confirmSetup);
+        $("setupBack").addEventListener("click", function () {
+            restoreOptions();
+            $("setupView").classList.add("hidden");
+            $("roomView").classList.remove("hidden");
+        });
         $("nextComp").addEventListener("click", function () {
             modal({
                 title: "Start the next competition?",
@@ -453,6 +459,7 @@
     let seenDrafting = false;
     let compShown = false;
     let viewCompNo = 1;
+    let setupShown = false;
     let simSpeed = 1;          // 1.8 slow, 1 medium, 0.4 fast, as in app.js
     let playingBack = false;
     let revealed = {};         // fixture index -> true, during playback
@@ -471,6 +478,7 @@
             compShown = false;
             draftReady = false;
             playingBack = false;
+            setupShown = false;
             const pb = $("playBtn");
             if (pb) pb.disabled = false;
             const nc = $("nextComp");
@@ -549,11 +557,20 @@
         // Between competitions the room returns to lobby status so the host
         // can change the pool and rules before the next draft.
         if (status === "lobby" && compNo > 1) {
-            $("compView").classList.add("hidden");
-            $("commitView").classList.add("hidden");
-            $("draftView").classList.add("hidden");
-            $("roomView").classList.remove("hidden");
+            const amHost = (room.meta || {}).hostUid === MPNet.currentUid();
+            if (amHost) {
+                if (!setupShown) { setupShown = true; showSetup(room); }
+            } else {
+                $("compView").classList.add("hidden");
+                $("commitView").classList.add("hidden");
+                $("draftView").classList.add("hidden");
+                $("roomView").classList.remove("hidden");
+                setStatus("startHint", "The host is setting up competition "
+                    + compNo + " of " + ((room.settings || {}).seasonLength || 1) + ".", false);
+            }
+            return;
         }
+        setupShown = false;
 
         if (status === "competing") {
             renderFixtures(room);
@@ -777,6 +794,77 @@
                 fixtures: resolved, results: results, standings: standings, winner: winner
             }, tally);
         });
+    }
+
+    // ── Setup between competitions ──────────────────────────
+    // The host re-chooses the pool and rules before each new draft. Rather
+    // than duplicating the controls, the whole options block is moved into
+    // the setup view and moved back afterwards, so there is one set of
+    // controls and one set of handlers.
+    function showSetup(room) {
+        const block = $("optionsBlock");
+        const host = $("setupHost");
+        if (block && host && block.parentNode !== host) host.appendChild(block);
+        // Seats and season length are fixed for the life of the room.
+        $("seatsBlock").classList.add("hidden");
+
+        const st = room.settings || {};
+        $("setupSub").textContent = "competition " + (st.competition || 2)
+            + " of " + (st.seasonLength || 1);
+
+        // Load the room's current settings into the controls.
+        state.mode = st.mode === "career" ? "career" : "tournament";
+        if (st.yearMin) state.yMin = Math.max(0, YEARS.indexOf(st.yearMin));
+        if (st.yearMax) state.yMax = Math.max(0, YEARS.indexOf(st.yearMax));
+        // The chips store "" for All nations, not the label.
+        state.geo = (st.geoLabel && GEO[st.geoLabel]) ? st.geoLabel : "";
+        state.rules = Object.assign({}, st.rules || {});
+        refresh();
+
+        $("lobbyView").classList.add("hidden");
+        $("roomView").classList.add("hidden");
+        $("compView").classList.add("hidden");
+        $("commitView").classList.add("hidden");
+        $("draftView").classList.add("hidden");
+        $("setupView").classList.remove("hidden");
+        scrollTop();
+    }
+
+    // Put the controls back where they belong when leaving the setup view.
+    function restoreOptions() {
+        const block = $("optionsBlock");
+        const pane = $("createPane");
+        const btn = $("create");
+        if (block && pane && block.parentNode !== pane) pane.insertBefore(block, btn);
+        $("seatsBlock").classList.remove("hidden");
+    }
+
+    function confirmSetup() {
+        if (!currentCode) return;
+        $("setupConfirm").disabled = true;
+        setStatus("setupStatus", "Rebuilding the pool...", false);
+        // Use the same helpers the create path uses, so the settings written
+        // here are identical in shape to those written at room creation.
+        const f = filters();
+        const patch = {
+            mode: f.mode,
+            geoLabel: f.geoLabel,
+            countries: f.countries || null,
+            yearMin: f.yearMin || null,
+            yearMax: f.yearMax || null,
+            rules: rulesForCreate()
+        };
+        MPNet.updateSettings(currentCode, patch)
+            .then(function () { return MPNet.startDraft(currentCode); })
+            .then(function () {
+                restoreOptions();
+                setStatus("setupStatus", "", false);
+                $("setupConfirm").disabled = false;
+            })
+            .catch(function (err) {
+                setStatus("setupStatus", err.message, true);
+                $("setupConfirm").disabled = false;
+            });
     }
 
     // ── Room brief ──────────────────────────────────────────

@@ -24,7 +24,7 @@
     <!-- ══ LOBBY VIEW ══ -->
     <div id="lobbyView">
 
-        <p class="version" id="version">v1.2607182009</p>
+        <p class="version" id="version">v1.2607182018</p>
 
         <div id="notice" class="notice hidden">
             <span id="noticeText"></span>
@@ -73,6 +73,8 @@
 
         <div id="createPane">
 
+        <div id="optionsBlock">
+
         <section class="block">
             <p class="eyebrow">Mode</p>
             <div class="seg" role="group" aria-label="Game mode">
@@ -83,7 +85,7 @@
             </div>
         </section>
 
-        <section class="block">
+        <section class="block" id="seatsBlock">
             <p class="eyebrow">Users <small>how many people are drafting</small></p>
             <div class="stepper-row">
                 <div class="stepper">
@@ -134,6 +136,8 @@
             <span class="live-dot"></span>
             <span id="strapText">Reading the pool...</span>
         </div>
+
+        </div><!-- /optionsBlock -->
 
         <button class="cta" id="create"><span>Create room</span></button>
 
@@ -243,6 +247,16 @@
         </div>
     </div>
 
+    <!-- ══ SETUP VIEW (between competitions) ══ -->
+    <div id="setupView" class="hidden">
+        <p class="eyebrow">Set up the next competition <small id="setupSub"></small></p>
+        <p class="list-hint">Change the pool and the rules if you want to. The squads are retired and everyone drafts again from a fresh pool.</p>
+        <div id="setupHost"></div>
+        <button class="cta" id="setupConfirm"><span>Confirm and start the draft</span></button>
+        <p class="status" id="setupStatus"></p>
+        <button class="cta ghost" id="setupBack"><span>Back to room</span></button>
+    </div>
+
     <!-- ══ FIXTURES VIEW ══ -->
     <div id="compView" class="hidden">
         <p class="eyebrow">Fixtures <small id="compName"></small></p>
@@ -273,7 +287,7 @@
             <div id="tallyTable"></div>
         </div>
 
-        <button class="cta hidden" id="nextComp"><span>Start the next competition</span></button>
+        <button class="cta hidden" id="nextComp"><span>Setup the next competition</span></button>
         <p class="status" id="nextHint"></p>
 
         <button class="cta ghost" id="compBack"><span>Back to room</span></button>

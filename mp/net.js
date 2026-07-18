@@ -242,6 +242,21 @@ window.MPNet = (function () {
         });
     }
 
+    // ── Update settings between competitions (host only) ───
+    // Allowed only while the room is back in lobby status. The security
+    // rules keep the season length frozen once a competition is archived.
+    function updateSettings(code, patch) {
+        return whenReady().then(function () {
+            const updates = {};
+            Object.keys(patch).forEach(function (k) {
+                updates["rooms/" + code + "/settings/" + k] = patch[k];
+            });
+            return db.ref().update(updates).catch(function (err) {
+                throw new Error("Could not save the settings (" + (err.code || err.message) + ").");
+            });
+        });
+    }
+
     // ── Start the draft (host only) ────────────────────────
     // Writes the draft node and flips the room to "drafting". Once the
     // status leaves "lobby" the settings rule locks the settings block,
@@ -497,6 +512,7 @@ window.MPNet = (function () {
         whenReady: whenReady,
         currentUid: currentUid,
         createRoom: createRoom,
+        updateSettings: updateSettings,
         startDraft: startDraft,
         makePick: makePick,
         submitCommit: submitCommit,
