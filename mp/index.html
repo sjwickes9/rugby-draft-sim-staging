@@ -182,6 +182,40 @@
         <button class="cta ghost" id="backToRoom"><span>Back to room</span></button>
     </div>
 
+    <!-- ══ COMMIT VIEW ══ -->
+    <div id="commitView" class="hidden">
+        <p class="eyebrow">Before kickoff <small>two choices, both final</small></p>
+
+        <div class="commit-ratings">
+            <div class="cstat"><div class="cval" id="cOverall">0</div><div class="clbl">Overall</div></div>
+            <div class="cstat"><div class="cval" id="cFwd">0</div><div class="clbl">Forwards</div></div>
+            <div class="cstat"><div class="cval" id="cBck">0</div><div class="clbl">Backs</div></div>
+        </div>
+
+        <section class="block">
+            <p class="eyebrow">Goal kicker</p>
+            <p class="list-hint">Choose one player from your XV. Recognised kickers succeed far more often, and a bad kicker loses you the close games.</p>
+            <div id="kickerList" class="kicker-list"></div>
+        </section>
+
+        <section class="block">
+            <p class="eyebrow">Team strategy</p>
+            <div class="strategy-wrap">
+                <div class="strategy-ends"><span>Forwards</span><span>Balanced</span><span>Backs</span></div>
+                <input type="range" id="strategy" min="0" max="100" step="1" value="50" aria-label="Forwards to backs weighting">
+                <p class="list-hint" id="strategyHint"></p>
+            </div>
+        </section>
+
+        <button class="cta" id="commitBtn" disabled><span>Lock in and kick off</span></button>
+        <p class="status" id="commitStatus"></p>
+
+        <div id="commitWaiting" class="hidden">
+            <p class="eyebrow">Waiting for</p>
+            <ul class="members" id="commitMembers"></ul>
+        </div>
+    </div>
+
     <!-- ══ ROOM VIEW ══ -->
     <div id="roomView" class="hidden">
         <p class="eyebrow">Room</p>
@@ -219,5 +253,6 @@
 <script src="net.js"></script>
 <script src="lobby.js"></script>
 <script src="draftui.js"></script>
+<script src="commit.js"></script>
 </body>
 </html>

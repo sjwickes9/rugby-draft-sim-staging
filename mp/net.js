@@ -311,6 +311,23 @@ window.MPNet = (function () {
         });
     }
 
+    // ── Commit (spec 18) ───────────────────────────────────
+    // One screen, two irreversible choices: your goal kicker and your
+    // forwards/backs weighting, both locked before you see your fixtures.
+    // The rules make this write-once, so it cannot be revised later.
+    function submitCommit(code, kickerSlot, strategy) {
+        return whenReady().then(function () {
+            return db.ref("rooms/" + code + "/commit/" + uid).set({
+                kickerSlot: kickerSlot,
+                strategy: strategy,
+                at: firebase.database.ServerValue.TIMESTAMP
+            }).catch(function (err) {
+                throw new Error("Could not save your choices ("
+                    + (err.code || err.message) + "). They may already be locked in.");
+            });
+        });
+    }
+
     // ── Watch a room ────────────────────────────────────────
     // cb receives the whole room object on every change. Returns an
     // unsubscribe function.
@@ -364,6 +381,7 @@ window.MPNet = (function () {
         createRoom: createRoom,
         startDraft: startDraft,
         makePick: makePick,
+        submitCommit: submitCommit,
         rememberRoom: rememberRoom,
         lastRoom: lastRoom,
         forgetRoom: forgetRoom,

@@ -456,6 +456,7 @@
         if (status === "drafting") {
             ensureDraftInit(room);
             MPDraftUI.applyRoom(room);
+            maybeCommit(room);
             $("resumeDraft").classList.remove("hidden");
             $("startDraft").classList.add("hidden");
             setStatus("startHint", "", false);
@@ -521,6 +522,43 @@
             }
         });
         MPDraftUI.wire();
+    }
+
+    // ── Commitment screen ───────────────────────────────────
+    let commitWired = false;
+    let commitShown = false;
+
+    function maybeCommit(room) {
+        const d = room.draft || {};
+        const total = (d.order || []).length * MPPicks.SLOTS.length;
+        const done = total > 0 && (d.pickIndex || 0) >= total;
+        if (!done) return;
+
+        if (!commitWired) {
+            commitWired = true;
+            MPCommit.wire(function () { /* locked in; waiting list updates live */ });
+        }
+        const payload = {
+            squad: MPDraftUI.squad(),
+            members: room.members || {},
+            commits: room.commit || {},
+            myUid: MPNet.currentUid(),
+            code: currentCode
+        };
+        if (!commitShown) {
+            commitShown = true;
+            MPCommit.show(payload);
+            showCommit();
+        } else {
+            MPCommit.update(payload);
+        }
+    }
+
+    function showCommit() {
+        $("draftView").classList.add("hidden");
+        $("roomView").classList.add("hidden");
+        $("lobbyView").classList.add("hidden");
+        $("commitView").classList.remove("hidden");
     }
 
     function showDraft() {
