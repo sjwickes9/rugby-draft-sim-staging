@@ -36,6 +36,10 @@
           }
         },
 
+        "comp": {
+          ".write": "auth != null && root.child('rooms/' + $code + '/meta/hostUid').val() === auth.uid"
+        },
+
         "commit": {
           "$uid": {
             ".write": "auth != null && $uid === auth.uid && !data.exists()",
