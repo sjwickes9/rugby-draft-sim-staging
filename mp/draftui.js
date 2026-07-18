@@ -545,7 +545,7 @@ window.MPDraftUI = (function () {
             + "<div class='pinfo'><div class='pname'>" + esc(entry.name) + "</div>"
             + "<div class='pmeta'>" + esc(entry.country) + " | " + versions.length + " tournaments"
             + (gone ? " | <span class='gone'>" + gone + " taken</span>" : "") + "</div></div>"
-            + "<div class='prate'>" + (lo === hi ? lo : lo + " to " + hi) + "</div>"
+            + "<div class='prate" + (lo === hi ? "" : " range") + "'>" + (lo === hi ? lo : lo + " to " + hi) + "</div>"
             + "<button class='chev' data-expand='" + esc(entry.key) + "'>" + (open ? "Hide" : "Versions") + "</button>"
             + "</div>";
         if (!open) return head;
