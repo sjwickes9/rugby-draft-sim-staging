@@ -24,6 +24,11 @@
     <!-- ══ LOBBY VIEW ══ -->
     <div id="lobbyView">
 
+        <div id="notice" class="notice hidden">
+            <span id="noticeText"></span>
+            <button id="noticeClose" aria-label="Dismiss">&times;</button>
+        </div>
+
         <section class="block">
             <p class="eyebrow">You</p>
             <div class="you-row">
@@ -243,6 +248,10 @@
         <div id="fixtureList" class="fixtures"></div>
         <button class="cta hidden" id="playBtn"><span>Play the fixtures</span></button>
         <p class="status" id="compStatus"></p>
+        <div id="seriesWrap" class="hidden">
+            <p class="eyebrow">Series result</p>
+            <div id="seriesBox"></div>
+        </div>
         <div id="tableWrap" class="hidden">
             <p class="eyebrow">Standings</p>
             <div id="leagueTable"></div>

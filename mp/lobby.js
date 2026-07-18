@@ -289,6 +289,7 @@
         $("joinBtn").addEventListener("click", onJoin);
         $("leave").addEventListener("click", onLeave);
         $("closeRoom").addEventListener("click", onCloseRoom);
+        $("noticeClose").addEventListener("click", function () { showNotice(""); });
         $("startDraft").addEventListener("click", onStartDraft);
         $("backToRoom").addEventListener("click", function () {
             $("draftView").classList.add("hidden");
@@ -384,6 +385,14 @@
     function backToLobby(msg) {
         if (unwatch) { unwatch(); unwatch = null; }
         currentCode = null;
+        latestRoom = null;
+        seenDrafting = false;
+        compShown = false;
+        commitShown = false;
+        draftReady = false;
+        $("draftView").classList.add("hidden");
+        $("commitView").classList.add("hidden");
+        $("compView").classList.add("hidden");
         $("roomView").classList.add("hidden");
         $("lobbyView").classList.remove("hidden");
         setStatus("roomStatus", "", false);
@@ -410,7 +419,8 @@
             // The host closed the room while we were in it. Do not strand
             // the user on an empty screen; return them to the lobby.
             $("members").innerHTML = "";
-            backToLobby("That room was closed by the host.");
+            backToLobby("");
+            showNotice("The host closed the room, so the draft has ended. You can create a new room or join another with a code.");
             return;
         }
         const s = room.settings || {};
@@ -636,10 +646,18 @@
         fixtures.forEach(function (f, i) {
             if (MPFixtures.isPlaceholder(f.home) || MPFixtures.isPlaceholder(f.away)) return;
             const m = MPSim.simulateMatch(rng, rating[f.home], rating[f.away], kicker[f.home], kicker[f.away]);
+            const kn = function (u) {
+                const c = commits[u] || {};
+                const kp = c.kickerSlot ? squads[u][c.kickerSlot] : null;
+                return kp ? kp.name : null;
+            };
+            const bdA = MPSim.buildScoreBreakdown(rng, m.a, squads[f.home], kn(f.home));
+            const bdB = MPSim.buildScoreBreakdown(rng, m.b, squads[f.away], kn(f.away));
             results.push({
                 i: i, home: f.home, away: f.away, stage: f.stage,
                 a: m.a, b: m.b, drawn: m.drawn, winner: m.winner,
-                aPts: m.aPts, bPts: m.bPts
+                aPts: m.aPts, bPts: m.bPts,
+                bdA: bdA, bdB: bdB
             });
         });
 
@@ -677,7 +695,8 @@
             ? ""
             : (isHost ? "" : "Waiting for the host to play the fixtures.");
 
-        renderTable(room, comp);
+        if (!renderSeries(room, comp)) renderTable(room, comp);
+        else $("tableWrap").classList.add("hidden");
 
         let lastRound = null;
         const rows = (comp.fixtures || []).map(function (f) {
@@ -703,9 +722,55 @@
                 + "<span class='side away" + (an ? "" : " pending") + "'>"
                 + esc(an || MPFixtures.placeholderLabel(f.away)) + "</span>"
                 + (an ? "<span class='kit-dot' style='background:" + kit(f.away) + "'></span>" : "")
-                + "</div>";
+                + "</div>"
+                + (res ? scorersHtml(res) : "");
         }).join("");
         $("fixtureList").innerHTML = rows;
+    }
+
+    // Try scorers, conversions and penalties under a played fixture.
+    function scorersHtml(res) {
+        const side = function (bd) {
+            if (!bd) return "";
+            const t = (bd.tries || []).map(function (x) {
+                return x.count > 1 ? esc(x.name) + " x" + x.count : esc(x.name);
+            }).join(", ");
+            const lines = [];
+            if (t) lines.push("<span class='lbl'>T</span> " + t);
+            if (bd.conversions) lines.push("<span class='lbl'>C</span> " + esc(bd.kicker || "") + " x" + bd.conversions);
+            if (bd.penalties) lines.push("<span class='lbl'>P</span> " + esc(bd.kicker || "") + " x" + bd.penalties);
+            return lines.join("<br>");
+        };
+        const a = side(res.bdA), b = side(res.bdB);
+        if (!a && !b) return "";
+        return "<div class='fx-scorers'><div class='col'>" + a
+            + "</div><div class='col away'>" + b + "</div></div>";
+    }
+
+    // Two users play a Test series, not a league, so show the series
+    // outcome rather than a table (spec section 12).
+    function renderSeries(room, comp) {
+        const order = (room.draft || {}).order || [];
+        const wrap = $("seriesWrap");
+        if (order.length !== 2 || !(comp.results || []).length) {
+            wrap.classList.add("hidden");
+            return false;
+        }
+        const members = room.members || {};
+        const r = MPSim.seriesResult(order, comp.results);
+        const nameOf = function (u) { return (members[u] || {}).name || "User"; };
+        wrap.classList.remove("hidden");
+        $("seriesBox").innerHTML = "<div class='series-box'>"
+            + "<div class='series-score'>" + r.winsA + " - " + r.winsB + "</div>"
+            + "<div class='series-note'>" + esc(nameOf(r.a)) + " v " + esc(nameOf(r.b))
+            + (r.draws ? ", " + r.draws + " drawn" : "") + "</div>"
+            + (r.winner
+                ? "<div class='series-winner'>" + esc(nameOf(r.winner)) + " wins the series</div>"
+                : "<div class='series-winner'>Series level</div>")
+            + "<div class='series-note'>Decided on " + esc(r.decidedBy)
+            + ". Aggregate " + r.aggregateA + " to " + r.aggregateB + ".</div>"
+            + "</div>";
+        return true;
     }
 
     function renderTable(room, comp) {
@@ -737,6 +802,12 @@
     }
 
     // ── Helpers ─────    // ── Helpers ─────────────────────────────────────────────
+    function showNotice(msg) {
+        if (!msg) { $("notice").classList.add("hidden"); return; }
+        $("noticeText").textContent = msg;
+        $("notice").classList.remove("hidden");
+    }
+
     function setStatus(id, msg, isErr) { const el = $(id); el.textContent = msg; el.classList.toggle("err", !!isErr); }
     function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
 

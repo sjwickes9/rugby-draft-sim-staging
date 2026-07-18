@@ -181,6 +181,90 @@
         return { a: a, b: b, kicksA: kicksA, kicksB: kicksB, winner: a > b ? "a" : (b > a ? "b" : "a") };
     }
 
+    // ── Score breakdown (ported from app.js) ────────────────
+    // Attributes a final score to tries, conversions and penalties, and
+    // names the try scorers by position weighting. Seeded, so every
+    // client derives the same scorers.
+    var TRY_WEIGHTS = {
+        "Left Wing": 16.67, "Right Wing": 16.67,
+        "Inside Centre": 10.19, "Outside Centre": 10.19,
+        "Fullback": 10.19,
+        "Number 8": 6.48,
+        "Scrum-half": 5.56,
+        "Hooker": 4.63,
+        "Blindside Flanker": 3.70, "Openside Flanker": 3.70,
+        "Fly-half": 4.63,
+        "Lock 4": 1.85, "Lock 5": 1.85,
+        "Loosehead Prop": 1.85, "Tighthead Prop": 1.85
+    };
+
+    function pickWeightedScorer(rng, squad) {
+        var entries = [];
+        MPPicksRef().SLOTS.forEach(function (s) {
+            var p = squad[s.id];
+            var w = TRY_WEIGHTS[s.node];
+            if (p && w) entries.push({ name: p.name, weight: w });
+        });
+        if (!entries.length) return null;
+        var total = 0;
+        entries.forEach(function (e) { total += e.weight; });
+        var r = rng() * total;
+        for (var i = 0; i < entries.length; i++) {
+            if (r < entries[i].weight) return entries[i];
+            r -= entries[i].weight;
+        }
+        return entries[entries.length - 1];
+    }
+
+    function buildScoreBreakdown(rng, finalScore, squad, kickerName) {
+        var remaining = finalScore;
+        var tryScorers = {};
+        var tries = 0, conversions = 0, penalties = 0;
+
+        var maxTries = Math.max(1, Math.floor(finalScore / 6));
+        while (remaining >= 5 && tries < maxTries) {
+            var canConvert = remaining - 7 >= 0;
+            if (canConvert && rng() < 0.78) { remaining -= 7; tries++; conversions++; }
+            else { remaining -= 5; tries++; }
+            var scorer = pickWeightedScorer(rng, squad);
+            if (scorer) tryScorers[scorer.name] = (tryScorers[scorer.name] || 0) + 1;
+        }
+        while (remaining >= 3) { remaining -= 3; penalties++; }
+        if (remaining === 2 && conversions === 0 && tries > 0) { conversions++; remaining -= 2; }
+
+        var list = Object.keys(tryScorers).map(function (n) {
+            return { name: n, count: tryScorers[n] };
+        });
+        return { tries: list, tryCount: tries, conversions: conversions, penalties: penalties, kicker: kickerName || null };
+    }
+
+    // ── Test series (two users, spec section 12) ────────────
+    // A drawn Test stands. If the series finishes level, aggregate points
+    // decide it. Rugby would call it a drawn series, but the room tally
+    // needs a winner.
+    function seriesResult(uids, results) {
+        var a = uids[0], b = uids[1];
+        var winsA = 0, winsB = 0, draws = 0, ptsA = 0, ptsB = 0;
+        results.forEach(function (r) {
+            var scoreA = (r.home === a) ? r.a : r.b;
+            var scoreB = (r.home === a) ? r.b : r.a;
+            ptsA += scoreA; ptsB += scoreB;
+            if (scoreA === scoreB) draws++;
+            else if (scoreA > scoreB) winsA++;
+            else winsB++;
+        });
+        var winner = null, decidedBy = "series result";
+        if (winsA !== winsB) winner = winsA > winsB ? a : b;
+        else if (ptsA !== ptsB) { winner = ptsA > ptsB ? a : b; decidedBy = "aggregate points"; }
+        else decidedBy = "level, a kicking competition would decide it";
+        return {
+            a: a, b: b, winsA: winsA, winsB: winsB, draws: draws,
+            aggregateA: ptsA, aggregateB: ptsB,
+            winner: winner, decidedBy: decidedBy,
+            scoreline: winsA + " to " + winsB + (draws ? " with " + draws + " drawn" : "")
+        };
+    }
+
     // ── League table (spec sections 11, 14) ─────────────────
     function emptyRow(uid) {
         return { uid: uid, played: 0, won: 0, drawn: 0, lost: 0, pf: 0, pa: 0, pd: 0, bonus: 0, points: 0 };
@@ -221,6 +305,9 @@
         simulateMatch: simulateMatch,
         resolveKnockout: resolveKnockout,
         kickingCompetition: kickingCompetition,
-        buildTable: buildTable
+        buildTable: buildTable,
+        TRY_WEIGHTS: TRY_WEIGHTS,
+        buildScoreBreakdown: buildScoreBreakdown,
+        seriesResult: seriesResult
     };
 });
