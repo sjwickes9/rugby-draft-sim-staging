@@ -266,6 +266,31 @@ window.MPNet = (function () {
         });
     }
 
+    // ── Make a pick (spec 8) ───────────────────────────────
+    // One atomic fan-out: write the pick into its slot index, advance the
+    // pick index, and hand the baton to the next user. The security rules
+    // enforce all three independently, so a client cannot pick out of
+    // turn, pick into an occupied index, or skip the queue.
+    function makePick(code, slotId, poolIndex, order, pickIndex) {
+        return whenReady().then(function () {
+            const nextIndex = pickIndex + 1;
+            const total = order.length * MPDraft.SQUAD_SIZE;
+            const nextPicker = (nextIndex < total)
+                ? MPDraft.pickerAt(order, nextIndex)
+                : MPDraft.pickerAt(order, pickIndex);   // draft over: leave as is
+
+            const base = "rooms/" + code + "/draft/";
+            const updates = {};
+            updates[base + "picks/" + pickIndex] = { by: uid, slot: slotId, i: poolIndex };
+            updates[base + "pickIndex"] = nextIndex;
+            updates[base + "currentPicker"] = nextPicker;
+            return db.ref().update(updates).catch(function (err) {
+                throw new Error("Pick rejected (" + (err.code || err.message) + "). "
+                    + "Someone may have picked first, or it is not your turn.");
+            });
+        });
+    }
+
     // ── Watch a room ────────────────────────────────────────
     // cb receives the whole room object on every change. Returns an
     // unsubscribe function.
@@ -318,6 +343,7 @@ window.MPNet = (function () {
         currentUid: currentUid,
         createRoom: createRoom,
         startDraft: startDraft,
+        makePick: makePick,
         joinRoom: joinRoom,
         watchRoom: watchRoom,
         leaveRoom: leaveRoom,

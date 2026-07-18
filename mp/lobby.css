@@ -266,6 +266,21 @@ input[type=color] {
 .slot .empty-hint { flex: 1; color: var(--slate); font-style: italic; font-size: 0.9rem; }
 .slot .kick { color: var(--amber); font-size: 0.8rem; }
 
+/* Turn bar */
+.turn-bar {
+    display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+    padding: 12px 15px; margin-bottom: 14px;
+    background: var(--panel); border-left: 4px solid var(--slate); border-radius: 0 8px 8px 0;
+}
+.turn-bar.mine { border-left-color: var(--teal); }
+.turn-bar.done { border-left-color: var(--amber); }
+.turn-bar .turn-who {
+    font-family: var(--display); text-transform: uppercase; letter-spacing: 0.08em; font-size: 1.05rem;
+}
+.turn-bar.mine .turn-who { color: var(--teal); }
+.turn-bar.done .turn-who { color: var(--amber); }
+.turn-bar .turn-meta { font-size: 0.8rem; color: var(--slate); }
+
 /* Draft tabs */
 .draft-tabs { display: flex; gap: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 4px; margin-bottom: 14px; }
 .draft-tabs button {

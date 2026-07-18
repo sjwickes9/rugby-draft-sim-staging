@@ -277,6 +277,7 @@
             $("draftView").classList.add("hidden");
             $("roomView").classList.remove("hidden");
         });
+        $("resumeDraft").addEventListener("click", showDraft);
     }
 
     // Rules as stored on the room, including the resolved nation cap.
@@ -366,7 +367,10 @@
         if (unwatch) unwatch();
         unwatch = MPNet.watchRoom(code, renderRoom);
     }
+    let latestRoom = null;
+    let seenDrafting = false;
     function renderRoom(room) {
+        latestRoom = room;
         if (!room) {
             // The host closed the room while we were in it. Do not strand
             // the user on an empty screen; return them to the lobby.
@@ -428,45 +432,65 @@
             if (count < 2) setStatus("startHint", "Waiting for at least one more user to join.", false);
             else if (count < seats) setStatus("startHint", "Waiting for " + (seats - count) + " more of " + seats + " users.", false);
             else setStatus("startHint", MPDraft.formatFor(count).name + ". Everyone is here.", false);
-        } else if (status === "drafting") {
+        }
+
+        if (status === "drafting") {
+            ensureDraftInit(room);
+            MPDraftUI.applyRoom(room);
+            $("resumeDraft").classList.remove("hidden");
+            $("startDraft").classList.add("hidden");
             setStatus("startHint", "", false);
-            enterDraft(room);
+            if (!seenDrafting) { seenDrafting = true; showDraft(); }
+        } else {
+            $("resumeDraft").classList.add("hidden");
         }
     }
 
     // ── Draft view ──────────────────────────────────────────
-    let draftOpen = false;
-    function enterDraft(room) {
-        if (draftOpen) return;
-        draftOpen = true;
+    let draftReady = false;
+
+    function ensureDraftInit(room) {
+        if (draftReady) return;
+        draftReady = true;
+        const st = room.settings || {};
         const f = {
-            mode: (room.settings && room.settings.mode) || "tournament",
-            yearMin: room.settings && room.settings.yearMin,
-            yearMax: room.settings && room.settings.yearMax,
-            countries: (room.settings && room.settings.countries) || null,
-            geoLabel: (room.settings && room.settings.geoLabel) || "All nations"
+            mode: st.mode || "tournament",
+            yearMin: st.yearMin || undefined,
+            yearMax: st.yearMax || undefined,
+            countries: st.countries || null,
+            geoLabel: st.geoLabel || "All nations"
         };
         const analysis = MPEngine.feasibility(allSquads, f, positionFamilyMap);
         const ctx = MPRules.buildContext(f, analysis);
-        const storedRules = (room.settings && room.settings.rules) || {};
-        const active = MPRules.activeConstraints(ctx, storedRules);
+        const active = MPRules.activeConstraints(ctx, st.rules || {});
 
         MPDraftUI.init({
             pool: room.pool || [],
             squad: MPPicks.emptySquad(),
             taken: {},
-            starred: [],
             constraints: active,
             ruleCtx: ctx,
-            onPick: function () { /* persistence arrives with the turn machinery */ }
+            myUid: MPNet.currentUid(),
+            live: true,
+            onPick: function (slotId, poolIndex, done) {
+                const d = latestRoom && latestRoom.draft;
+                if (!d) { done(new Error("No draft in progress.")); return; }
+                MPNet.makePick(currentCode, slotId, poolIndex, d.order, d.pickIndex)
+                    .then(function () { done(null); })
+                    .catch(done);
+            }
         });
         MPDraftUI.wire();
-        $("roomView").classList.add("hidden");
-        $("draftView").classList.remove("hidden");
-        setStatus("draftStatus", "Local preview: your picks are not yet shared with the room.", false);
     }
 
-    // ── Helpers ─────────────────────────────────────────────
+    function showDraft() {
+        $("roomView").classList.add("hidden");
+        $("lobbyView").classList.add("hidden");
+        $("draftView").classList.remove("hidden");
+        setStatus("draftStatus", "", false);
+    }
+
+    // ── Helpers ─────    // ── Helpers ─────────────────────────────────────────────
     function setStatus(id, msg, isErr) { const el = $(id); el.textContent = msg; el.classList.toggle("err", !!isErr); }
     function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
 

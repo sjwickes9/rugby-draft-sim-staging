@@ -34,7 +34,14 @@ window.MPDraftUI = (function () {
         expanded: {},       // player key -> true (version chevron)
         constraints: [],
         ruleCtx: null,
-        onPick: null
+        onPick: null,
+        myUid: null,
+        isMyTurn: false,
+        live: false,        // true once wired to a real room
+        order: [],
+        members: {},
+        pickIndex: 0,
+        complete: false
     };
 
     let byNation = [];
@@ -50,6 +57,8 @@ window.MPDraftUI = (function () {
         state.constraints = opts.constraints || [];
         state.ruleCtx = opts.ruleCtx || null;
         state.onPick = opts.onPick || null;
+        state.myUid = opts.myUid || null;
+        state.live = !!opts.live;
         buildIndex();
         renderAxis();
         setTab("xv");
@@ -80,6 +89,59 @@ window.MPDraftUI = (function () {
     }
     function saveStars() {
         try { localStorage.setItem(STAR_KEY, JSON.stringify(state.starred)); } catch (e) {}
+    }
+
+    // ── Live state from the room ────────────────────────────
+    // Rebuild every squad from the shared pick list, so all clients agree
+    // and a reconnecting user resumes exactly where they left off.
+    function applyRoom(room) {
+        const draft = room.draft || {};
+        const pool = room.pool || [];
+        state.order = draft.order || [];
+        state.members = room.members || {};
+        state.pickIndex = draft.pickIndex || 0;
+
+        const total = state.order.length * MPPicks.SLOTS.length;
+        state.complete = state.pickIndex >= total && total > 0;
+        state.isMyTurn = !state.complete && draft.currentPicker === state.myUid;
+
+        // Reset and replay.
+        state.squad = MPPicks.emptySquad();
+        state.taken = {};
+        const picks = draft.picks || {};
+        Object.keys(picks).forEach(function (k) {
+            const pk = picks[k];
+            const p = pool[pk.i];
+            if (!p) return;
+            const who = state.members[pk.by];
+            state.taken[MPPicks.playerKey(p)] = (who && who.name) || "another user";
+            if (pk.by === state.myUid) state.squad[pk.slot] = p;
+        });
+
+        renderTurn(draft);
+        renderTeamsheet();
+        if (state.tab !== "xv") renderList();
+    }
+
+    function renderTurn(draft) {
+        const el = $("turnBar");
+        if (!el) return;
+        if (!state.live) { el.classList.add("hidden"); return; }
+        el.classList.remove("hidden");
+        if (state.complete) {
+            el.className = "turn-bar done";
+            el.innerHTML = "<span class='turn-who'>Draft complete</span>"
+                + "<span class='turn-meta'>All squads are picked.</span>";
+            return;
+        }
+        const cur = state.members[draft.currentPicker] || {};
+        const round = state.order.length
+            ? Math.floor(state.pickIndex / state.order.length) + 1 : 1;
+        el.className = "turn-bar" + (state.isMyTurn ? " mine" : "");
+        el.innerHTML = "<span class='turn-who'>"
+            + (state.isMyTurn ? "Your pick" : esc(cur.name || "Waiting") + " is picking")
+            + "</span><span class='turn-meta'>Round " + round + " of 15, pick "
+            + (state.pickIndex + 1) + "</span>";
     }
 
     // ── Index ───────────────────────────────────────────────
@@ -179,7 +241,9 @@ window.MPDraftUI = (function () {
                 return "<button class='slot' data-slot='" + s.id + "'>"
                     + "<span class='snum'>" + s.num + "</span>"
                     + "<span class='slabel'>" + s.label + "</span>"
-                    + "<span class='empty-hint'>Tap to pick</span></button>";
+                    + "<span class='empty-hint'>"
+                    + (state.live && !state.isMyTurn ? "Waiting for your turn" : "Tap to pick")
+                    + "</span></button>";
             }
             const pen = MPPicks.oopPenalty(p, s.node);
             const eff = Math.max(0, (p.rating || 0) - pen);
@@ -440,7 +504,8 @@ window.MPDraftUI = (function () {
             + "</div>"
             + "<div class='prate'>" + (slot ? eff : base)
             + (pen > 0 ? "<span class='was'>" + base + "</span>" : "") + "</div>"
-            + (slot && v.eligible ? "<button class='take' data-take='" + esc(MPPicks.playerKey(p)) + "'>Pick</button>" : "")
+            + (slot && v.eligible && (!state.live || state.isMyTurn)
+                ? "<button class='take' data-take='" + esc(MPPicks.playerKey(p)) + "'>Pick</button>" : "")
             + "</div>";
     }
 
@@ -461,18 +526,45 @@ window.MPDraftUI = (function () {
     }
 
     function commitPick(key) {
-        const p = findByKey(key);
-        if (!p || !state.activeSlot) return;
+        if (state.live && !state.isMyTurn) return;
+        const idx = findIndexByKey(key);
+        if (idx === -1 || !state.activeSlot) return;
+        const p = state.pool[idx];
         const slotId = state.activeSlot;
         const v = MPPicks.evaluate(p, slotId, state.squad, state.taken, state.constraints,
             state.ruleCtx, (window.MPRules && MPRules.isPickLegal));
         if (!v.eligible) return;
+
+        if (state.live) {
+            // Optimistic UI is wrong here: the server decides. Wait for the
+            // write, then the room watcher repaints from shared state.
+            setBusy(true);
+            state.onPick(slotId, idx, function (err) {
+                setBusy(false);
+                if (err) { alert(err.message); return; }
+                cancelPicking();
+                setTab("xv");
+            });
+            return;
+        }
+
         state.squad[slotId] = p;
         state.taken[MPPicks.playerKey(p)] = "you";
         cancelPicking();
         renderTeamsheet();
         setTab("xv");
-        if (state.onPick) state.onPick(slotId, p);
+    }
+
+    function setBusy(on) {
+        const b = $("panelBody");
+        if (b) b.style.opacity = on ? "0.5" : "";
+    }
+
+    function findIndexByKey(key) {
+        for (let i = 0; i < state.pool.length; i++) {
+            if (MPPicks.playerKey(state.pool[i]) === key) return i;
+        }
+        return -1;
     }
 
     function toggleStar(key) {
@@ -494,6 +586,7 @@ window.MPDraftUI = (function () {
         $("teamsheet").addEventListener("click", function (e) {
             const btn = e.target.closest(".slot");
             if (!btn || btn.classList.contains("filled")) return;
+            if (state.live && !state.isMyTurn) return;   // read-only off-turn
             startPicking(btn.getAttribute("data-slot"));
         });
 
@@ -544,7 +637,7 @@ window.MPDraftUI = (function () {
     }
 
     return {
-        init: init, wire: wire,
+        init: init, wire: wire, applyRoom: applyRoom,
         renderTeamsheet: renderTeamsheet,
         squad: function () { return state.squad; },
         starred: function () { return state.starred; }

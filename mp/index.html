@@ -139,6 +139,8 @@
     <!-- ══ DRAFT VIEW ══ -->
     <div id="draftView" class="hidden">
 
+        <div id="turnBar" class="turn-bar hidden"></div>
+
         <div class="draft-tabs" role="group" aria-label="Draft sections">
             <button id="tabXV" aria-pressed="true">Your XV</button>
             <button id="tabBoard" aria-pressed="false">Big Board</button>
@@ -186,6 +188,7 @@
             <ol class="lottery-list" id="lotteryList"></ol>
         </div>
         <button class="cta hidden" id="startDraft"><span>Start draft</span></button>
+        <button class="cta hidden" id="resumeDraft"><span>Return to draft</span></button>
         <p class="status" id="startHint"></p>
         <button class="cta ghost" id="leave"><span>Leave room</span></button>
         <button class="cta danger hidden" id="closeRoom"><span>Close room</span></button>
