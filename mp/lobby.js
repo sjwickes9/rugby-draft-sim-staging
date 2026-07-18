@@ -751,6 +751,91 @@
         });
     }
 
+    // ── Room brief ──────────────────────────────────────────
+    // A joiner needs the whole setup before the draft starts: the pool,
+    // the constraints and the format. Anything that will limit their picks
+    // belongs here, not discovered mid-draft.
+    function renderBrief(room) {
+        const el = $("roomBrief");
+        if (!el) return;
+        try {
+            el.innerHTML = buildBrief(room);
+        } catch (e) {
+            // Informational only, so it must never take the room view down.
+            el.innerHTML = "";
+        }
+    }
+
+    function buildBrief(room) {
+        const st = room.settings || {};
+        const f = {
+            mode: st.mode || "tournament",
+            yearMin: st.yearMin || undefined,
+            yearMax: st.yearMax || undefined,
+            countries: st.countries || null,
+            geoLabel: st.geoLabel || "All nations"
+        };
+
+        let analysis = null;
+        try { analysis = MPEngine.feasibility(allSquads, f, positionFamilyMap); } catch (e) {}
+
+        const rows = [];
+        const add = function (k, v) {
+            rows.push("<div class='brief-row'><div class='brief-k'>" + k
+                + "</div><div class='brief-v'>" + v + "</div></div>");
+        };
+
+        add("Pool", esc(st.geoLabel || "All nations")
+            + "<span class='sub'>" + (st.yearMin && st.yearMax
+                ? (st.yearMin === st.yearMax ? esc(st.yearMin) : esc(st.yearMin) + " to " + esc(st.yearMax))
+                : "All tournaments") + "</span>");
+
+        add("Ratings", st.mode === "career"
+            ? "Career peak<span class='sub'>Each player at his best, one version only</span>"
+            : "By tournament<span class='sub'>Players rated for the year they played, and each year is a separate pick</span>");
+
+        if (analysis) {
+            const nations = analysis.uniqueCountries || 0;
+            add("Players available", (analysis.entries || 0).toLocaleString()
+                + "<span class='sub'>" + (analysis.kickers || 0) + " recognised kickers, from "
+                + nations + " nation" + (nations === 1 ? "" : "s") + "</span>");
+        }
+
+        const users = st.tableSize || Object.keys(room.members || {}).length || 2;
+        add("Format", esc(MPDraft.formatFor(users).name)
+            + "<span class='sub'>" + users + " users, snake draft, 15 rounds each</span>");
+
+        const season = st.seasonLength || 1;
+        add("Season", season + " competition" + (season === 1 ? "" : "s")
+            + "<span class='sub'>Locked once the first draft begins</span>");
+
+        let ruleHtml = "";
+        try {
+            const ctx = MPRules.buildContext(f, analysis);
+            const active = MPRules.activeConstraints(ctx, st.rules || {});
+            ruleHtml = active.length
+                ? active.map(function (r) {
+                    return "<span class='brief-rule'>" + esc(ruleText(r)) + "</span>";
+                }).join("")
+                : "<span class='sub'>None. Any player, any nation, any tournament.</span>";
+        } catch (e) {
+            ruleHtml = "<span class='sub'>None</span>";
+        }
+        add("Restrictions", ruleHtml);
+
+        add("Out of position", "Allowed, at a rating penalty"
+            + "<span class='sub'>The front row is the exception: only front-row players may pack down there</span>");
+
+        return rows.join("");
+    }
+
+    function ruleText(r) {
+        if (r.id === "maxPerCountry") return "Maximum " + r.value + " players from any one nation";
+        if (r.id === "maxPerTournament") return "Maximum " + r.value + " players from any one tournament";
+        if (r.id === "onePerTournament") return "One player from each of the " + r.value + " tournaments";
+        return r.id;
+    }
+
     // ── Playback ────────────────────────────────────────────
     // Reveals results one fixture at a time at the chosen speed, matching
     // the pacing of the single-player app (900ms base).
