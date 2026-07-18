@@ -259,9 +259,10 @@ input[type=color] {
 .slot .sname { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; font-family: var(--display); text-transform: uppercase; letter-spacing: 0.03em; font-size: 1.05rem; line-height: 1.15; }
 .slot .smeta { display: block; font-family: var(--body); text-transform: none; letter-spacing: 0; font-size: 0.76rem; color: var(--slate); line-height: 1.3; }
 .slot .srating { font-family: var(--display); font-size: 1.2rem; min-width: 34px; text-align: right; }
-.slot.filled { border-left-color: var(--teal); cursor: default; }
+.slot.filled { border-left-color: var(--kit1, var(--teal)); cursor: default; }
 .slot.filled .slabel { color: var(--slate); }
 .slot.oop { border-left-color: var(--amber); }
+.slot.filled::after { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--kit2, transparent); }
 .slot .oop-tag { font-size: 0.7rem; color: var(--amber); font-family: var(--display); letter-spacing: 0.06em; }
 .slot .empty-hint { flex: 1; color: var(--slate); font-style: italic; font-size: 0.9rem; }
 .slot .kick { color: var(--amber); font-size: 0.8rem; }
@@ -272,11 +273,23 @@ input[type=color] {
     padding: 12px 15px; margin-bottom: 14px;
     background: var(--panel); border-left: 4px solid var(--slate); border-radius: 0 8px 8px 0;
 }
-.turn-bar.mine { border-left-color: var(--teal); }
+.turn-bar.mine {
+    border-left-color: var(--turnkit, var(--teal));
+    background: linear-gradient(90deg, color-mix(in srgb, var(--teal) 26%, var(--panel)) 0%, var(--panel) 70%);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--teal) 40%, transparent);
+}
+/* Fallback for browsers without color-mix */
+@supports not (background: color-mix(in srgb, red 50%, blue)) {
+    .turn-bar.mine { background: var(--panel-2); }
+}
+.turn-bar.mine .turn-meta { color: var(--pitch); }
 .turn-bar.done { border-left-color: var(--amber); }
 .turn-bar .turn-who {
     font-family: var(--display); text-transform: uppercase; letter-spacing: 0.08em; font-size: 1.05rem;
 }
+.turn-bar.mine .turn-who { font-size: 1.25rem; font-weight: 700; }
+.turn-bar { border-left-width: 4px; }
+.turn-bar.mine { border-left-width: 7px; }
 .turn-bar.mine .turn-who { color: var(--teal); }
 .turn-bar.done .turn-who { color: var(--amber); }
 .turn-bar .turn-meta { font-size: 0.8rem; color: var(--slate); }

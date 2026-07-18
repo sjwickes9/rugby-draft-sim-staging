@@ -71,6 +71,10 @@
     function toggleTheme() {
         const isLight = document.documentElement.getAttribute("data-theme") === "light";
         applyTheme(isLight ? "dark" : "light");
+        // Kit colours are adapted to the background, so repaint the draft.
+        if (latestRoom && window.MPDraftUI && MPDraftUI.applyRoom) {
+            try { MPDraftUI.applyRoom(latestRoom); } catch (e) {}
+        }
     }
 
     // ── Filters ─────────────────────────────────────────────

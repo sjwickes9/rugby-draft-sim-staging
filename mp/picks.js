@@ -224,7 +224,7 @@
         if (!slot) return { eligible: false, reason: "Unknown slot", penalty: null, effective: null };
         if (squad && squad[slotId]) return { eligible: false, reason: "Slot already filled", penalty: null, effective: null };
 
-        const key = playerKey(player);
+        const key = personKey(player);
         if (taken && taken[key]) {
             return { eligible: false, reason: "Taken by " + taken[key], penalty: null, effective: null };
         }
@@ -253,8 +253,17 @@
 
     // Stable identity for a pool entry. Tournament mode distinguishes
     // versions of the same player by year; career mode has no year.
+    // Used for starring and for referring to a specific version.
     function playerKey(p) {
         return p.country + "|" + p.name + "|" + (p.year || "");
+    }
+
+    // Identity of the person, ignoring which tournament version this is.
+    // The taken check uses this: you pick a version, but once any version
+    // of a man is drafted, every version of him leaves the pool. Nobody
+    // appears in two squads, and nobody appears twice in one squad.
+    function personKey(p) {
+        return p.country + "|" + p.name;
     }
 
     // ── Candidates for a slot ───────────────────────────────
@@ -320,6 +329,6 @@
         slotById, nodeToSlotId, playerGroups,
         isForbidden, oopPenalty, effectiveRating, placementNote, naturalSlots,
         emptySquad, filledSlots, emptySlots, squadPlayers, isComplete, frontRowStillNeeded,
-        playerKey, evaluate, candidatesForSlot, autoPick
+        playerKey, personKey, evaluate, candidatesForSlot, autoPick
     };
 });

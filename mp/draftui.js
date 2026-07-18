@@ -99,6 +99,55 @@ window.MPDraftUI = (function () {
         try { localStorage.setItem(starKey(), JSON.stringify(state.starred)); } catch (e) {}
     }
 
+    // ── Colour safety ───────────────────────────────────────
+    // Users pick their own kit colours, so two dark colours on the dark
+    // theme (or two light ones on the light theme) would vanish. Measure
+    // relative luminance and lift or darken only when a colour would be
+    // too close to the background to see.
+    function hexToRgb(hex) {
+        const h = String(hex || "").replace("#", "");
+        const full = h.length === 3 ? h.split("").map(function (c) { return c + c; }).join("") : h;
+        const n = parseInt(full, 16);
+        if (isNaN(n) || full.length !== 6) return { r: 128, g: 128, b: 128 };
+        return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+    }
+    function luminance(hex) {
+        const c = hexToRgb(hex);
+        const f = function (v) {
+            v /= 255;
+            return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+        };
+        return 0.2126 * f(c.r) + 0.7152 * f(c.g) + 0.0722 * f(c.b);
+    }
+    function mix(hex, target, amount) {
+        const a = hexToRgb(hex), b = hexToRgb(target);
+        const m = function (x, y) { return Math.round(x + (y - x) * amount); };
+        const to2 = function (v) { return ("0" + v.toString(16)).slice(-2); };
+        return "#" + to2(m(a.r, b.r)) + to2(m(a.g, b.g)) + to2(m(a.b, b.b));
+    }
+    function isLightTheme() {
+        return document.documentElement.getAttribute("data-theme") === "light";
+    }
+    // Returns a version of the colour that is always visible against the
+    // current background, leaving well-contrasted colours untouched.
+    function safeKit(hex) {
+        if (!hex) return "#6E8CA6";
+        const L = luminance(hex);
+        if (isLightTheme()) {
+            // Light background: lighten colours are the problem.
+            if (L > 0.62) return mix(hex, "#000000", Math.min(0.55, (L - 0.62) * 1.6 + 0.25));
+            return hex;
+        }
+        // Dark background: very dark colours are the problem.
+        if (L < 0.16) return mix(hex, "#FFFFFF", Math.min(0.65, (0.16 - L) * 2.4 + 0.3));
+        return hex;
+    }
+
+    function myKit() {
+        const me = state.members[state.myUid] || {};
+        return { a: safeKit(me.kit || "#16E0CD"), b: safeKit(me.kit2 || "#FFC24D") };
+    }
+
     // ── Live state from the room ────────────────────────────
     // Rebuild every squad from the shared pick list, so all clients agree
     // and a reconnecting user resumes exactly where they left off.
@@ -125,7 +174,7 @@ window.MPDraftUI = (function () {
             const p = pool[pk.i];
             if (!p) return;
             const who = state.members[pk.by];
-            state.taken[MPPicks.playerKey(p)] = (pk.by === state.myUid)
+            state.taken[MPPicks.personKey(p)] = (pk.by === state.myUid)
                 ? "you"
                 : ((who && who.name) || "another user");
             if (pk.by === state.myUid) state.squad[pk.slot] = p;
@@ -147,7 +196,9 @@ window.MPDraftUI = (function () {
         let avail = 0, total = 0;
         state.starred.forEach(function (k) {
             total++;
-            if (!state.taken[k]) avail++;
+            // Starred keys are version-level; availability is person-level.
+            const parts = k.split("|");
+            if (!state.taken[parts[0] + "|" + parts[1]]) avail++;
         });
         el.textContent = total ? ("Big Board " + avail + "/" + total) : "Big Board";
     }
@@ -164,6 +215,7 @@ window.MPDraftUI = (function () {
             return;
         }
         const cur = state.members[draft.currentPicker] || {};
+        el.style.setProperty("--turnkit", safeKit(cur.kit || "#16E0CD"));
         const round = state.order.length
             ? Math.floor(state.pickIndex / state.order.length) + 1 : 1;
         el.className = "turn-bar" + (state.isMyTurn ? " mine" : "");
@@ -285,7 +337,7 @@ window.MPDraftUI = (function () {
             const round = Math.floor(row.idx / n) + 1;
             const pen = slot ? MPPicks.oopPenalty(p, slot.node) : 0;
             return "<div class='pickrow" + (mine ? " mine" : "") + "' style='--pk:"
-                + (who.kit || "#6E8CA6") + "'>"
+                + safeKit(who.kit || "#6E8CA6") + "'>"
                 + "<span class='pknum'>" + (row.idx + 1) + "</span>"
                 + "<span class='pkinfo'>"
                 + "<span class='pkname'>" + esc(p.name) + "</span>"
@@ -302,8 +354,12 @@ window.MPDraftUI = (function () {
     // ── Team sheet ──────────────────────────────────────────
     function renderTeamsheet() {
         const sq = state.squad;
+        const kit = myKit();
         $("squadProgress").textContent = MPPicks.filledSlots(sq).length + " of 15 picked";
-        $("teamsheet").innerHTML = MPPicks.SLOTS.map(function (s) {
+        const sheet = $("teamsheet");
+        sheet.style.setProperty("--kit1", kit.a);
+        sheet.style.setProperty("--kit2", kit.b);
+        sheet.innerHTML = MPPicks.SLOTS.map(function (s) {
             const p = sq[s.id];
             if (!p) {
                 return "<button class='slot' data-slot='" + s.id + "'>"
@@ -315,11 +371,12 @@ window.MPDraftUI = (function () {
             }
             const pen = MPPicks.oopPenalty(p, s.node);
             const eff = Math.max(0, (p.rating || 0) - pen);
+            // No kicker mark here on purpose: once a player is in your XV
+            // you are expected to know whether he can kick.
             return "<div class='slot filled" + (pen > 0 ? " oop" : "") + "'>"
                 + "<span class='snum'>" + s.num + "</span>"
                 + "<span class='slabel'>" + s.label + "</span>"
                 + "<span class='sname'>" + esc(p.name)
-                + (p.kicker ? " <span class='kick'>K</span>" : "")
                 + "<span class='smeta'>" + esc(p.country) + (p.year ? " " + p.year : "")
                 + (pen > 0 ? " <span class='oop-tag'>out of position, minus " + pen + "</span>" : "")
                 + "</span></span>"
@@ -537,7 +594,7 @@ window.MPDraftUI = (function () {
         const ratings = versions.map(function (v) { return v.rating; });
         const lo = Math.min.apply(null, ratings), hi = Math.max.apply(null, ratings);
         const gone = versions.filter(function (v) {
-            return !!state.taken[MPPicks.playerKey(v)];
+            return !!state.taken[MPPicks.personKey(v)];
         }).length;
         const allGone = gone === versions.length;
         const head = "<div class='prow" + (allGone ? " blocked taken" : "") + "'>"
@@ -561,7 +618,7 @@ window.MPDraftUI = (function () {
 
         // Taken state is independent of whether a slot is being picked, so
         // the list greys out the moment another user takes a player.
-        const takenBy = state.taken[MPPicks.playerKey(p)] || null;
+        const takenBy = state.taken[MPPicks.personKey(p)] || null;
 
         const v = slot
             ? MPPicks.evaluate(p, slot.id, state.squad, state.taken, state.constraints,
@@ -629,7 +686,7 @@ window.MPDraftUI = (function () {
         }
 
         state.squad[slotId] = p;
-        state.taken[MPPicks.playerKey(p)] = "you";
+        state.taken[MPPicks.personKey(p)] = "you";
         cancelPicking();
         renderTeamsheet();
         setTab("xv");
