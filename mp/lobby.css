@@ -318,10 +318,10 @@ input[type=color] {
 .panel-body {
     max-height: 62vh; overflow-y: auto; overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
-    padding-right: 12px;              /* keep content clear of the scrollbar */
+    padding-right: 22px;              /* keep content well clear of the scrollbar */
     scrollbar-gutter: stable;         /* reserve the gutter even when idle */
 }
-.picks-body { padding-right: 12px; scrollbar-gutter: stable; }
+.picks-body { padding-right: 22px; scrollbar-gutter: stable; }
 
 /* Slim, themed scrollbars so they do not sit on top of the ratings */
 .panel-body::-webkit-scrollbar, .picks-body::-webkit-scrollbar { width: 8px; }
@@ -340,7 +340,7 @@ input[type=color] {
     font-size: 0.95rem; padding: 13px 2px;
 }
 .nation-head .caret { color: var(--teal); font-size: 0.8rem; width: 14px; flex: none; }
-.nation-head .ncount { margin-left: auto; font-size: 0.74rem; color: var(--slate); letter-spacing: 0.04em; text-align: right; white-space: nowrap; }
+.nation-head .ncount { margin-left: auto; padding-right: 4px; font-size: 0.74rem; color: var(--slate); letter-spacing: 0.04em; text-align: right; white-space: nowrap; }
 .nation-head .nfit { color: var(--teal); }
 .nation-body { padding: 0 0 8px 4px; }
 .posgroup {
@@ -350,7 +350,7 @@ input[type=color] {
     font-size: 0.78rem; color: var(--label); padding: 10px 0 6px;
 }
 .posgroup .caret { color: var(--teal); font-size: 0.7rem; width: 12px; flex: none; }
-.posgroup .scount { margin-left: auto; color: var(--slate); letter-spacing: 0.04em; font-size: 0.7rem; text-align: right; white-space: nowrap; }
+.posgroup .scount { margin-left: auto; padding-right: 4px; color: var(--slate); letter-spacing: 0.04em; font-size: 0.7rem; text-align: right; white-space: nowrap; }
 .posgroup .sfit { color: var(--teal); }
 .sub-body { padding-left: 6px; }
 .board-head { font-family: var(--display); text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.78rem; color: var(--label); padding: 12px 0 5px; border-bottom: 1px solid var(--line); }
@@ -368,7 +368,7 @@ input[type=color] {
 .prow .prate {
     flex: 0 0 var(--rate-col); width: var(--rate-col);
     font-family: var(--display); font-size: 1.1rem; text-align: right;
-    white-space: nowrap;
+    white-space: nowrap; padding-right: 4px;
 }
 /* A rating range ("77 to 86") needs its own width and must never wrap */
 .prow .prate.range {

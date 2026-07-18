@@ -28,6 +28,19 @@
         }
     };
 
+    // Eight kit combinations, so rooms are not full of identical colours
+    // when nobody bothers to change them. One is chosen at random on load.
+    const KITS = [
+        { a: "#16E0CD", b: "#0B3B54" },   // teal and deep navy
+        { a: "#E23B3B", b: "#F1F7FC" },   // red and white
+        { a: "#1E5FD8", b: "#FFC24D" },   // blue and amber
+        { a: "#2FA84F", b: "#F1F7FC" },   // green and white
+        { a: "#FFC24D", b: "#1A1A1A" },   // amber and black
+        { a: "#8B4FE0", b: "#16E0CD" },   // purple and teal
+        { a: "#FF7A2F", b: "#0B1B2B" },   // orange and navy
+        { a: "#F1F7FC", b: "#E23B3B" }    // white and red
+    ];
+
     const state = {
         mode: "career",
         yMin: 0,
@@ -315,6 +328,7 @@
         if (unwatch) { unwatch(); unwatch = null; }
         currentCode = null;
         setStatus("roomStatus", "Leaving...", false);
+        MPNet.forgetRoom();
         MPNet.leaveRoom(code)
             .then(function () { backToLobby("Left the room."); })
             .catch(function (err) {
@@ -330,6 +344,7 @@
         const code = currentCode;
         if (unwatch) { unwatch(); unwatch = null; }
         currentCode = null;
+        MPNet.forgetRoom();
         MPNet.closeRoom(code)
             .then(function () { backToLobby("Room closed."); })
             .catch(function (err) { backToLobby("Could not close the room: " + err.message); });
@@ -446,6 +461,26 @@
         }
     }
 
+    // ── Rejoin after a refresh ──────────────────────────────
+    // Anonymous auth keeps the same identity across a refresh, so a user
+    // who reloads mid-draft can be put straight back into their seat.
+    function tryRejoin() {
+        const code = MPNet.lastRoom();
+        if (!code) return;
+        setStatus("lobbyStatus", "Rejoining " + code + "...", false);
+        MPNet.joinRoom(code, profile())
+            .then(function (c) {
+                enterRoom(c);
+                setStatus("roomStatus", "Rejoined " + c + ".", false);
+            })
+            .catch(function () {
+                // The room has gone, or we were never in it. Forget it and
+                // carry on quietly rather than nagging.
+                MPNet.forgetRoom();
+                setStatus("lobbyStatus", "", false);
+            });
+    }
+
     // ── Draft view ──────────────────────────────────────────
     let draftReady = false;
 
@@ -496,8 +531,15 @@
     function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
 
     // ── Boot ────────────────────────────────────────────────
+    function randomKit() {
+        const k = KITS[Math.floor(Math.random() * KITS.length)];
+        $("kit1").value = k.a;
+        $("kit2").value = k.b;
+    }
+
     function boot() {
         initTheme();
+        randomKit();
         buildTicks();
         buildChips();
         wire();

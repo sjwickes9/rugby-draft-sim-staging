@@ -71,6 +71,16 @@ window.MPNet = (function () {
 
     function currentUid() { return uid; }
 
+    // Remember the room across a page refresh.
+    const LAST_ROOM = "mp-last-room";
+    function rememberRoom(code) {
+        try { localStorage.setItem(LAST_ROOM, code || ""); } catch (e) {}
+    }
+    function lastRoom() {
+        try { return localStorage.getItem(LAST_ROOM) || null; } catch (e) { return null; }
+    }
+    function forgetRoom() { rememberRoom(""); }
+
     // ── Pool snapshot ───────────────────────────────────────
     // Build the eligible pool from the live data and freeze a copy for the
     // room. Stored as a plain array; a pick will later reference a pool
@@ -164,6 +174,7 @@ window.MPNet = (function () {
                 // at creation time.
                 return db.ref("rooms/" + code).set(room).then(function () {
                     trackPresence(code);
+                    rememberRoom(code);
                     return code;
                 }).catch(function (err) {
                     throw new Error("Could not create the room (" + (err.code || err.message) + "). "
@@ -181,10 +192,15 @@ window.MPNet = (function () {
             return db.ref("rooms/" + code + "/meta").get().then(function (metaSnap) {
                 if (!metaSnap.exists()) throw new Error("No room with code " + code + ".");
                 const meta = metaSnap.val();
-                if (meta.status !== "lobby") throw new Error("That draft has already started.");
                 return db.ref("rooms/" + code + "/members").get().then(function (memSnap) {
                     const members = memSnap.val() || {};
                     const already = Object.prototype.hasOwnProperty.call(members, uid);
+                    // An existing member may always rejoin, including mid-draft
+                    // after a refresh. Only new users are turned away once the
+                    // draft has started, since seats and pick order are fixed.
+                    if (!already && meta.status !== "lobby") {
+                        throw new Error("That draft has already started.");
+                    }
                     return db.ref("rooms/" + code + "/settings").get().then(function (setSnap) {
                         const s = setSnap.val() || {};
                         const humanSeats = s.tableSize ? (s.tableSize - (s.aiCount || 0)) : MAX_MEMBERS;
@@ -192,14 +208,18 @@ window.MPNet = (function () {
                             throw new Error("That room is full (" + humanSeats + " human seats).");
                         }
                         const now = firebase.database.ServerValue.TIMESTAMP;
+                        const prev = already ? members[uid] : null;
+                        // Rejoining keeps the identity already in the room, so a
+                        // refresh cannot rename you or change your kit mid-draft.
                         return db.ref("rooms/" + code + "/members/" + uid).update({
-                            name: (profile && profile.name) || "Player",
-                            kit: (profile && profile.kit) || "#FFC24D",
-                            kit2: (profile && profile.kit2) || "#16E0CD",
+                            name: prev ? prev.name : ((profile && profile.name) || "Player"),
+                            kit: prev ? prev.kit : ((profile && profile.kit) || "#FFC24D"),
+                            kit2: prev ? (prev.kit2 || "#16E0CD") : ((profile && profile.kit2) || "#16E0CD"),
                             connected: true,
-                            joinedAt: already ? members[uid].joinedAt : now
+                            joinedAt: prev ? prev.joinedAt : now
                         }).then(function () {
                             trackPresence(code);
+                            rememberRoom(code);
                             return code;
                         });
                     });
@@ -344,6 +364,9 @@ window.MPNet = (function () {
         createRoom: createRoom,
         startDraft: startDraft,
         makePick: makePick,
+        rememberRoom: rememberRoom,
+        lastRoom: lastRoom,
+        forgetRoom: forgetRoom,
         joinRoom: joinRoom,
         watchRoom: watchRoom,
         leaveRoom: leaveRoom,
