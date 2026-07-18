@@ -1,311 +1,214 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en-GB">
 <head>
-    <!-- Google Tag Manager -->
-        <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-        new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-        j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-        'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-        })(window,document,'script','dataLayer','GTM-KBVM69FK');</script>
-        <!-- End Google Tag Manager -->
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-            <meta name="description" content="Build your ultimate XV from every Rugby World Cup squad in history. Draft players across 10 tournaments, then simulate any World Cup you choose.">
-            <meta property="og:title" content="Rugby XV Draft">
-            <meta property="og:description" content="Build your ultimate XV from every Rugby World Cup squad in history. Draft players across 10 tournaments, then simulate any World Cup you choose.">
-            <meta property="og:image" content="https://rugbydraft.team/assets/logo-dark.png">
-            <meta property="og:url" content="https://rugbydraft.team">
-            <meta property="og:type" content="website">
-            <meta name="twitter:card" content="summary_large_image">
-            <meta name="twitter:image" content="https://rugbydraft.team/assets/logo-dark.png">
-            <title>Rugby XV Draft</title>
-            <link rel="stylesheet" href="style.css">
-<link rel="icon" type="image/x-icon" href="assets/favicon.ico">
-<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
-<link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16.png">
-<link rel="apple-touch-icon" sizes="180x180" href="assets/favicon-180.png">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rugby XV Draft: Multiplayer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="lobby.css">
 </head>
 <body>
-    <div id="loading-screen">
-        <img src="assets/logo-dark.png" alt="Rugby Draft" class="loading-logo loading-logo-dark">
-        <img src="assets/logo-light.png" alt="Rugby Draft" class="loading-logo loading-logo-light">
+<main>
+
+    <div class="topbar">
+        <div class="bug">
+            <h1>Rugby XV Draft</h1>
+            <span class="sub">Multiplayer</span>
+        </div>
+        <button class="theme-toggle" id="themeToggle" aria-label="Switch theme">Light</button>
     </div>
-    <script>
-        // Runs immediately as the browser reaches this point in the markup,
-        // before anything else on the page loads — so a repeat visit within
-        // the same session (Play Again / Abandon Campaign) never shows even
-        // a brief flash of the loading screen. The main dismiss-with-fade
-        // logic for genuinely fresh visits lives in app.js.
-        (function () {
-            try {
-                if (sessionStorage.getItem("hasPlayedBefore") === "1") {
-                    document.getElementById("loading-screen").remove();
-                }
-            } catch (e) {}
-        })();
-    </script>
-    <div id="tip-overlay" class="hidden">
-        <div id="tip-card">
-            <button id="tip-close-btn" aria-label="Close">&times;</button>
-            <div id="tip-icon"></div>
-            <div id="tip-title"></div>
-            <div id="tip-body"></div>
-            <label id="tip-dontshow-label">
-                <input type="checkbox" id="tip-dontshow-checkbox">
-                Don't show these tips again
-            </label>
-            <button id="tip-gotit-btn" class="btn-primary">Got it</button>
+    <div class="rule-line"></div>
+
+    <!-- ══ LOBBY VIEW ══ -->
+    <div id="lobbyView">
+
+        <section class="block">
+            <p class="eyebrow">You</p>
+            <div class="you-row">
+                <div class="name">
+                    <label class="field" for="name">Display name</label>
+                    <input type="text" id="name" maxlength="20" value="" placeholder="Your name" autocomplete="off">
+                </div>
+                <div>
+                    <label class="field" for="kit1">Kit</label>
+                    <div class="kits">
+                        <input type="color" id="kit1" value="#16E0CD" aria-label="Primary kit colour">
+                        <input type="color" id="kit2" value="#FFC24D" aria-label="Second kit colour">
+                    </div>
+                </div>
+            </div>
+            <div class="flash" id="youFlash">
+                <span class="num">XV</span>
+                <span class="who" id="youName">Your name</span>
+            </div>
+        </section>
+
+        <section class="block">
+            <div class="seg" role="group" aria-label="Create or join">
+                <button id="pathCreate" aria-pressed="true">Create draft
+                    <span class="hint">Set the options and start a room</span></button>
+                <button id="pathJoin" aria-pressed="false">Join draft
+                    <span class="hint">Enter a room code</span></button>
+            </div>
+        </section>
+
+        <div id="joinPane" class="hidden">
+            <section class="block">
+                <p class="eyebrow">Room code</p>
+                <div class="join-row">
+                    <input type="text" id="join" maxlength="4" placeholder="CODE" autocomplete="off" aria-label="Room code">
+                    <button class="cta" id="joinBtn"><span>Join</span></button>
+                </div>
+            </section>
         </div>
+
+        <div id="createPane">
+
+        <section class="block">
+            <p class="eyebrow">Mode</p>
+            <div class="seg" role="group" aria-label="Game mode">
+                <button id="modeCareer" aria-pressed="true">Career peak
+                    <span class="hint">One card per player, best rating</span></button>
+                <button id="modeTournament" aria-pressed="false">Tournament
+                    <span class="hint">Every World Cup version is a pick</span></button>
+            </div>
+        </section>
+
+        <section class="block">
+            <p class="eyebrow">Users <small>how many people are drafting</small></p>
+            <div class="stepper-row">
+                <div class="stepper">
+                    <label class="field">Human users</label>
+                    <div class="cap">
+                        <button id="sizeDown" aria-label="Fewer users">&minus;</button>
+                        <span class="num" id="sizeNum">4</span>
+                        <button id="sizeUp" aria-label="More users">+</button>
+                    </div>
+                </div>
+                <div class="stepper">
+                    <label class="field">Competitions in season</label>
+                    <div class="cap">
+                        <button id="seasonDown" aria-label="Shorter season">&minus;</button>
+                        <span class="num" id="seasonNum">3</span>
+                        <button id="seasonUp" aria-label="Longer season">+</button>
+                    </div>
+                </div>
+            </div>
+            <p class="format-line" id="formatLine"></p>
+        </section>
+
+        <section class="block" id="yearsBlock">
+            <p class="eyebrow">Years</p>
+            <div class="years-wrap">
+                <div class="year-ticks" id="yearTicks"></div>
+                <div class="slider">
+                    <div class="track"></div>
+                    <div class="fill" id="yearFill"></div>
+                    <input type="range" id="yMin" min="0" max="9" step="1" value="0" aria-label="Earliest tournament">
+                    <input type="range" id="yMax" min="0" max="9" step="1" value="9" aria-label="Latest tournament">
+                </div>
+            </div>
+        </section>
+
+        <section class="block">
+            <p class="eyebrow">Nations pool <small>which countries players can be drafted from</small></p>
+            <div class="chips" id="geoChips"></div>
+        </section>
+
+        <section class="block">
+            <p class="eyebrow">Rules</p>
+            <div class="rules" id="ruleList"></div>
+        </section>
+
+        <p class="eyebrow">Pool check</p>
+        <div class="strap" id="strap">
+            <span class="live-dot"></span>
+            <span id="strapText">Reading the pool...</span>
+        </div>
+
+        <button class="cta" id="create"><span>Create room</span></button>
+
+        </div>
+
+        <p class="status" id="lobbyStatus"></p>
+
     </div>
-    <!-- Google Tag Manager (noscript) -->
-<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-KBVM69FK"
-height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
-<!-- End Google Tag Manager (noscript) -->
-    <header>
-        <div class="site-logo">
-            <img src="assets/logo-dark.png" alt="Rugby Draft" class="logo-img logo-dark">
-            <img src="assets/logo-light.png" alt="Rugby Draft" class="logo-img logo-light">
-        </div>
-        <div class="header-centre">
-            <h1 class="site-title">RUGBY XV DRAFT</h1>
-                <div id="tournament-title" class="tournament-title-banner"></div>
-        </div>
-        <div class="utility-controls">
-            <button id="theme-toggle">Light Mode</button>
-            <button id="header-reset-btn" class="abort-reset-btn">Reset App</button>
-        </div>
-    </header>
-    <main>
-        <!-- SCREEN 1: SETUP -->
-        <div id="setup-card" class="card-container">
 
-            <div class="control-group">
-                <label>Game Mode</label>
-                <div id="mode-slider-track" class="slider-track">
-                    <div id="mode-handle" class="slider-handle"></div>
-                    <div class="slider-options">
-                        <div id="mode-rwc" class="slider-opt active">Rugby World Cups</div>
-                        <div id="mode-lions" class="slider-opt">Lions Tours</div>
-                    </div>
-                </div>
-            </div>
+    <!-- ══ DRAFT VIEW ══ -->
+    <div id="draftView" class="hidden">
 
-            <div class="explainer-box" id="explainer-rwc">
-                <div class="explainer-lead">Build the ultimate rugby team from history then take them to the World Cup.</div>
-                <div class="explainer-body">Each turn, a random nation and year is spun — from the 1987 World Cup to 2023. Pick one player from that squad and place them on your pitch. Build a full XV across 15 spins, choosing wisely each time.</div>
-                <div class="explainer-body">Your XV replaces a real team in the bracket of whichever World Cup you choose to play. Once your squad is complete, simulate the tournament and see how far they go.</div>
-                <div class="explainer-rules">
-                    <div class="explainer-rule">5,700+ players across all 10 World Cups</div>
-                    <div class="explainer-rule">Choose which year to play in. Earlier RWCs are slightly easier</div>
-                    <div class="explainer-rule">Choose which team to replace in the pool stages</div>
-                    <div class="explainer-rule">Players can be placed out of position, but with a rating penalty</div>
-                    <div class="explainer-rule">Use respins to reject a squad and draw another</div>
-                    <div class="explainer-rule">Career Peak mode rates players at their all-time best</div>
-                </div>
-            </div>
-
-            <div class="explainer-box hidden" id="explainer-lions">
-                <div class="explainer-lead">Build a Lions XV from the four home nations then climb the ladder of Lions history.</div>
-                <div class="explainer-body">Each turn, a random home nation and year is spun. Pick one player from that squad and place them on your pitch. Build a full XV across 15 spins, choosing wisely each time.</div>
-                <div class="explainer-body">Once your squad is complete, you'll face the Lions Test team from every series decider since 1989, one match at a time. Win and you move on. Lose and the tour ends there.</div>
-                <div class="explainer-rules">
-                    <div class="explainer-rule">Draft only from England, Ireland, Scotland and Wales squads</div>
-                    <div class="explainer-rule">Ten matches, one for every series decider from 1989 to 2025</div>
-                    <div class="explainer-rule">A single loss ends the tour, however far you've climbed</div>
-                    <div class="explainer-rule">Players can be placed out of position, but with a rating penalty</div>
-                    <div class="explainer-rule">Use respins to reject a squad and draw another</div>
-                    <div class="explainer-rule">Clear all ten matches and the Lions All Time XV awaits</div>
-                </div>
-                <button id="lions-dev-btn" class="control-hint hidden" style="background:none;border:none;text-decoration:underline;cursor:pointer;padding:0;">Dev Mode: instant 99 rated squad</button>
-            </div>
-
-            <div class="control-group" id="tournament-year-group">
-                <label>Which World Cup?</label>
-                <select id="tournament-year-select" class="team-select">
-                    <option value="2023">2023 — France</option>
-                    <option value="2019">2019 — Japan</option>
-                    <option value="2015">2015 — England</option>
-                    <option value="2011">2011 — New Zealand</option>
-                    <option value="2007">2007 — France</option>
-                    <option value="2003">2003 — Australia</option>
-                    <option value="1999">1999 — Wales</option>
-                    <option value="1995">1995 — South Africa</option>
-                    <option value="1991">1991 — England/France/Ireland/Scotland/Wales</option>
-                    <option value="1987">1987 — New Zealand/Australia</option>
-                </select>
-                <p class="control-hint">Choose which Rugby World Cup your Hybrid XV will compete in. The pool draw and bracket match what actually happened that year.</p>
-            </div>
-
-            <div class="control-group" id="team-select-group">
-                <label>Replace Which Team</label>
-                <select id="team-select" class="team-select"></select>
-                <p class="control-hint" id="team-select-hint">Your XV takes this team's place in the World Cup bracket.</p>
-            </div>
-
-            <div class="control-group">
-                <label>Rating Mode</label>
-                <div id="variant-slider-track" class="slider-track">
-                    <div id="variant-handle" class="slider-handle"></div>
-                    <div class="slider-options">
-                        <div id="variant-comp" class="slider-opt active">Tournament Rating</div>
-                        <div id="variant-career" class="slider-opt">Career Peak</div>
-                    </div>
-                </div>
-                <p class="control-hint" id="variant-hint">Players are rated as they were at that year's World Cup.</p>
-            </div>
-
-            <div class="control-group">
-                <label>Rating Visibility</label>
-                <div id="rating-slider-track" class="slider-track">
-                    <div id="rating-handle" class="slider-handle"></div>
-                    <div class="slider-options">
-                        <div id="lbl-reveal" class="slider-opt active">Show Ratings</div>
-                        <div id="lbl-knowledge" class="slider-opt">Hide Ratings</div>
-                    </div>
-                </div>
-                <p class="control-hint">Hide Ratings tests your rugby knowledge — pick players without seeing their scores.</p>
-            </div>
-
-            <div class="control-group">
-                <label>Difficulty</label>
-                <div class="radio-options">
-                    <div class="radio-box">
-                        <input type="radio" name="difficulty" value="easy" id="diff-easy">
-                        <label for="diff-easy" class="radio-label">Easy<br><span style="font-size:0.75rem;font-weight:normal;opacity:0.8;">3 Respins</span></label>
-                    </div>
-                    <div class="radio-box">
-                        <input type="radio" name="difficulty" value="normal" id="diff-normal" checked>
-                        <label for="diff-normal" class="radio-label">Normal<br><span style="font-size:0.75rem;font-weight:normal;opacity:0.8;">1 Respin</span></label>
-                    </div>
-                    <div class="radio-box">
-                        <input type="radio" name="difficulty" value="hard" id="diff-hard">
-                        <label for="diff-hard" class="radio-label">Hardcore<br><span style="font-size:0.75rem;font-weight:normal;opacity:0.8;">No Respins</span></label>
-                    </div>
-                </div>
-            </div>
-
-            <button id="start-game-btn" class="btn-primary btn-full">Start Drafting</button>
+        <div class="draft-tabs" role="group" aria-label="Draft sections">
+            <button id="tabXV" aria-pressed="true">Your XV</button>
+            <button id="tabBoard" aria-pressed="false">Big Board</button>
+            <button id="tabAll" aria-pressed="false">Full Draft</button>
         </div>
 
-        <!-- SCREEN 2: DRAFT DASHBOARD -->
-        <div id="draft-dashboard" class="dashboard-grid hidden">
-            <div class="left-panel">
-                <div class="panel-card panel-card-compact">
-                    <div class="stats-row">
-                        <div class="stat-box"><div id="avg-global-ovr" class="stat-val">--</div><div class="stat-lbl">Global OVR</div></div>
-                        <div class="stat-box"><div id="avg-forward-ovr" class="stat-val">--</div><div class="stat-lbl">Forwards</div></div>
-                        <div class="stat-box"><div id="avg-back-ovr" class="stat-val">--</div><div class="stat-lbl">Backs</div></div>
-                    </div>
-                </div>
-                <div class="panel-card panel-card-compact" id="spin-action-card">
-                    <div class="action-cluster">
-                        <button id="spin-btn" class="btn-primary">Spin Team</button>
-                        <button id="respin-btn" class="disabled" disabled>Respin (<span id="respin-count">1</span>)</button>
-                    </div>
-                    <div class="status-feed-box">
-                        <div id="flag-indicator" class="flag-wrapper"></div>
-                        <div id="status-text">Click "Spin Team" to draw a squad from World Cup history and select a plyer for your team.</div>
-                    </div>
-                </div>
-                <div class="panel-card roster-panel">
-                    <div class="roster-scroll-boundary" id="roster-container"></div>
-                </div>
-            </div>
-
-            <div class="panel-card pitch-card">
-                <div class="rugby-pitch-canvas">
-                    <div class="pitch-line-marking line-dead-top"></div>
-                    <div class="pitch-line-marking line-10m-top"></div>
-                    <div class="pitch-line-marking line-22m-top"></div>
-                    <div class="pitch-line-marking line-halfway"></div>
-                    <div class="pitch-line-marking line-22m-bottom"></div>
-                    <div class="pitch-line-marking line-10m-bottom"></div>
-                    <div class="pitch-line-marking line-dead-base"></div>
-                    <div class="pitch-row-tier">
-                        <div class="pitch-circle" data-pos="Loosehead Prop" data-num="1" data-label="PROP"></div>
-                        <div class="pitch-circle" data-pos="Hooker" data-num="2" data-label="HOOKER"></div>
-                        <div class="pitch-circle" data-pos="Tighthead Prop" data-num="3" data-label="PROP"></div>
-                    </div>
-                    <div class="pitch-row-tier">
-                        <div class="pitch-circle" data-pos="Lock 4" data-num="4" data-label="LOCK"></div>
-                        <div class="pitch-circle" data-pos="Lock 5" data-num="5" data-label="LOCK"></div>
-                    </div>
-                    <div class="pitch-row-tier">
-                        <div class="pitch-circle" data-pos="Blindside Flanker" data-num="6" data-label="FLANKER"></div>
-                        <div class="pitch-circle" data-pos="Number 8" data-num="8" data-label="NUMBER 8"></div>
-                        <div class="pitch-circle" data-pos="Openside Flanker" data-num="7" data-label="FLANKER"></div>
-                    </div>
-                    <div class="pitch-row-tier">
-                        <div class="pitch-circle" data-pos="Scrum-half" data-num="9" data-label="SCRUM-HALF"></div>
-                        <div class="pitch-circle" data-pos="Fly-half" data-num="10" data-label="FLY-HALF"></div>
-                    </div>
-                    <div class="pitch-row-tier">
-                        <div class="pitch-circle" data-pos="Left Wing" data-num="11" data-label="WING"></div>
-                        <div class="pitch-circle" data-pos="Inside Centre" data-num="12" data-label="CENTRE"></div>
-                        <div class="pitch-circle" data-pos="Outside Centre" data-num="13" data-label="CENTRE"></div>
-                        <div class="pitch-circle" data-pos="Right Wing" data-num="14" data-label="WING"></div>
-                    </div>
-                    <div class="pitch-row-tier">
-                        <div class="pitch-circle" data-pos="Fullback" data-num="15" data-label="FULLBACK"></div>
-                    </div>
-                </div>
-            </div>
+        <div id="pickBanner" class="pick-banner hidden">
+            <span>Picking <strong id="bannerSlot"></strong></span>
+            <button id="bannerCancel">Cancel</button>
         </div>
 
-        <!-- SCREEN 3: SIMULATION -->
-        <div id="sim-dashboard" class="sim-layout-container hidden">
-            <div id="sim-left-column">
-                <div id="pre-kickoff-summary" class="panel-card prekick-box"></div>
-                <div class="panel-card" id="manifest-team-box"></div>
-            </div>
-            <div class="panel-card" id="sim-processor-card">
-                <div class="sim-speed-row">
-                    <span class="sim-speed-label">Simulation Speed</span>
-                    <div id="speed-slider-track" class="speed-slider-track" data-value="medium">
-                        <div class="speed-slider-rail"></div>
-                        <div class="speed-slider-stop" data-pos="slow"></div>
-                        <div class="speed-slider-stop" data-pos="medium"></div>
-                        <div class="speed-slider-stop" data-pos="fast"></div>
-                        <div id="speed-slider-handle" class="speed-slider-handle" tabindex="0" role="slider"
-                             aria-label="Simulation speed" aria-valuemin="0" aria-valuemax="2" aria-valuenow="1"></div>
-                        <div class="speed-slider-labels">
-                            <span class="speed-slider-label">Slow</span>
-                            <span class="speed-slider-label">Medium</span>
-                            <span class="speed-slider-label">Fast</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="terminal-window-shell">
-                    <div class="terminal-header-bar">
-                        <div class="terminal-title">Match Simulation Processor</div>
-                        <button id="run-sim-btn" class="btn-primary">Kick Off Tournament</button>
-                    </div>
-                    <div id="sim-results" class="terminal-logs-viewport">Ready to begin simulation...</div>
-                </div>
-                <button id="restart-btn" class="btn-primary hidden">Play Again</button>
-            </div>
+        <!-- Your XV -->
+        <div id="paneXV">
+            <p class="eyebrow">Your XV <small id="squadProgress"></small></p>
+            <div class="teamsheet" id="teamsheet"></div>
         </div>
-    </main>
-<div id="kofi-wrap" style="text-align: center;">
-    <a href="https://ko-fi.com/U1R321MVNC" target="_blank" class="kofi-text-link">Like the game?</a>
-</div>
-<button id="floating-spin-btn" class="hidden">Spin Team</button>
-<div id="page-share-wrap">
-    <button id="page-share-btn" aria-label="Share this page" title="Share this page">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
-        <span class="share-label">Share</span>
-    </button>
-    <div id="page-share-menu" class="page-share-menu hidden">
-        <button data-share="email">Email</button>
-        <button data-share="sms">Text Message</button>
-        <button data-share="whatsapp">WhatsApp</button>
-        <button data-share="instagram">Instagram</button>
-        <button data-share="copy">Copy Link</button>
+
+        <!-- Big Board / Full Draft share the list body -->
+        <div id="paneList" class="hidden">
+            <input type="text" id="panelSearch" placeholder="Search name, nation or year" autocomplete="off" aria-label="Search players">
+            <div class="axis-row">
+                <span class="axis-label">Group by</span>
+                <div class="axis" role="group" aria-label="Group list by">
+                    <button id="axisNation" aria-pressed="true">Nation</button>
+                    <button id="axisPosition" aria-pressed="false">Position</button>
+                </div>
+            </div>
+            <p class="list-hint" id="listHint"></p>
+            <div class="panel-body" id="panelBody"></div>
+        </div>
+
+        <p class="status" id="draftStatus"></p>
+        <button class="cta ghost" id="backToRoom"><span>Back to room</span></button>
     </div>
-</div>
-<div id="version-footer">v1.2607051200</div>
-    <script src="data.js"></script>
-    <script src="app.js"></script>
+
+    <!-- ══ ROOM VIEW ══ -->
+    <div id="roomView" class="hidden">
+        <p class="eyebrow">Room</p>
+        <div class="room-code" id="roomCode">----<small>share this code</small></div>
+        <div class="strap ready" id="roomStrap"><span id="roomStrapText"></span></div>
+        <p class="season-line" id="seasonLine"></p>
+        <ul class="members" id="members"></ul>
+        <div id="lotteryPanel" class="lottery hidden">
+            <p class="eyebrow">Draft order</p>
+            <ol class="lottery-list" id="lotteryList"></ol>
+        </div>
+        <button class="cta hidden" id="startDraft"><span>Start draft</span></button>
+        <p class="status" id="startHint"></p>
+        <button class="cta ghost" id="leave"><span>Leave room</span></button>
+        <button class="cta danger hidden" id="closeRoom"><span>Close room</span></button>
+        <p class="status" id="roomStatus"></p>
+    </div>
+
+</main>
+
+<!-- Firebase compat SDK (CDN, no build step) -->
+<script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-database-compat.js"></script>
+
+<!-- Data and logic. Order matters: data and engines before net and lobby. -->
+<script>window.MP_DATA_VERSION = "v1-mp-lobby";</script>
+<script src="../data.js"></script>
+<script src="engine.js"></script>
+<script src="rules.js"></script>
+<script src="draft.js"></script>
+<script src="picks.js"></script>
+<script src="firebase-config.js"></script>
+<script src="net.js"></script>
+<script src="lobby.js"></script>
+<script src="draftui.js"></script>
 </body>
- 
 </html>
