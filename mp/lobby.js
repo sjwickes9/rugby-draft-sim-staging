@@ -35,6 +35,7 @@
         geo: null,
         size: 4,           // human users, 1 to 8
         season: 3,         // competitions in the season, 1 to 15
+        path: "create",    // "create" | "join"
         countryCap: null,  // null = use the engine's auto value
         rules: { maxPerTournament: false, maxPerCountry: false, onePerTournament: false }
     };
@@ -80,6 +81,15 @@
         $("youName").textContent = $("name").value.trim() || "Your name";
         $("youFlash").style.setProperty("--kit1", $("kit1").value);
         $("youFlash").style.setProperty("--kit2", $("kit2").value);
+    }
+
+    // ── Create or join ──────────────────────────────────────
+    function renderPath() {
+        const creating = state.path === "create";
+        $("pathCreate").setAttribute("aria-pressed", String(creating));
+        $("pathJoin").setAttribute("aria-pressed", String(!creating));
+        $("createPane").classList.toggle("hidden", !creating);
+        $("joinPane").classList.toggle("hidden", creating);
     }
 
     // ── Mode ────────────────────────────────────────────────
@@ -191,6 +201,7 @@
 
     // ── Refresh (readout + gate) ────────────────────────────
     function refresh() {
+        renderPath();
         renderMode();
         renderPlayers();
         renderYears();
@@ -224,6 +235,8 @@
         $("kit1").addEventListener("input", renderYou);
         $("kit2").addEventListener("input", renderYou);
 
+        $("pathCreate").addEventListener("click", function () { state.path = "create"; refresh(); });
+        $("pathJoin").addEventListener("click", function () { state.path = "join"; refresh(); });
         $("modeCareer").addEventListener("click", function () { state.mode = "career"; refresh(); });
         $("modeTournament").addEventListener("click", function () { state.mode = "tournament"; refresh(); });
 
@@ -260,6 +273,10 @@
         $("leave").addEventListener("click", onLeave);
         $("closeRoom").addEventListener("click", onCloseRoom);
         $("startDraft").addEventListener("click", onStartDraft);
+        $("backToRoom").addEventListener("click", function () {
+            $("draftView").classList.add("hidden");
+            $("roomView").classList.remove("hidden");
+        });
     }
 
     // Rules as stored on the room, including the resolved nation cap.
@@ -412,8 +429,41 @@
             else if (count < seats) setStatus("startHint", "Waiting for " + (seats - count) + " more of " + seats + " users.", false);
             else setStatus("startHint", MPDraft.formatFor(count).name + ". Everyone is here.", false);
         } else if (status === "drafting") {
-            setStatus("startHint", "Draft in progress. The board arrives in the next build.", false);
+            setStatus("startHint", "", false);
+            enterDraft(room);
         }
+    }
+
+    // ── Draft view ──────────────────────────────────────────
+    let draftOpen = false;
+    function enterDraft(room) {
+        if (draftOpen) return;
+        draftOpen = true;
+        const f = {
+            mode: (room.settings && room.settings.mode) || "tournament",
+            yearMin: room.settings && room.settings.yearMin,
+            yearMax: room.settings && room.settings.yearMax,
+            countries: (room.settings && room.settings.countries) || null,
+            geoLabel: (room.settings && room.settings.geoLabel) || "All nations"
+        };
+        const analysis = MPEngine.feasibility(allSquads, f, positionFamilyMap);
+        const ctx = MPRules.buildContext(f, analysis);
+        const storedRules = (room.settings && room.settings.rules) || {};
+        const active = MPRules.activeConstraints(ctx, storedRules);
+
+        MPDraftUI.init({
+            pool: room.pool || [],
+            squad: MPPicks.emptySquad(),
+            taken: {},
+            starred: [],
+            constraints: active,
+            ruleCtx: ctx,
+            onPick: function () { /* persistence arrives with the turn machinery */ }
+        });
+        MPDraftUI.wire();
+        $("roomView").classList.add("hidden");
+        $("draftView").classList.remove("hidden");
+        setStatus("draftStatus", "Local preview: your picks are not yet shared with the room.", false);
     }
 
     // ── Helpers ─────────────────────────────────────────────

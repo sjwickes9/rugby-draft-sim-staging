@@ -46,6 +46,27 @@
         </section>
 
         <section class="block">
+            <div class="seg" role="group" aria-label="Create or join">
+                <button id="pathCreate" aria-pressed="true">Create draft
+                    <span class="hint">Set the options and start a room</span></button>
+                <button id="pathJoin" aria-pressed="false">Join draft
+                    <span class="hint">Enter a room code</span></button>
+            </div>
+        </section>
+
+        <div id="joinPane" class="hidden">
+            <section class="block">
+                <p class="eyebrow">Room code</p>
+                <div class="join-row">
+                    <input type="text" id="join" maxlength="4" placeholder="CODE" autocomplete="off" aria-label="Room code">
+                    <button class="cta" id="joinBtn"><span>Join</span></button>
+                </div>
+            </section>
+        </div>
+
+        <div id="createPane">
+
+        <section class="block">
             <p class="eyebrow">Mode</p>
             <div class="seg" role="group" aria-label="Game mode">
                 <button id="modeCareer" aria-pressed="true">Career peak
@@ -109,14 +130,37 @@
 
         <button class="cta" id="create"><span>Create room</span></button>
 
-        <p class="or">or</p>
-        <div class="join-row">
-            <input type="text" id="join" maxlength="4" placeholder="CODE" autocomplete="off" aria-label="Room code">
-            <button class="cta ghost" id="joinBtn"><span>Join</span></button>
         </div>
+
         <p class="status" id="lobbyStatus"></p>
 
     </div>
+
+    <!-- ══ DRAFT VIEW ══ -->
+    <div id="draftView" class="hidden">
+        <p class="eyebrow">Your XV <small id="squadProgress"></small></p>
+        <div class="teamsheet" id="teamsheet"></div>
+        <p class="status" id="draftStatus"></p>
+        <button class="cta ghost" id="backToRoom"><span>Back to room</span></button>
+    </div>
+
+    <!-- ══ PICK PANEL (overlay) ══ -->
+    <div id="pickPanel" class="panel hidden" role="dialog" aria-modal="true" aria-label="Choose a player">
+        <div class="panel-head">
+            <div>
+                <p class="panel-slot" id="panelSlot">Slot</p>
+                <p class="panel-sub" id="panelSub"></p>
+            </div>
+            <button class="panel-close" id="panelClose" aria-label="Close">&times;</button>
+        </div>
+        <div class="panel-tabs" role="group">
+            <button id="tabBoard" aria-pressed="false">Big Board</button>
+            <button id="tabAll" aria-pressed="true">Full list</button>
+        </div>
+        <input type="text" id="panelSearch" placeholder="Search name, nation or year" autocomplete="off" aria-label="Search players">
+        <div class="panel-body" id="panelBody"></div>
+    </div>
+    <div id="panelScrim" class="scrim hidden"></div>
 
     <!-- ══ ROOM VIEW ══ -->
     <div id="roomView" class="hidden">
@@ -153,5 +197,6 @@
 <script src="firebase-config.js"></script>
 <script src="net.js"></script>
 <script src="lobby.js"></script>
+<script src="draftui.js"></script>
 </body>
 </html>
