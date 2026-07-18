@@ -43,7 +43,9 @@ window.MPDraftUI = (function () {
         members: {},
         pickIndex: 0,
         picksList: [],
-        complete: false
+        complete: false,
+        autoMode: false,
+        autoBusy: false
     };
 
     let byNation = [];
@@ -97,6 +99,58 @@ window.MPDraftUI = (function () {
     }
     function saveStars() {
         try { localStorage.setItem(starKey(), JSON.stringify(state.starred)); } catch (e) {}
+    }
+
+    // ── Dev auto-pick ───────────────────────────────────────
+    // Only available with ?dev=1 in the URL. Drafting two full XVs by hand
+    // to reach the later screens is slow, so this fills your own squad by
+    // taking the best available player for the next slot you still need.
+    // It can only ever pick on your own turn, exactly like a real user, so
+    // it cannot bypass the turn order or the server rules.
+    // Matches IS_STAGING_ENV in the single-player app.js, so dev tools
+    // appear on staging automatically and never on production. ?dev=1
+    // remains as a manual override for local testing.
+    function devEnabled() {
+        try {
+            const staging = location.hostname.indexOf("github.io") !== -1
+                && location.pathname.indexOf("rugby-draft-sim-staging") !== -1;
+            const local = location.hostname === "localhost" || location.hostname === "127.0.0.1";
+            return staging || local || /[?&]dev=1/.test(location.search);
+        } catch (e) { return false; }
+    }
+
+    function toggleAuto() {
+        state.autoMode = !state.autoMode;
+        const b = $("autoPickBtn");
+        if (b) b.setAttribute("aria-pressed", String(state.autoMode));
+        note(state.autoMode ? "Auto-pick on. Picking whenever it is your turn." : "Auto-pick off.");
+        maybeAutoPick();
+    }
+
+    function note(msg) {
+        const n = $("devNote");
+        if (n) n.textContent = msg || "";
+    }
+
+    function maybeAutoPick() {
+        if (!state.autoMode || !state.live || state.complete) return;
+        if (!state.isMyTurn || state.autoBusy) return;
+        state.autoBusy = true;
+        setTimeout(function () {
+            const res = MPPicks.autoPick(state.pool, state.squad, state.taken, [],
+                state.constraints, state.ruleCtx, (window.MPRules && MPRules.isPickLegal));
+            if (!res) { state.autoBusy = false; note("No legal pick available."); return; }
+            let idx = -1;
+            for (let i = 0; i < state.pool.length; i++) {
+                if (state.pool[i] === res.player) { idx = i; break; }
+            }
+            if (idx === -1) { state.autoBusy = false; return; }
+            note("Picked " + res.player.name + " at " + MPPicks.slotById(res.slotId).label + ".");
+            state.onPick(res.slotId, idx, function (err) {
+                state.autoBusy = false;
+                if (err) note("Auto-pick failed: " + err.message);
+            });
+        }, 250);
     }
 
     // ── Colour safety ───────────────────────────────────────
@@ -187,6 +241,7 @@ window.MPDraftUI = (function () {
         if (state.tab === "picks") renderPicks();
         else if (state.tab !== "xv") renderList();
         renderBoardBadge();
+        maybeAutoPick();
     }
 
     // Big Board tab badge: how many starred players are still available.
@@ -719,6 +774,12 @@ window.MPDraftUI = (function () {
         $("tabAll").addEventListener("click", function () { setTab("all"); });
         $("tabPicks").addEventListener("click", function () { setTab("picks"); });
         $("bannerCancel").addEventListener("click", cancelPicking);
+        if (devEnabled()) {
+            const bar = $("devBar");
+            if (bar) bar.classList.remove("hidden");
+            const b = $("autoPickBtn");
+            if (b) b.addEventListener("click", toggleAuto);
+        }
         $("axisNation").addEventListener("click", function () { setAxis("nation"); });
         $("axisPosition").addEventListener("click", function () { setAxis("position"); });
 

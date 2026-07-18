@@ -426,9 +426,9 @@ input[type=color] {
 /* ============================================================
    COMMITMENT SCREEN
    ============================================================ */
-.commit-ratings { display: flex; gap: 10px; margin: 6px 0 20px; }
-.cstat { flex: 1; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 8px; text-align: center; }
-.cval { font-family: var(--display); font-size: 2rem; line-height: 1; }
+.commit-ratings { display: flex; gap: 8px; margin: 0 0 14px; }
+.cstat { flex: 1; background: var(--navy); border: 1px solid var(--line); border-radius: 8px; padding: 10px 6px; text-align: center; }
+.cval { font-family: var(--display); font-size: 1.7rem; line-height: 1; }
 .clbl { font-family: var(--display); text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.68rem; color: var(--slate); margin-top: 5px; }
 
 .kicker-list { display: flex; flex-direction: column; gap: 6px; }
@@ -456,3 +456,46 @@ input[type=color] {
 #strategy::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 22px; height: 22px; margin-top: -9px; border-radius: 50%; background: var(--teal); border: 3px solid var(--navy); box-shadow: 0 0 0 1px var(--teal); cursor: grab; }
 #strategy::-moz-range-thumb { width: 22px; height: 22px; border-radius: 50%; background: var(--teal); border: 3px solid var(--navy); box-shadow: 0 0 0 1px var(--teal); cursor: grab; }
 #strategy:disabled::-webkit-slider-thumb { background: var(--slate); box-shadow: 0 0 0 1px var(--slate); cursor: default; }
+
+
+/* Dev tools (only shown with ?dev=1) */
+.dev-bar {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding: 10px 12px; margin: 14px 0; border: 1px dashed var(--amber);
+    border-radius: 8px; background: var(--panel);
+}
+.dev-tag { font-family: var(--display); text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.68rem; color: var(--amber); }
+.dev-bar button {
+    background: var(--amber); color: var(--navy); border: 0; border-radius: 6px;
+    padding: 7px 12px; cursor: pointer;
+    font-family: var(--display); text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.8rem;
+}
+.dev-bar button[aria-pressed="true"] { background: var(--teal); }
+.dev-note { font-size: 0.74rem; color: var(--slate); }
+
+
+/* Commit steps */
+.step-head { display: flex; align-items: flex-start; gap: 12px; margin: 0 0 12px; }
+.step-num {
+    flex: none; width: 30px; height: 30px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--amber); color: var(--navy);
+    font-family: var(--display); font-size: 1rem; font-weight: 700;
+}
+.step-head.done .step-num { background: var(--panel-2); color: var(--slate); }
+.step-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.step-text strong {
+    font-family: var(--display); text-transform: uppercase; letter-spacing: 0.06em;
+    font-size: 1.05rem; font-weight: 600;
+}
+.step-text small { font-size: 0.78rem; color: var(--slate); line-height: 1.35; }
+.step-state {
+    flex: none; font-family: var(--display); text-transform: uppercase; letter-spacing: 0.1em;
+    font-size: 0.68rem; color: var(--amber); border: 1px solid var(--amber);
+    border-radius: 999px; padding: 3px 9px;
+}
+.step-state.chosen { color: var(--teal); border-color: var(--teal); }
+
+/* Kicker rows without ratings */
+.kicker .ktick { flex: 0 0 24px; text-align: right; color: #F0B90B; font-size: 1.1rem; }
+.kicker-list.needed { outline: 1px dashed var(--amber); outline-offset: 6px; border-radius: 8px; }

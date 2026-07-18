@@ -48,14 +48,6 @@ window.MPCommit = (function () {
         return isForward ? 40 : 50;
     }
 
-    function rateLabel(pct) {
-        if (pct >= 82) return "elite";
-        if (pct >= 70) return "reliable";
-        if (pct >= 60) return "shaky";
-        if (pct >= 50) return "not a kicker";
-        return "a forward on the tee";
-    }
-
     // ── Ratings ─────────────────────────────────────────────
     function unitRatings() {
         let fwd = 0, fwdN = 0, bck = 0, bckN = 0;
@@ -87,15 +79,17 @@ window.MPCommit = (function () {
         const rows = MPPicks.SLOTS.map(function (s) {
             const p = state.squad[s.id];
             if (!p) return "";
-            const rate = kickerRate(p);
             const chosen = state.kickerSlot === s.id;
+            // No success rate and no kicker mark here on purpose. Knowing who
+            // could kick is part of the skill, so the choice is made on your
+            // own knowledge rather than a number on the screen.
             return "<button class='kicker" + (chosen ? " chosen" : "") + "' data-kicker='" + s.id + "'"
                 + (state.locked ? " disabled" : "") + ">"
                 + "<span class='knum'>" + s.num + "</span>"
                 + "<span class='kinfo'><span class='kname'>" + esc(p.name) + "</span>"
                 + "<span class='kmeta'>" + esc(p.country) + (p.year ? " " + p.year : "")
                 + " | " + esc(s.label) + "</span></span>"
-                + "<span class='krate'>" + rate + "%<span class='klbl'>" + rateLabel(rate) + "</span></span>"
+                + "<span class='ktick'>" + (chosen ? "\u2713" : "") + "</span>"
                 + "</button>";
         }).join("");
         $("kickerList").innerHTML = rows;
@@ -123,6 +117,19 @@ window.MPCommit = (function () {
         renderKickers();
         renderWaiting();
         $("commitBtn").disabled = state.locked || !state.kickerSlot;
+        const st = $("kickerState");
+        if (st) {
+            st.textContent = state.kickerSlot ? "Chosen" : "Required";
+            st.classList.toggle("chosen", !!state.kickerSlot);
+        }
+        const kl = $("kickerList");
+        if (kl) kl.classList.toggle("needed", !state.kickerSlot && !state.locked);
+        const why = $("commitWhy");
+        if (why) {
+            if (state.locked) why.textContent = "Locked in. Waiting for the others.";
+            else if (!state.kickerSlot) why.textContent = "Choose your goal kicker above to continue.";
+            else why.textContent = "Ready. Neither choice can be changed afterwards.";
+        }
         $("strategy").disabled = state.locked;
         if (state.locked) {
             $("commitBtn").querySelector("span").textContent = "Locked in";
@@ -174,13 +181,8 @@ window.MPCommit = (function () {
         $("commitBtn").addEventListener("click", function () {
             if (state.locked || !state.kickerSlot) return;
             const p = state.squad[state.kickerSlot];
-            const rate = kickerRate(p);
-            const warn = rate < 60
-                ? "\n\n" + p.name + " is not a recognised kicker (" + rate + "%). "
-                  + "That will cost you the close games."
-                : "";
             if (!window.confirm("Lock in " + p.name + " as your goal kicker and this strategy?"
-                + "\n\nNeither can be changed for the whole competition." + warn)) return;
+                + "\n\nNeither can be changed for the whole competition.")) return;
             $("commitBtn").disabled = true;
             MPNet.submitCommit(state.code, state.kickerSlot, state.strategy)
                 .then(function () {

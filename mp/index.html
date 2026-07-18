@@ -178,6 +178,12 @@
             <div class="picks-body" id="picksBody"></div>
         </div>
 
+        <div id="devBar" class="dev-bar hidden">
+            <span class="dev-tag">Dev</span>
+            <button id="autoPickBtn">Auto-pick my XV</button>
+            <span class="dev-note" id="devNote"></span>
+        </div>
+
         <p class="status" id="draftStatus"></p>
         <button class="cta ghost" id="backToRoom"><span>Back to room</span></button>
     </div>
@@ -186,27 +192,39 @@
     <div id="commitView" class="hidden">
         <p class="eyebrow">Before kickoff <small>two choices, both final</small></p>
 
-        <div class="commit-ratings">
-            <div class="cstat"><div class="cval" id="cOverall">0</div><div class="clbl">Overall</div></div>
-            <div class="cstat"><div class="cval" id="cFwd">0</div><div class="clbl">Forwards</div></div>
-            <div class="cstat"><div class="cval" id="cBck">0</div><div class="clbl">Backs</div></div>
-        </div>
-
         <section class="block">
-            <p class="eyebrow">Goal kicker</p>
-            <p class="list-hint">Choose one player from your XV. Recognised kickers succeed far more often, and a bad kicker loses you the close games.</p>
+            <div class="step-head" id="kickerStep">
+                <span class="step-num">1</span>
+                <span class="step-text">
+                    <strong>Choose your goal kicker</strong>
+                    <small>Tap one player from your XV below. Pick the wrong man and you will lose the close games.</small>
+                </span>
+                <span class="step-state" id="kickerState">Required</span>
+            </div>
             <div id="kickerList" class="kicker-list"></div>
         </section>
 
         <section class="block">
-            <p class="eyebrow">Team strategy</p>
+            <div class="step-head done">
+                <span class="step-num">2</span>
+                <span class="step-text">
+                    <strong>Set your team strategy</strong>
+                    <small>How much of your rating comes from the forwards.</small>
+                </span>
+            </div>
             <div class="strategy-wrap">
+                <div class="commit-ratings">
+                    <div class="cstat"><div class="cval" id="cOverall">0</div><div class="clbl">Overall</div></div>
+                    <div class="cstat"><div class="cval" id="cFwd">0</div><div class="clbl">Forwards</div></div>
+                    <div class="cstat"><div class="cval" id="cBck">0</div><div class="clbl">Backs</div></div>
+                </div>
                 <div class="strategy-ends"><span>Forwards</span><span>Balanced</span><span>Backs</span></div>
                 <input type="range" id="strategy" min="0" max="100" step="1" value="50" aria-label="Forwards to backs weighting">
                 <p class="list-hint" id="strategyHint"></p>
             </div>
         </section>
 
+        <p class="list-hint" id="commitWhy">Choose your goal kicker above to continue.</p>
         <button class="cta" id="commitBtn" disabled><span>Lock in and kick off</span></button>
         <p class="status" id="commitStatus"></p>
 
