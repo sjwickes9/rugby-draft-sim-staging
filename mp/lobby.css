@@ -351,6 +351,9 @@ input[type=color] {
 .prow .prate .was { display: block; font-size: 0.68rem; color: var(--slate); text-decoration: line-through; }
 .prow .take { padding: 7px 12px; border-radius: 6px; cursor: pointer; background: var(--teal); color: var(--navy); border: 0; font-family: var(--display); text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.8rem; }
 .prow.blocked { opacity: 0.5; }
+.prow.taken .pname { text-decoration: line-through; }
+.prow.taken .prate { color: var(--slate); }
+.prow .gone { color: var(--amber); }
 .prow.blocked .take { display: none; }
 .prow .why-not { font-size: 0.72rem; color: var(--bad); }
 .prow .chev { background: none; border: 0; color: var(--teal); cursor: pointer; font-size: 0.8rem; font-family: var(--display); letter-spacing: 0.05em; }

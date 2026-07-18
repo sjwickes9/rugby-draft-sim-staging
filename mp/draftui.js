@@ -63,6 +63,7 @@ window.MPDraftUI = (function () {
         renderAxis();
         setTab("xv");
         renderTeamsheet();
+        renderBoardBadge();
     }
 
     function loadAxis() {
@@ -120,7 +121,22 @@ window.MPDraftUI = (function () {
 
         renderTurn(draft);
         renderTeamsheet();
+        // Always repaint the list, so taken players grey out the instant
+        // another user picks, whichever tab is showing.
         if (state.tab !== "xv") renderList();
+        renderBoardBadge();
+    }
+
+    // Big Board tab badge: how many starred players are still available.
+    function renderBoardBadge() {
+        const el = $("tabBoard");
+        if (!el) return;
+        let avail = 0, total = 0;
+        state.starred.forEach(function (k) {
+            total++;
+            if (!state.taken[k]) avail++;
+        });
+        el.textContent = total ? ("Big Board " + avail + "/" + total) : "Big Board";
     }
 
     function renderTurn(draft) {
@@ -468,10 +484,15 @@ window.MPDraftUI = (function () {
         const open = !!state.expanded[entry.key];
         const ratings = versions.map(function (v) { return v.rating; });
         const lo = Math.min.apply(null, ratings), hi = Math.max.apply(null, ratings);
-        const head = "<div class='prow'>"
+        const gone = versions.filter(function (v) {
+            return !!state.taken[MPPicks.playerKey(v)];
+        }).length;
+        const allGone = gone === versions.length;
+        const head = "<div class='prow" + (allGone ? " blocked taken" : "") + "'>"
             + starButton(versions[0])
             + "<div class='pinfo'><div class='pname'>" + esc(entry.name) + "</div>"
-            + "<div class='pmeta'>" + esc(entry.country) + " | " + versions.length + " tournaments</div></div>"
+            + "<div class='pmeta'>" + esc(entry.country) + " | " + versions.length + " tournaments"
+            + (gone ? " | <span class='gone'>" + gone + " taken</span>" : "") + "</div></div>"
             + "<div class='prate'>" + (lo === hi ? lo : lo + " to " + hi) + "</div>"
             + "<button class='chev' data-expand='" + esc(entry.key) + "'>" + (open ? "Hide" : "Versions") + "</button>"
             + "</div>";
@@ -485,26 +506,33 @@ window.MPDraftUI = (function () {
         const base = p.rating || 0;
         const pen = slot ? MPPicks.oopPenalty(p, slot.node) : 0;
         const eff = Math.max(0, base - pen);
+
+        // Taken state is independent of whether a slot is being picked, so
+        // the list greys out the moment another user takes a player.
+        const takenBy = state.taken[MPPicks.playerKey(p)] || null;
+
         const v = slot
             ? MPPicks.evaluate(p, slot.id, state.squad, state.taken, state.constraints,
                 state.ruleCtx, (window.MPRules && MPRules.isPickLegal))
-            : { eligible: false, reason: "" };
+            : { eligible: !takenBy, reason: takenBy ? ("Taken by " + takenBy) : "" };
 
         const meta = esc(p.country) + (p.year ? " " + p.year : "")
             + (p.positions && p.positions.length ? " | " + esc(p.positions.join(", ")) : "")
             + (p.kicker ? " | <span class='kick'>Kicker</span>" : "")
-            + (pen > 0 ? " | <span class='pen'>out of position, minus " + pen + "</span>" : "");
+            + (pen > 0 && !takenBy ? " | <span class='pen'>out of position, minus " + pen + "</span>" : "");
 
-        const blocked = slot && !v.eligible;
-        return "<div class='prow" + (blocked ? " blocked" : "") + "'>"
+        const blocked = !!takenBy || (slot && !v.eligible);
+        const why = takenBy ? ("Taken by " + takenBy) : (slot && !v.eligible ? v.reason : "");
+
+        return "<div class='prow" + (blocked ? " blocked" : "") + (takenBy ? " taken" : "") + "'>"
             + starButton(p)
             + "<div class='pinfo'><div class='pname'>" + esc(isVersion ? (p.year || p.name) : p.name) + "</div>"
             + "<div class='pmeta'>" + meta + "</div>"
-            + (blocked && v.reason ? "<div class='why-not'>" + esc(v.reason) + "</div>" : "")
+            + (why ? "<div class='why-not'>" + esc(why) + "</div>" : "")
             + "</div>"
             + "<div class='prate'>" + (slot ? eff : base)
-            + (pen > 0 ? "<span class='was'>" + base + "</span>" : "") + "</div>"
-            + (slot && v.eligible && (!state.live || state.isMyTurn)
+            + (pen > 0 && !takenBy ? "<span class='was'>" + base + "</span>" : "") + "</div>"
+            + (slot && v.eligible && !takenBy && (!state.live || state.isMyTurn)
                 ? "<button class='take' data-take='" + esc(MPPicks.playerKey(p)) + "'>Pick</button>" : "")
             + "</div>";
     }
@@ -571,6 +599,7 @@ window.MPDraftUI = (function () {
         const i = state.starred.indexOf(key);
         if (i === -1) state.starred.push(key); else state.starred.splice(i, 1);
         saveStars();
+        renderBoardBadge();
         renderList();
     }
 
