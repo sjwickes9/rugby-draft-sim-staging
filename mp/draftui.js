@@ -30,6 +30,7 @@ window.MPDraftUI = (function () {
         axis: "nation",     // "nation" | "position", remembered
         openNations: {},    // nation -> true
         openGroups: {},     // position group -> true
+        openSub: {},        // 'parent|child' -> true, nested accordions
         expanded: {},       // player key -> true (version chevron)
         constraints: [],
         ruleCtx: null,
@@ -206,13 +207,22 @@ window.MPDraftUI = (function () {
         state.openNations = {};
         state.openGroups = {};
         // Position axis: open the group that naturally covers this slot.
+        state.openSub = {};
         const ng = MPPicks.NODE_GROUP[slot.node];
-        if (ng) state.openGroups[ng] = true;
+        if (ng) {
+            state.openGroups[ng] = true;
+            // Position axis: open every nation sub-accordion is too much, so
+            // leave them shut; the counts guide the user.
+        }
         byNation.forEach(function (g) {
             const fits = g.players.some(function (e) {
                 return MPPicks.naturalSlots(e.versions[0]).indexOf(slotId) !== -1;
             });
-            if (fits && Object.keys(state.openNations).length < 3) state.openNations[g.nation] = true;
+            if (fits && Object.keys(state.openNations).length < 3) {
+                state.openNations[g.nation] = true;
+                // Nation axis: open the matching position sub-accordion too.
+                if (ng) state.openSub[g.nation + "|" + ng] = true;
+            }
         });
         setTab("all");
     }
@@ -244,90 +254,90 @@ window.MPDraftUI = (function () {
         renderByNation(slot, q);
     }
 
-    // Nation accordions, positions as sub-headings inside.
+    // Nation accordions, with position sub-accordions inside.
     function renderByNation(slot, q) {
         const html = byNation.map(function (g) {
             const matched = g.players.filter(function (e) { return matchesSearch(e, q); });
             if (!matched.length) return "";
-
-            let fitCount = 0;
-            if (slot) {
-                matched.forEach(function (e) {
-                    if (MPPicks.naturalSlots(e.versions[0]).indexOf(slot.id) !== -1) fitCount++;
-                });
-            }
             const open = q ? true : !!state.openNations[g.nation];
-
-            let body = "";
-            if (open) {
-                let lastGroup = null;
-                const rows = [];
-                matched.forEach(function (e) {
-                    const h = renderEntry(e, slot);
-                    if (!h) return;
-                    if (e.group !== lastGroup) {
-                        lastGroup = e.group;
-                        rows.push("<div class='posgroup'>" + (GROUP_LABEL[e.group] || "Other") + "</div>");
-                    }
-                    rows.push(h);
-                });
-                body = "<div class='nation-body'>" + (rows.length ? rows.join("")
-                    : "<p class='panel-empty'>Nobody here can fill that slot.</p>") + "</div>";
-            }
-
-            return "<div class='nation'>"
-                + "<button class='nation-head' data-nation='" + esc(g.nation) + "'>"
-                + "<span class='caret'>" + (open ? "\u25BC" : "\u25B6") + "</span>"
-                + esc(g.nation)
-                + "<span class='ncount'>" + matched.length + " players"
-                + (slot && fitCount ? " <span class='nfit'>| " + fitCount + " in position</span>" : "")
-                + "</span></button>" + body + "</div>";
+            const fit = slot ? countFit(matched, slot) : 0;
+            const body = open ? subAccordions(matched, slot, q, g.nation, "group") : "";
+            return accordionShell("data-nation", g.nation, g.nation, matched.length, fit, slot, open, body);
         }).join("");
-
         $("panelBody").innerHTML = html || "<p class='panel-empty'>No players match that search.</p>";
     }
 
-    // Position accordions, nations as sub-headings inside.
+    // Position accordions, with nation sub-accordions inside.
     function renderByPosition(slot, q) {
         const html = byGroup.map(function (g) {
             const matched = g.players.filter(function (e) { return matchesSearch(e, q); });
             if (!matched.length) return "";
-
-            let fitCount = 0;
-            if (slot) {
-                matched.forEach(function (e) {
-                    if (MPPicks.naturalSlots(e.versions[0]).indexOf(slot.id) !== -1) fitCount++;
-                });
-            }
             const open = q ? true : !!state.openGroups[g.group];
+            const fit = slot ? countFit(matched, slot) : 0;
+            const body = open ? subAccordions(matched, slot, q, g.group, "nation") : "";
+            return accordionShell("data-group", g.group, g.label, matched.length, fit, slot, open, body);
+        }).join("");
+        $("panelBody").innerHTML = html || "<p class='panel-empty'>No players match that search.</p>";
+    }
 
-            let body = "";
+    // Shared accordion shell for the top level.
+    function accordionShell(attr, key, label, count, fit, slot, open, body) {
+        return "<div class='nation'>"
+            + "<button class='nation-head' " + attr + "='" + esc(key) + "'>"
+            + "<span class='caret'>" + (open ? "\u25BC" : "\u25B6") + "</span>"
+            + esc(label)
+            + "<span class='ncount'>" + count + " players"
+            + (slot && fit ? " <span class='nfit'>| " + fit + " in position</span>" : "")
+            + "</span></button>" + body + "</div>";
+    }
+
+    function countFit(entries, slot) {
+        let n = 0;
+        entries.forEach(function (e) {
+            if (MPPicks.naturalSlots(e.versions[0]).indexOf(slot.id) !== -1) n++;
+        });
+        return n;
+    }
+
+    // Nested sub-accordions. childBy is "group" (position sub-headings)
+    // or "nation" (nation sub-headings).
+    function subAccordions(entries, slot, q, parentKey, childBy) {
+        const buckets = {};
+        const order = [];
+        entries.forEach(function (e) {
+            const k = (childBy === "group") ? e.group : e.country;
+            if (!buckets[k]) { buckets[k] = []; order.push(k); }
+            buckets[k].push(e);
+        });
+        if (childBy === "group") {
+            order.sort(function (a, b) {
+                const ia = GROUP_ORDER.indexOf(a), ib = GROUP_ORDER.indexOf(b);
+                return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+            });
+        } else {
+            order.sort();
+        }
+
+        const parts = order.map(function (k) {
+            const list = buckets[k];
+            const subKey = parentKey + "|" + k;
+            const label = (childBy === "group") ? (GROUP_LABEL[k] || "Other") : k;
+            const open = q ? true : !!state.openSub[subKey];
+            const fit = slot ? countFit(list, slot) : 0;
+            let rows = "";
             if (open) {
-                let lastNation = null;
-                const rows = [];
-                matched.forEach(function (e) {
-                    const h = renderEntry(e, slot);
-                    if (!h) return;
-                    if (e.country !== lastNation) {
-                        lastNation = e.country;
-                        rows.push("<div class='posgroup'>" + esc(e.country) + "</div>");
-                    }
-                    rows.push(h);
-                });
-                body = "<div class='nation-body'>" + (rows.length ? rows.join("")
+                const built = list.map(function (e) { return renderEntry(e, slot); }).filter(Boolean);
+                rows = "<div class='sub-body'>" + (built.length ? built.join("")
                     : "<p class='panel-empty'>Nobody here can fill that slot.</p>") + "</div>";
             }
-
-            return "<div class='nation'>"
-                + "<button class='nation-head' data-group='" + esc(g.group) + "'>"
+            return "<button class='posgroup' data-sub='" + esc(subKey) + "'>"
                 + "<span class='caret'>" + (open ? "\u25BC" : "\u25B6") + "</span>"
-                + esc(g.label)
-                + "<span class='ncount'>" + matched.length + " players"
-                + (slot && fitCount ? " <span class='nfit'>| " + fitCount + " in position</span>" : "")
-                + "</span></button>" + body + "</div>";
-        }).join("");
-
-        $("panelBody").innerHTML = html || "<p class='panel-empty'>No players match that search.</p>";
+                + esc(label)
+                + "<span class='scount'>" + list.length
+                + (slot && fit ? " <span class='sfit'>| " + fit + " in pos</span>" : "")
+                + "</span></button>" + rows;
+        });
+        return "<div class='nation-body'>" + parts.join("") + "</div>";
     }
 
     function renderBoard(slot, q) {
@@ -349,25 +359,38 @@ window.MPDraftUI = (function () {
                 + "Open Full Draft and star players to build a shortlist, before or during the draft.</p>";
             return;
         }
-        entries.sort(function (a, b) {
-            const ga = GROUP_ORDER.indexOf(a.group), gb = GROUP_ORDER.indexOf(b.group);
-            if (ga !== gb) return (ga === -1 ? 99 : ga) - (gb === -1 ? 99 : gb);
-            return surname(a.name).toLowerCase().localeCompare(surname(b.name).toLowerCase());
-        });
 
-        let last = null;
-        const rows = [];
+        // The Big Board honours the same Group by choice as the full list.
+        // It is a short list, so headings rather than accordions.
+        const byPosition = (state.axis === "position");
+        const buckets = {};
+        const order = [];
         entries.forEach(function (e) {
-            const html = renderEntry(e, slot);
-            if (!html) return;
-            if (e.group !== last) {
-                last = e.group;
-                rows.push("<div class='posgroup'>" + (GROUP_LABEL[e.group] || "Other") + "</div>");
-            }
-            rows.push(html);
+            const k = byPosition ? e.group : e.country;
+            if (!buckets[k]) { buckets[k] = []; order.push(k); }
+            buckets[k].push(e);
         });
-        $("panelBody").innerHTML = rows.length ? rows.join("")
-            : "<p class='panel-empty'>Nobody on your Big Board can fill that slot.</p>";
+        if (byPosition) {
+            order.sort(function (a, b) {
+                const ia = GROUP_ORDER.indexOf(a), ib = GROUP_ORDER.indexOf(b);
+                return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+            });
+        } else {
+            order.sort();
+        }
+
+        const html = order.map(function (k) {
+            const label = byPosition ? (GROUP_LABEL[k] || "Other") : k;
+            const rows = buckets[k].sort(function (a, b) {
+                if (byPosition && a.country !== b.country) return a.country.localeCompare(b.country);
+                return surname(a.name).toLowerCase().localeCompare(surname(b.name).toLowerCase());
+            }).map(function (e) { return renderEntry(e, slot); }).filter(Boolean);
+            if (!rows.length) return "";
+            return "<div class='board-head'>" + esc(label) + "</div>" + rows.join("");
+        }).join("");
+
+        $("panelBody").innerHTML = html
+            || "<p class='panel-empty'>Nobody on your Big Board can fill that slot.</p>";
     }
 
     function renderEntry(entry, slot) {
@@ -479,6 +502,13 @@ window.MPDraftUI = (function () {
         });
 
         $("panelBody").addEventListener("click", function (e) {
+            const sub = e.target.closest("[data-sub]");
+            if (sub) {
+                const k = sub.getAttribute("data-sub");
+                state.openSub[k] = !state.openSub[k];
+                renderList();
+                return;
+            }
             const grp = e.target.closest("[data-group]");
             if (grp) {
                 const k = grp.getAttribute("data-group");
