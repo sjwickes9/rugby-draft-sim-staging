@@ -7,7 +7,7 @@
       "$code": {
         ".read": "auth != null",
 
-        ".write": "auth != null && !data.exists() && newData.child('meta/hostUid').val() === auth.uid && newData.child('meta/status').val() === 'lobby'",
+        ".write": "auth != null && ((!data.exists() && newData.child('meta/hostUid').val() === auth.uid && newData.child('meta/status').val() === 'lobby') || (data.exists() && !newData.exists() && data.child('meta/hostUid').val() === auth.uid))",
 
         "meta": {
           ".write": "auth != null && data.child('hostUid').val() === auth.uid",
@@ -38,11 +38,23 @@
 
         "draft": {
           ".write": "auth != null && root.child('rooms/' + $code + '/meta/hostUid').val() === auth.uid && !data.child('picks').exists()",
+
           "picks": {
-            "$slot": {
-              ".write": "auth != null && !data.exists() && root.child('rooms/' + $code + '/draft/currentPicker').val() === auth.uid",
-              ".validate": "newData.child('by').val() === auth.uid"
+            "$idx": {
+              ".write": "auth != null && !data.exists() && root.child('rooms/' + $code + '/draft/currentPicker').val() === auth.uid && $idx === (root.child('rooms/' + $code + '/draft/pickIndex').val() + '')",
+              ".validate": "newData.child('by').val() === auth.uid && newData.hasChildren(['by','slot','i'])",
+              "by": { ".validate": "newData.val() === auth.uid" },
+              "slot": { ".validate": "newData.isString()" },
+              "i": { ".validate": "newData.isNumber() && newData.val() >= 0" }
             }
+          },
+
+          "pickIndex": {
+            ".write": "auth != null && root.child('rooms/' + $code + '/draft/currentPicker').val() === auth.uid && newData.isNumber() && newData.val() === data.val() + 1"
+          },
+
+          "currentPicker": {
+            ".write": "auth != null && root.child('rooms/' + $code + '/draft/currentPicker').val() === auth.uid && newData.isString()"
           }
         }
       }
