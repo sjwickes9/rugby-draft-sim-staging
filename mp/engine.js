@@ -58,11 +58,12 @@
     const SQUAD_SIZE = 15;
     const FRONT_ROW_PER_SQUAD = 3;
 
-    // A region-plus-year window must have at least this many nations
-    // actually present to start. This is the correct gate for the
-    // apartheid-era and early-debut gaps: the failure mode is too few
-    // nations present, not too few tournaments spanned.
-    const MIN_NATIONS_TO_START = 3;
+    // Below this many nations present, warn about variety. This is NOT a
+    // start gate. A window with two well-stocked nations (for example
+    // Africa from 2007, which is South Africa and Namibia) supports a full
+    // draft comfortably. Viability is decided by player supply alone;
+    // nation count only affects how varied the pool feels.
+    const NATION_VARIETY_WARN = 3;
 
     // ── Player predicates ───────────────────────────────────
     function positionsOf(player) {
@@ -211,8 +212,7 @@
             supportedPlayers: supportedPlayers,
             limitingFactor: limitingFactor,
             viable: supportedPlayers >= 2,     // supply supports at least a two-player game
-            meetsNationFloor: countriesPresent.length >= MIN_NATIONS_TO_START,
-            thinCountries: countriesPresent.length < 3  // soft warning: very few nations
+            thinCountries: countriesPresent.length < NATION_VARIETY_WARN
         };
     }
 
@@ -229,16 +229,37 @@
     // guarantee), not here, because it is not the binding supply ceiling.
     function canStart(analysis, roomSize) {
         const reasons = [];
-        if (!analysis.meetsNationFloor) {
-            reasons.push("This window has " + analysis.uniqueCountries
-                + " nation" + (analysis.uniqueCountries === 1 ? "" : "s") + " present, but "
-                + MIN_NATIONS_TO_START + " are needed. Widen the years or the region.");
-        }
+        const warnings = [];
         if (analysis.supportedPlayers < roomSize) {
             reasons.push("This window supports " + analysis.supportedPlayers
-                + " players, but the room has " + roomSize + ". Widen the window or remove a player.");
+                + " user" + (analysis.supportedPlayers === 1 ? "" : "s")
+                + ", but the room has " + roomSize + ". Widen the window or remove a user.");
         }
-        return { ok: reasons.length === 0, reasons: reasons };
+        if (analysis.thinCountries) {
+            warnings.push("Only " + analysis.uniqueCountries + " nation"
+                + (analysis.uniqueCountries === 1 ? "" : "s")
+                + " in this window, so squads will look alike.");
+        }
+        // A tight squeeze is playable but worth flagging: below roughly
+        // twice the required supply, the later rounds get thin and forced
+        // out-of-position picks become common.
+        if (reasons.length === 0 && analysis.supportedPlayers < roomSize * 2) {
+            warnings.push("Supply is tight for " + roomSize + " users, so expect forced out-of-position picks late on.");
+        }
+        return { ok: reasons.length === 0, reasons: reasons, warnings: warnings };
+    }
+
+    // Three-state verdict for the lobby: "ready", "advisory" or "blocked".
+    // Advisory means the draft is possible but not advised.
+    function poolStatus(analysis, roomSize) {
+        const gate = canStart(analysis, roomSize);
+        if (!analysis.viable || !gate.ok) {
+            return { state: "blocked", label: "Fix pool", reasons: gate.reasons, warnings: gate.warnings };
+        }
+        if (gate.warnings.length) {
+            return { state: "advisory", label: "Advisory", reasons: [], warnings: gate.warnings };
+        }
+        return { state: "ready", label: "Ready", reasons: [], warnings: [] };
     }
 
     // ── Readout text (spec 5.3) ─────────────────────────────
@@ -252,22 +273,13 @@
             : "1987 to 2023";
 
         if (!analysis.viable) {
-            return geo + ", " + yr + ". Not enough players for a draft"
-                + " (" + analysis.entries + " players, "
-                + analysis.frontRow.total + " front-row). Widen the window.";
+            return geo + ", " + yr + ". Not enough players for a draft ("
+                + analysis.entries + " players, " + analysis.frontRow.total + " front-row). Widen the window.";
         }
-        if (!analysis.meetsNationFloor) {
-            return geo + ", " + yr + ". Only " + analysis.uniqueCountries
-                + " nation" + (analysis.uniqueCountries === 1 ? "" : "s")
-                + " present, " + MIN_NATIONS_TO_START + " needed. Widen the years or the region.";
-        }
-        // In practice raw headcount is almost always the binding ceiling,
-        // because squads carry front-row cover above the 20% a drafted XV
-        // needs. Only name front-row when it is genuinely the tighter one.
         const note = analysis.limitingFactor === "front-row" ? " (front-row supply)" : "";
         return geo + ", " + yr + ". Comfortable for up to "
-            + analysis.supportedPlayers + " players" + note + ". "
-            + analysis.kickers + " recognised kickers available.";
+            + analysis.supportedPlayers + " user" + (analysis.supportedPlayers === 1 ? "" : "s")
+            + note + ". " + analysis.kickers + " recognised kickers available.";
     }
 
     // Per-tournament kicker counts, for validation and for any UI that
@@ -287,8 +299,8 @@
 
     return {
         POS_GROUP, GEO_GROUPS, ALL_YEARS,
-        SQUAD_SIZE, FRONT_ROW_PER_SQUAD, MIN_NATIONS_TO_START,
+        SQUAD_SIZE, FRONT_ROW_PER_SQUAD, NATION_VARIETY_WARN,
         isFrontRow, isPropCapable, isHookerCapable, isKicker, familiesOf,
-        buildPool, analysePool, feasibility, canStart, readoutText, kickersByTournament
+        buildPool, analysePool, feasibility, canStart, poolStatus, readoutText, kickersByTournament
     };
 });

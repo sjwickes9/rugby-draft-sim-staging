@@ -108,7 +108,7 @@
         $("sizeUp").disabled = state.size >= 8;
         const fmt = FORMATS[state.size] || "Solo draft, no competition yet";
         $("formatLine").innerHTML = fmt
-            + "<br><span class='split'>" + state.size + " drafter" + (state.size === 1 ? "" : "s") + "</span>";
+            + "<br><span class='split'>" + state.size + " user" + (state.size === 1 ? "" : "s") + "</span>";
     }
 
     // ── Year slider ─────────────────────────────────────────
@@ -202,16 +202,19 @@
         renderRules(analysis);
 
         const strap = $("strap");
-        const startable = analysis.viable && analysis.meetsNationFloor
-            && analysis.supportedPlayers >= state.size;
-        strap.classList.remove("ready", "blocked");
-        strap.classList.add(startable ? "ready" : "blocked");
+        const status = MPEngine.poolStatus(analysis, state.size);
+        const glyph = status.state === "ready" ? "\u2713" : (status.state === "advisory" ? "\u2139" : "\u26A0");
+        strap.classList.remove("ready", "advisory", "blocked");
+        strap.classList.add(status.state);
+        const extra = status.state === "blocked"
+            ? status.reasons.map(function (r) { return "<span class='blocker'>" + r + "</span>"; }).join("")
+            : status.warnings.map(function (w) { return "<span class='advice'>" + w + "</span>"; }).join("");
         strap.innerHTML =
-            (startable ? "<span class='live-dot'></span>" : "")
-            + "<span class='status-pill'><span class='glyph'>" + (startable ? "\u2713" : "\u26A0") + "</span>"
-            + (startable ? "Ready" : "Fix pool") + "</span>"
-            + "<span>" + MPEngine.readoutText(analysis, f) + "</span>";
-        $("create").disabled = !startable;
+            (status.state === "ready" ? "<span class='live-dot'></span>" : "")
+            + "<span class='status-pill'><span class='glyph'>" + glyph + "</span>" + status.label + "</span>"
+            + "<span class='strap-body'><span>" + MPEngine.readoutText(analysis, f) + "</span>" + extra + "</span>";
+        // Advisory is playable: only a blocked pool disables Create.
+        $("create").disabled = (status.state === "blocked");
     }
 
     // ── Events ──────────────────────────────────────────────
