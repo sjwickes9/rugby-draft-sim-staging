@@ -426,11 +426,84 @@ window.MPDraftUI = (function () {
         }).join("");
     }
 
+    // ── Rules progress (spec 7) ─────────────────────────────
+    // A draft can run for days, so the constraints must be visible with
+    // your progress against them rather than held in memory.
+    function renderRules() {
+        const el = $("rulePanel");
+        if (!el) return;
+        const active = state.constraints || [];
+        if (!active.length) { el.classList.add("hidden"); return; }
+        el.classList.remove("hidden");
+
+        const picked = MPPicks.squadPlayers(state.squad);
+        const left = MPPicks.emptySlots(state.squad).length;
+
+        const html = active.map(function (r) {
+            if (r.id === "maxPerCountry") return countRule(picked, r, "country", "nation");
+            if (r.id === "maxPerTournament") return countRule(picked, r, "year", "tournament");
+            if (r.id === "onePerTournament") return coverRule(picked, r, left);
+            return "";
+        }).filter(Boolean).join("");
+        el.innerHTML = html;
+    }
+
+    // "Maximum N from any one nation/tournament": show what you hold and
+    // flag anything already at the cap.
+    function countRule(picked, rule, field, word) {
+        const cap = rule.value;
+        const counts = {};
+        picked.forEach(function (p) {
+            const k = p[field];
+            if (k) counts[k] = (counts[k] || 0) + 1;
+        });
+        const keys = Object.keys(counts).sort(function (a, b) {
+            return counts[b] - counts[a] || String(a).localeCompare(String(b));
+        });
+        const atCap = keys.filter(function (k) { return counts[k] >= cap; }).length;
+        const chips = keys.map(function (k) {
+            const full = counts[k] >= cap;
+            return "<span class='rule-chip" + (full ? " full" : "") + "'>"
+                + esc(k) + " " + counts[k] + "/" + cap + "</span>";
+        }).join("");
+        const state1 = keys.length
+            ? (atCap ? atCap + " at the limit" : "within limits")
+            : "nothing picked yet";
+        return "<div class='rule-item'><div class='rule-top'>"
+            + "<span class='rule-name'>Max " + cap + " per " + word + "</span>"
+            + "<span class='rule-state " + (atCap ? "tight" : "ok") + "'>" + state1 + "</span></div>"
+            + (chips ? "<div class='rule-detail'>" + chips + "</div>" : "")
+            + "</div>";
+    }
+
+    // "One player from each tournament": show which are covered and which
+    // are still outstanding, with a warning if slots are running short.
+    function coverRule(picked, rule, slotsLeft) {
+        const need = {};
+        (MPEngine.ALL_YEARS || []).forEach(function (y) { need[y] = 0; });
+        picked.forEach(function (p) { if (p.year) need[p.year] = (need[p.year] || 0) + 1; });
+        const years = Object.keys(need).sort();
+        const covered = years.filter(function (y) { return need[y] > 0; });
+        const missing = years.filter(function (y) { return !need[y]; });
+        const chips = years.map(function (y) {
+            const have = need[y] > 0;
+            return "<span class='rule-chip " + (have ? "have" : "missing") + "'>" + esc(y) + "</span>";
+        }).join("");
+        const short = missing.length > slotsLeft;
+        return "<div class='rule-item'><div class='rule-top'>"
+            + "<span class='rule-name'>One from every tournament</span>"
+            + "<span class='rule-state " + (short ? "tight" : (missing.length ? "" : "ok")) + "'>"
+            + covered.length + " of " + years.length + " covered"
+            + (short ? ", only " + slotsLeft + " slots left" : "") + "</span></div>"
+            + "<div class='rule-detail'>" + chips + "</div></div>";
+    }
+
     // ── Team sheet ──────────────────────────────────────────
     function renderTeamsheet() {
         const sq = state.squad;
         const kit = myKit();
         $("squadProgress").textContent = MPPicks.filledSlots(sq).length + " of 15 picked";
+        renderRules();
         const sheet = $("teamsheet");
         sheet.style.setProperty("--kit1", kit.a);
         sheet.style.setProperty("--kit2", kit.b);

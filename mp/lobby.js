@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607182018";
+    const VERSION = "v1.2607190805";
 
     const $ = function (id) { return document.getElementById(id); };
     const YEARS = MPEngine.ALL_YEARS;
@@ -294,10 +294,7 @@
         $("closeRoom").addEventListener("click", onCloseRoom);
         $("noticeClose").addEventListener("click", function () { showNotice(""); });
         $("startDraft").addEventListener("click", onStartDraft);
-        $("backToRoom").addEventListener("click", function () {
-            $("draftView").classList.add("hidden");
-            $("roomView").classList.remove("hidden");
-        });
+        $("backToRoom").addEventListener("click", function () { showOnly("roomView"); });
         $("resumeDraft").addEventListener("click", showDraft);
         $("spSlow").addEventListener("click", function () { setSpeed(1.8); });
         $("spMed").addEventListener("click", function () { setSpeed(1); });
@@ -316,8 +313,8 @@
         $("setupConfirm").addEventListener("click", confirmSetup);
         $("setupBack").addEventListener("click", function () {
             restoreOptions();
-            $("setupView").classList.add("hidden");
-            $("roomView").classList.remove("hidden");
+            setupShown = false;
+            showOnly("roomView");
         });
         $("nextComp").addEventListener("click", function () {
             modal({
@@ -339,10 +336,7 @@
                     });
             });
         });
-        $("compBack").addEventListener("click", function () {
-            $("compView").classList.add("hidden");
-            $("roomView").classList.remove("hidden");
-        });
+        $("compBack").addEventListener("click", function () { showOnly("roomView"); });
     }
 
     // Rules as stored on the room, including the resolved nation cap.
@@ -430,11 +424,9 @@
         compShown = false;
         commitShown = false;
         draftReady = false;
-        $("draftView").classList.add("hidden");
-        $("commitView").classList.add("hidden");
-        $("compView").classList.add("hidden");
-        $("roomView").classList.add("hidden");
-        $("lobbyView").classList.remove("hidden");
+        restoreOptions();
+        setupShown = false;
+        showOnly("lobbyView");
         setStatus("roomStatus", "", false);
         setStatus("lobbyStatus", msg || "", false);
         $("create").disabled = false;
@@ -449,8 +441,7 @@
         seenDrafting = false;
         draftReady = false;
         if (window.MPCommit && MPCommit.reset) MPCommit.reset();
-        $("lobbyView").classList.add("hidden");
-        $("roomView").classList.remove("hidden");
+        showOnly("roomView");
         $("roomCode").innerHTML = code + "<small>share this code</small>";
         if (unwatch) unwatch();
         unwatch = MPNet.watchRoom(code, renderRoom);
@@ -561,10 +552,7 @@
             if (amHost) {
                 if (!setupShown) { setupShown = true; showSetup(room); }
             } else {
-                $("compView").classList.add("hidden");
-                $("commitView").classList.add("hidden");
-                $("draftView").classList.add("hidden");
-                $("roomView").classList.remove("hidden");
+                showOnly("roomView");
                 setStatus("startHint", "The host is setting up competition "
                     + compNo + " of " + ((room.settings || {}).seasonLength || 1) + ".", false);
             }
@@ -685,10 +673,15 @@
     }
 
     function showCommit() {
-        $("draftView").classList.add("hidden");
-        $("roomView").classList.add("hidden");
-        $("lobbyView").classList.add("hidden");
-        $("commitView").classList.remove("hidden");
+        showOnly("commitView");
+    }
+
+    const ALL_VIEWS = ["lobbyView", "roomView", "setupView", "draftView", "commitView", "compView"];
+    function showOnly(id) {
+        ALL_VIEWS.forEach(function (v) {
+            const el = $(v);
+            if (el) el.classList.toggle("hidden", v !== id);
+        });
         scrollTop();
     }
 
@@ -698,12 +691,7 @@
     }
 
     function showComp() {
-        $("draftView").classList.add("hidden");
-        $("commitView").classList.add("hidden");
-        $("roomView").classList.add("hidden");
-        $("lobbyView").classList.add("hidden");
-        $("compView").classList.remove("hidden");
-        scrollTop();
+        showOnly("compView");
     }
 
     // ── Playing the fixtures ────────────────────────────────
@@ -821,13 +809,7 @@
         state.rules = Object.assign({}, st.rules || {});
         refresh();
 
-        $("lobbyView").classList.add("hidden");
-        $("roomView").classList.add("hidden");
-        $("compView").classList.add("hidden");
-        $("commitView").classList.add("hidden");
-        $("draftView").classList.add("hidden");
-        $("setupView").classList.remove("hidden");
-        scrollTop();
+        showOnly("setupView");
     }
 
     // Put the controls back where they belong when leaving the setup view.
@@ -860,6 +842,10 @@
                 restoreOptions();
                 setStatus("setupStatus", "", false);
                 $("setupConfirm").disabled = false;
+                setupShown = false;
+                // The room watcher will route to the draft, but move now so
+                // the setup screen cannot sit on top of a live draft.
+                showOnly("draftView");
             })
             .catch(function (err) {
                 setStatus("setupStatus", err.message, true);
@@ -1216,9 +1202,7 @@
     }
 
     function showDraft() {
-        $("roomView").classList.add("hidden");
-        $("lobbyView").classList.add("hidden");
-        $("draftView").classList.remove("hidden");
+        showOnly("draftView");
         setStatus("draftStatus", "", false);
     }
 

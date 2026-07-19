@@ -619,3 +619,22 @@ input[type=color] {
     font-family: var(--display); text-transform: uppercase; letter-spacing: 0.14em;
     font-size: 0.66rem; color: var(--slate); margin: 0 0 16px; opacity: 0.75;
 }
+
+
+/* Rules progress on Your XV */
+.rule-panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 4px 14px; margin: 0 0 16px; }
+.rule-item { padding: 11px 0; border-bottom: 1px solid var(--line); }
+.rule-item:last-child { border-bottom: 0; }
+.rule-top { display: flex; align-items: baseline; gap: 10px; }
+.rule-name { flex: 1; font-family: var(--display); text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.82rem; }
+.rule-state { font-size: 0.76rem; color: var(--slate); white-space: nowrap; }
+.rule-state.ok { color: var(--teal); }
+.rule-state.tight { color: var(--amber); }
+.rule-detail { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
+.rule-chip {
+    font-size: 0.7rem; padding: 3px 8px; border-radius: 999px;
+    background: var(--panel-2); color: var(--slate); border: 1px solid transparent;
+}
+.rule-chip.full { border-color: var(--amber); color: var(--amber); }
+.rule-chip.missing { opacity: 0.55; }
+.rule-chip.have { border-color: var(--teal); color: var(--teal); }
