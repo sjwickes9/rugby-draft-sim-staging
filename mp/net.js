@@ -328,10 +328,27 @@ window.MPNet = (function () {
                 if (freshPool && freshPool.length) {
                     updates["rooms/" + code + "/pool"] = freshPool;
                 }
+                updates["rooms/" + code + "/ready"] = null;
                 updates["rooms/" + code + "/meta/status"] = "drafting";
                 return db.ref().update(updates).then(function () { return order; });
             });
         });
+    }
+
+    // ── Readiness between competitions ─────────────────────
+    // Nobody is moved off the results screen by someone else's click. Each
+    // user says when they have finished looking, and the next draft only
+    // begins once everyone has.
+    function setReady(code, value) {
+        return whenReady().then(function () {
+            return db.ref("rooms/" + code + "/ready/" + uid).set(!!value);
+        });
+    }
+
+    function clearReady(code) {
+        return whenReady().then(function () {
+            return db.ref("rooms/" + code + "/ready").remove();
+        }).catch(function () {});
     }
 
     // ── Big Board sync ─────────────────────────────────────
@@ -575,6 +592,8 @@ window.MPNet = (function () {
         updateSettings: updateSettings,
         startDraft: startDraft,
         makePick: makePick,
+        setReady: setReady,
+        clearReady: clearReady,
         saveBoard: saveBoard,
         readBoard: readBoard,
         serverNow: serverNow,

@@ -1034,6 +1034,32 @@ window.MPDraftUI = (function () {
         return null;
     }
 
+    // Would this pick make a legal XV impossible from here? Checked by
+    // trying the pick on a copy and asking whether the rest can still be
+    // completed. The user is warned and may change their mind, rather than
+    // discovering it several picks later.
+    function pickWouldDoom(player, slotId) {
+        if (!state.constraints || !state.constraints.length) return null;
+        const trial = Object.assign({}, state.squad);
+        trial[slotId] = player;
+        const trialTaken = Object.assign({}, state.taken);
+        trialTaken[MPPicks.personKey(player)] = "you";
+
+        const cov = MPPicks.coverageContext(state.pool, trial, state.constraints);
+        if (cov && cov.uncovered.length > cov.empties) {
+            return "You would have " + cov.empties + " slot" + (cov.empties === 1 ? "" : "s")
+                + " left and " + cov.uncovered.length + " tournament"
+                + (cov.uncovered.length === 1 ? "" : "s") + " still to cover ("
+                + cov.uncovered.join(", ") + ").";
+        }
+        if (MPPicks.emptySlots(trial).length
+            && !MPPicks.anyLegalPick(state.pool, trial, trialTaken, state.constraints,
+                state.ruleCtx, (window.MPRules && MPRules.isPickLegal))) {
+            return "No legal pick would remain for your empty slots.";
+        }
+        return null;
+    }
+
     function commitPick(key) {
         if (state.live && !state.isMyTurn) return;
         const idx = findIndexByKey(key);
@@ -1043,6 +1069,23 @@ window.MPDraftUI = (function () {
         const v = MPPicks.evaluate(p, slotId, state.squad, state.taken,
             state.relaxedNow ? [] : state.constraints,
             state.ruleCtx, (window.MPRules && MPRules.isPickLegal));
+
+        const doom = v.eligible ? pickWouldDoom(p, slotId) : null;
+        if (doom && window.MPModal) {
+            window.MPModal({
+                title: "This pick makes a legal XV impossible",
+                body: "<strong>" + esc(p.name) + "</strong> at " + esc(MPPicks.slotById(slotId).label)
+                    + ". " + esc(doom)
+                    + "<span class='warn'>An illegal XV carries a rating penalty and cannot win "
+                    + "the competition. You can pick someone else instead.</span>",
+                ok: "Pick anyway", cancel: "Choose again"
+            }).then(function (yes) { if (yes) doCommitPick(p, slotId, v, idx); });
+            return;
+        }
+        doCommitPick(p, slotId, v, idx);
+    }
+
+    function doCommitPick(p, slotId, v, idx) {
         if (!v.eligible) return;
 
         if (state.live) {
@@ -1051,7 +1094,7 @@ window.MPDraftUI = (function () {
             setBusy(true);
             state.onPick(slotId, idx, function (err) {
                 setBusy(false);
-                if (err) { alert(err.message); return; }
+                if (err) { note(err.message); return; }
                 cancelPicking();
                 setTab("xv");
             });
@@ -1202,8 +1245,22 @@ window.MPDraftUI = (function () {
         });
     }
 
+    // The board can be built before a draft starts, and while waiting
+    // between competitions. Nothing is pickable until it goes live.
+    function setLive(v) {
+        state.live = !!v;
+        if (!state.live) {
+            state.isMyTurn = false;
+            $("turnBar").classList.add("hidden");
+            $("turnClock").textContent = "";
+            setTab("board");
+        }
+        renderTeamsheet();
+        renderList();
+    }
+
     return {
-        init: init, wire: wire, applyRoom: applyRoom, stopAuto: stopAuto,
+        init: init, wire: wire, applyRoom: applyRoom, stopAuto: stopAuto, setLive: setLive,
         renderTeamsheet: renderTeamsheet,
         squad: function () { return state.squad; },
         starred: function () { return state.starred; }

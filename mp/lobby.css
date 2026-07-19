@@ -721,3 +721,34 @@ input[type=color] {
 
 .bb-no { flex: 0 0 auto; color: var(--bad); opacity: 0.6; font-size: 0.85rem; padding: 0 6px; }
 .bb-row .take { flex: 0 0 auto; }
+
+
+/* Configurable pick timer */
+.switch-row { display: flex; align-items: center; gap: 10px; font-size: 0.9rem; margin-bottom: 12px; cursor: pointer; }
+.switch-row input { width: 18px; height: 18px; accent-color: var(--teal); }
+.turn-fields { display: flex; gap: 10px; }
+.turn-fields.off { opacity: 0.4; }
+.turn-field { flex: 1; }
+.turn-field label {
+    display: block; font-family: var(--display); text-transform: uppercase;
+    letter-spacing: 0.08em; font-size: 0.66rem; color: var(--slate); margin-bottom: 4px;
+}
+.turn-field input {
+    width: 100%; background: var(--navy); color: var(--pitch); border: 1px solid var(--line);
+    border-radius: 8px; padding: 10px; font-family: var(--display); font-size: 1.1rem; text-align: center;
+}
+
+
+/* Readiness between competitions */
+.ready-list { margin: 12px 0; }
+.ready-row {
+    display: flex; align-items: center; gap: 9px; padding: 9px 11px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px; margin-bottom: 5px;
+    font-size: 0.88rem;
+}
+.ready-row .tick { font-family: var(--display); font-size: 0.9rem; }
+.ready-row.done .tick { color: var(--teal); }
+.ready-row.waiting .tick { color: var(--slate); }
+.ready-row .rname { flex: 1; }
+.ready-row .rstate { font-size: 0.72rem; color: var(--slate); text-transform: uppercase; letter-spacing: 0.06em; }
+.ready-row.done .rstate { color: var(--teal); }

@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607191341";
+    const VERSION = "v1.2607191345";
 
     const $ = function (id) { return document.getElementById(id); };
     const YEARS = MPEngine.ALL_YEARS;
@@ -105,9 +105,41 @@
     }
 
     // ── Create or join ──────────────────────────────────────
+    // The turn limit is free-form: any number of hours and minutes, or off.
     function renderTurnLimit() {
-        const sel = $("turnLimit");
-        if (sel) sel.value = String(state.turnMs);
+        const on = state.turnMs > 0;
+        $("turnOn").checked = on;
+        $("turnFields").classList.toggle("off", !on);
+        $("turnHours").disabled = !on;
+        $("turnMins").disabled = !on;
+        if (on) {
+            $("turnHours").value = Math.floor(state.turnMs / 3600000);
+            $("turnMins").value = Math.round((state.turnMs % 3600000) / 60000);
+        }
+        $("turnHint").textContent = on
+            ? "If a pick is not made within " + turnText(state.turnMs)
+              + ", it is made automatically from that user's Big Board."
+            : "Turns are untimed. A draft can stall if someone stops picking.";
+    }
+
+    function turnText(ms) {
+        if (!ms) return "no limit";
+        const h = Math.floor(ms / 3600000);
+        const m = Math.round((ms % 3600000) / 60000);
+        const parts = [];
+        if (h) parts.push(h + " hour" + (h === 1 ? "" : "s"));
+        if (m) parts.push(m + " minute" + (m === 1 ? "" : "s"));
+        return parts.length ? parts.join(" ") : "0 minutes";
+    }
+
+    function readTurnFields() {
+        if (!$("turnOn").checked) { state.turnMs = 0; return; }
+        const h = Math.max(0, Math.min(168, parseInt($("turnHours").value, 10) || 0));
+        const m = Math.max(0, Math.min(59, parseInt($("turnMins").value, 10) || 0));
+        let ms = (h * 3600000) + (m * 60000);
+        // A turn of zero would expire instantly, so keep a sane floor.
+        if (ms < 60000) ms = 60000;
+        state.turnMs = ms;
     }
 
     function renderPath() {
@@ -271,9 +303,14 @@
         $("sizeUp").addEventListener("click", function () { step("size", 1); });
         $("seasonDown").addEventListener("click", function () { step("season", -1); });
         $("seasonUp").addEventListener("click", function () { step("season", 1); });
-        $("turnLimit").addEventListener("change", function (e) {
-            state.turnMs = parseInt(e.target.value, 10) || 0;
+        $("turnOn").addEventListener("change", function () {
+            if (!$("turnOn").checked) state.turnMs = 0;
+            else { $("turnHours").value = $("turnHours").value || 24; readTurnFields(); }
             refresh();
+        });
+        ["turnHours", "turnMins"].forEach(function (id) {
+            $(id).addEventListener("change", function () { readTurnFields(); refresh(); });
+            $(id).addEventListener("blur", function () { readTurnFields(); refresh(); });
         });
 
         $("yMin").addEventListener("input", function (e) {
@@ -311,6 +348,19 @@
         $("spMed").addEventListener("click", function () { setSpeed(1); });
         $("spFast").addEventListener("click", function () { setSpeed(0.4); });
         $("playBtn").addEventListener("click", function () {
+            const room = latestRoom || {};
+            const comp = room.comp || {};
+            const isHost = (room.meta || {}).hostUid === MPNet.currentUid();
+            if ((comp.results || []).length) {
+                // Results already exist, so replay them locally.
+                $("playBtn").disabled = true;
+                playBack(comp.results, comp.fixtures).then(function () {
+                    watchedComp[viewCompNo] = true;
+                    renderRoom(latestRoom);
+                });
+                return;
+            }
+            if (!isHost) return;
             if (!latestRoom) return;
             $("playBtn").disabled = true;
             $("compStatus").textContent = "Playing the fixtures...";
@@ -326,6 +376,27 @@
             restoreOptions();
             setupShown = false;
             showOnly("roomView");
+        });
+        $("preBoard").addEventListener("click", function () {
+            const room = latestRoom || {};
+            if (!(room.pool || []).length) {
+                setStatus("startHint", "The pool is not ready yet.", true);
+                return;
+            }
+            ensureDraftInit(room);
+            showOnly("draftView");
+            MPDraftUI.setLive(false);
+        });
+        $("readyBtn").addEventListener("click", function () {
+            $("readyBtn").disabled = true;
+            MPNet.setReady(currentCode, true).catch(function (err) {
+                setStatus("nextHint", err.message, true);
+                $("readyBtn").disabled = false;
+            });
+        });
+        $("waitBoard").addEventListener("click", function () {
+            showOnly("draftView");
+            MPDraftUI.setLive(false);
         });
         $("nextComp").addEventListener("click", function () {
             modal({
@@ -474,10 +545,12 @@
     let compShown = false;
     let viewCompNo = 1;
     let setupShown = false;
+    let settingsConfirmed = false;
     let simSpeed = 1;          // 1.8 slow, 1 medium, 0.4 fast, as in app.js
     let playingBack = false;
     let revealed = {};         // fixture index -> true, during playback
     let liveFixtures = null;   // resolved fixtures while playing back
+    let watchedComp = {};      // competition number -> already watched here
     function renderRoom(room) {
         latestRoom = room;
 
@@ -493,6 +566,8 @@
             draftReady = false;
             playingBack = false;
             setupShown = false;
+            settingsConfirmed = false;
+            watchedComp = {};
             const pb = $("playBtn");
             if (pb) pb.disabled = false;
             const nc = $("nextComp");
@@ -572,6 +647,31 @@
         // can change the pool and rules before the next draft.
         if (status === "lobby" && compNo > 1) {
             const amHost = (room.meta || {}).hostUid === MPNet.currentUid();
+            const rdy = room.ready || {};
+            const mem = room.members || {};
+            const waitingOn = Object.keys(mem).filter(function (u) { return !rdy[u]; });
+
+            // The host has confirmed settings but the room is not everyone's
+            // to rush: the draft waits until each user has finished with the
+            // results and said so.
+            if (settingsConfirmed && waitingOn.length) {
+                $("waitSub").textContent = "competition " + compNo
+                    + " of " + ((room.settings || {}).seasonLength || 1);
+                $("waitHint").textContent = "The pool and rules are set. Waiting for "
+                    + names(mem, waitingOn).join(", ")
+                    + " to finish with the results. You can build your Big Board while you wait.";
+                $("waitList").innerHTML = readyRows(mem, rdy, MPNet.currentUid());
+                showOnly("waitView");
+                return;
+            }
+            if (settingsConfirmed && !waitingOn.length && amHost) {
+                // Everyone is ready, so the draft can begin.
+                settingsConfirmed = false;
+                MPNet.startDraft(currentCode).catch(function (err) {
+                    setStatus("setupStatus", err.message, true);
+                });
+                return;
+            }
             if (amHost) {
                 if (!setupShown) { setupShown = true; showSetup(room); }
             } else {
@@ -629,7 +729,7 @@
     let draftReady = false;
 
     function ensureDraftInit(room) {
-        if (draftReady) return;
+        if (draftReady) { MPDraftUI.setLive(!!(room.draft && room.draft.order)); return; }
         draftReady = true;
         const st = room.settings || {};
         const f = {
@@ -660,7 +760,7 @@
                     .then(function () { done(); })
                     .catch(function () { done(); });
             },
-            live: true,
+            live: !!(room.draft && room.draft.order),
             onPick: function (slotId, poolIndex, done) {
                 const d = latestRoom && latestRoom.draft;
                 if (!d) { done(new Error("No draft in progress.")); return; }
@@ -724,7 +824,7 @@
         showOnly("commitView");
     }
 
-    const ALL_VIEWS = ["lobbyView", "roomView", "setupView", "draftView", "commitView", "compView"];
+    const ALL_VIEWS = ["lobbyView", "roomView", "setupView", "waitView", "draftView", "commitView", "compView"];
     function showOnly(id) {
         ALL_VIEWS.forEach(function (v) {
             const el = $(v);
@@ -932,15 +1032,15 @@
             turnMs: state.turnMs
         };
         MPNet.updateSettings(currentCode, patch)
-            .then(function () { return MPNet.startDraft(currentCode); })
             .then(function () {
                 restoreOptions();
                 setStatus("setupStatus", "", false);
                 $("setupConfirm").disabled = false;
                 setupShown = false;
-                // The room watcher will route to the draft, but move now so
-                // the setup screen cannot sit on top of a live draft.
-                showOnly("draftView");
+                settingsConfirmed = true;
+                // The draft starts from the room watcher once everyone has
+                // finished with the previous results.
+                renderRoom(latestRoom);
             })
             .catch(function (err) {
                 setStatus("setupStatus", err.message, true);
@@ -1003,10 +1103,7 @@
             + "<span class='sub'>" + users + " users, snake draft, 15 rounds each</span>");
 
         const turn = st.turnMs || 0;
-        const turnTxt = !turn ? "No limit"
-            : turn >= 86400000 ? (turn / 86400000) + " day" + (turn === 86400000 ? "" : "s")
-            : turn >= 3600000 ? (turn / 3600000) + " hour" + (turn === 3600000 ? "" : "s")
-            : (turn / 60000) + " minutes";
+        const turnTxt = turn ? turnText(turn) : "No limit";
         add("Turn limit", turnTxt + "<span class='sub'>"
             + (turn ? "If a pick is not made in time, it is made automatically from that user's Big Board"
                     : "A draft can stall if someone stops picking") + "</span>");
@@ -1109,17 +1206,27 @@
 
         // Host can play the fixtures once, and only once.
         const isHost = (room.meta || {}).hostUid === me;
-        $("playBtn").classList.toggle("hidden", played || !isHost);
-        if (!played) $("playBtn").disabled = false;
-        $("speedRow").classList.toggle("hidden", played || !isHost);
+        // The host plays the fixtures to generate them. Everyone else gets
+        // to play the same stored results back at their own pace, so they
+        // watch the competition unfold rather than meeting a finished table.
+        const hasResults = (comp.results || []).length > 0;
+        const canGenerate = isHost && !hasResults;
+        const canReplay = hasResults && !watchedComp[viewCompNo] && !playingBack;
+
+        $("playBtn").classList.toggle("hidden", !(canGenerate || canReplay));
+        $("playBtn").disabled = false;
+        $("playBtn").querySelector("span").textContent = canGenerate
+            ? "Play the fixtures" : "Watch the tournament";
+        $("speedRow").classList.toggle("hidden", !(canGenerate || canReplay) && !playingBack);
         $("compStatus").textContent = playingBack
             ? "Playing..."
-            : (played ? "" : (isHost ? "" : "Waiting for "
+            : (hasResults ? "" : (isHost ? "" : "Waiting for "
                 + (((room.members || {})[(room.meta || {}).hostUid] || {}).name || "the host")
                 + " to play the fixtures."));
 
         renderSeason(room, comp);
-        if (playingBack) {
+        const unwatched = (comp.results || []).length > 0 && !watchedComp[viewCompNo];
+        if (playingBack || unwatched) {
             $("tableWrap").classList.add("hidden");
             $("seriesWrap").classList.add("hidden");
         } else if (!renderSeries(room, comp)) {
@@ -1283,21 +1390,66 @@
             tw.classList.add("hidden");
         }
 
-        // Next competition, host only.
+        // Next competition. Everyone must say they have finished looking at
+        // the results before the room moves on, so nobody is dragged off
+        // the screen mid-read by someone else's click.
         const isHost = (room.meta || {}).hostUid === me;
+        const ready = room.ready || {};
+        const iAmReady = !!ready[me];
+        const outstanding = Object.keys(members).filter(function (u) { return !ready[u]; });
+
+        const rb = $("readyBtn");
+        const rl = $("readyList");
+        if (!seasonOver) {
+            rb.classList.toggle("hidden", iAmReady);
+            rb.disabled = false;
+            rl.classList.toggle("hidden", !iAmReady);
+            rl.innerHTML = readyRows(members, ready, me);
+        } else {
+            rb.classList.add("hidden");
+            rl.classList.add("hidden");
+        }
+
         if (seasonOver) {
             nb.classList.add("hidden");
             $("nextHint").textContent = "The season is complete. The host can close the room or start a new one.";
         } else if (isHost) {
-            nb.classList.remove("hidden");
+            nb.classList.toggle("hidden", !iAmReady);
             nb.disabled = false;
-            $("nextHint").textContent = "The next draft picks in reverse order, so the bottom of the tally picks first.";
+            $("nextHint").textContent = iAmReady
+                ? "The next draft picks in reverse order, so the bottom of the tally picks first."
+                : "Take your time with the results. Say when you are ready.";
+        } else if (iAmReady) {
+            nb.classList.add("hidden");
+            $("nextHint").textContent = outstanding.length
+                ? "Waiting for " + names(members, outstanding).join(", ") + "."
+                : "Waiting for " + hostName(room) + " to set up the next competition.";
         } else {
             nb.classList.add("hidden");
             $("nextHint").textContent = "Waiting for "
                 + (((room.members || {})[(room.meta || {}).hostUid] || {}).name || "the host")
                 + " to set up competition " + (now + 1) + " of " + total + ".";
         }
+    }
+
+    function readyRows(members, ready, me) {
+        return Object.keys(members).map(function (u) {
+            const m = members[u] || {};
+            const done = !!ready[u];
+            return "<div class='ready-row " + (done ? "done" : "waiting") + "'>"
+                + "<span class='tick'>" + (done ? "\u2713" : "\u25CB") + "</span>"
+                + "<span class='rname'>" + esc(m.name || "User") + (u === me ? " (you)" : "") + "</span>"
+                + "<span class='rstate'>" + (done ? "ready" : "still watching") + "</span></div>";
+        }).join("");
+    }
+
+    function names(members, uids) {
+        return uids.map(function (u) { return (members[u] || {}).name || "User"; });
+    }
+
+    function hostName(room) {
+        const h = (room.meta || {}).hostUid;
+        return ((room.members || {})[h] || {}).name || "the host";
     }
 
     function renderTable(room, comp) {
