@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607190805";
+    const VERSION = "v1.2607190840";
 
     const $ = function (id) { return document.getElementById(id); };
     const YEARS = MPEngine.ALL_YEARS;
@@ -655,8 +655,24 @@
             MPCommit.wire(function () { /* locked in; waiting list updates live */ },
                 function () { /* started; the status watcher moves everyone on */ });
         }
+        let liveRules = [];
+        try {
+            const st2 = room.settings || {};
+            const ff2 = {
+                mode: st2.mode || "tournament",
+                yearMin: st2.yearMin || undefined,
+                yearMax: st2.yearMax || undefined,
+                countries: st2.countries || null
+            };
+            liveRules = MPRules.activeConstraints(
+                MPRules.buildContext(ff2, MPEngine.feasibility(allSquads, ff2, positionFamilyMap)),
+                st2.rules || {});
+        } catch (e) {}
+
         const payload = {
             squad: MPDraftUI.squad(),
+            pool: room.pool || [],
+            constraints: liveRules,
             members: room.members || {},
             commits: room.commit || {},
             myUid: MPNet.currentUid(),
@@ -714,10 +730,25 @@
             if (p && squads[pk.by]) squads[pk.by][pk.slot] = p;
         });
 
+        // The active constraints for this competition, so an illegal squad
+        // carries its penalty into the results.
+        let activeRules = [];
+        try {
+            const st = room.settings || {};
+            const ff = {
+                mode: st.mode || "tournament",
+                yearMin: st.yearMin || undefined,
+                yearMax: st.yearMax || undefined,
+                countries: st.countries || null
+            };
+            const an = MPEngine.feasibility(allSquads, ff, positionFamilyMap);
+            activeRules = MPRules.activeConstraints(MPRules.buildContext(ff, an), st.rules || {});
+        } catch (e) {}
+
         const rating = {}, kicker = {}, kickerName = {};
         order.forEach(function (u) {
             const c = commits[u] || {};
-            rating[u] = MPSim.teamRating(squads[u], c.strategy).overall;
+            rating[u] = MPSim.teamRating(squads[u], c.strategy, pool, activeRules).overall;
             const kp = c.kickerSlot ? squads[u][c.kickerSlot] : null;
             kicker[u] = MPCommit.kickerRate(kp);
             kickerName[u] = kp ? kp.name : null;
@@ -774,12 +805,22 @@
         results.sort(function (x, y) { return x.i - y.i; });
 
         const standings = MPSim.buildTable(order, results);
-        const winner = MPSim.competitionWinner(order, { fixtures: resolved }, results);
-        const tally = MPSim.updateTally(room.tally, order, winner, standings);
+
+        // Legality is decided once, here, and stored with the competition so
+        // every client shows the same verdict.
+        const illegal = {}, breachInfo = {};
+        order.forEach(function (u) {
+            const b = MPSim.squadBreaches(squads[u], pool, activeRules);
+            if (b.length) { illegal[u] = true; breachInfo[u] = b; }
+        });
+
+        const winner = MPSim.competitionWinner(order, { fixtures: resolved }, results, illegal);
+        const tally = MPSim.updateTally(room.tally, order, winner, standings, illegal);
 
         return playBack(results, resolved).then(function () {
             return MPNet.finishCompetition(currentCode, {
-                fixtures: resolved, results: results, standings: standings, winner: winner
+                fixtures: resolved, results: results, standings: standings,
+                winner: winner, illegal: illegal, breaches: breachInfo
             }, tally);
         });
     }
@@ -823,6 +864,21 @@
 
     function confirmSetup() {
         if (!currentCode) return;
+
+        // The same pool gate the create screen uses. Without this the host
+        // could narrow the pool below what the room needs, and the draft
+        // would run out of players part way through.
+        const room = latestRoom || {};
+        const seats = (room.settings || {}).tableSize
+            || Object.keys(room.members || {}).length || 2;
+        const check = filters();
+        const analysis = MPEngine.feasibility(allSquads, check, positionFamilyMap);
+        const status = MPEngine.poolStatus(analysis, seats);
+        if (status.state === "blocked") {
+            setStatus("setupStatus", status.reasons.join(" "), true);
+            return;
+        }
+
         $("setupConfirm").disabled = true;
         setStatus("setupStatus", "Rebuilding the pool...", false);
         // Use the same helpers the create path uses, so the settings written
@@ -1138,10 +1194,20 @@
                 + "<div class='winner-sub'>" + rankedTally[0].titles + " of " + total
                 + " competition" + (total === 1 ? "" : "s") + " won</div></div>";
         } else if (comp.winner) {
+            const illegalMap = comp.illegal || {};
+            const anyIllegal = Object.keys(illegalMap).length;
             wb.innerHTML = "<div class='winner-box'>"
                 + "<div class='winner-lbl'>Competition " + now + " of " + total + "</div>"
                 + "<div class='winner-name'>" + esc(nameOf(comp.winner)) + "</div>"
-                + "<div class='winner-sub'>takes the title</div></div>";
+                + "<div class='winner-sub'>takes the title"
+                + (anyIllegal ? ", with " + anyIllegal + " side"
+                    + (anyIllegal === 1 ? "" : "s") + " ruled ineligible" : "")
+                + "</div></div>";
+        } else if ((comp.results || []).length) {
+            wb.innerHTML = "<div class='winner-box vacant'>"
+                + "<div class='winner-lbl'>Competition " + now + " of " + total + "</div>"
+                + "<div class='winner-name'>No champion</div>"
+                + "<div class='winner-sub'>every side fielded an illegal XV</div></div>";
         } else {
             wb.classList.add("hidden");
         }
@@ -1151,14 +1217,16 @@
             tw.classList.remove("hidden");
             $("tallySub").textContent = "after " + now + " of " + total;
             const head = "<tr><th class='pos'></th><th class='team'>Team</th><th>Titles</th>"
-                + "<th>Played</th><th>Pts</th><th>PD</th></tr>";
+                + "<th>Played</th><th>Pts</th><th>PD</th><th>Illegal</th></tr>";
             const body = rankedTally.map(function (r, i) {
                 return "<tr" + (r.uid === me ? " class='mine'" : "") + ">"
                     + "<td class='pos'>" + (i + 1) + "</td>"
                     + "<td class='team'>" + esc(nameOf(r.uid)) + "</td>"
                     + "<td class='titles'>" + r.titles + "</td>"
                     + "<td>" + r.played + "</td><td>" + r.points + "</td>"
-                    + "<td>" + (r.pd > 0 ? "+" : "") + r.pd + "</td></tr>";
+                    + "<td>" + (r.pd > 0 ? "+" : "") + r.pd + "</td>"
+                    + "<td class='" + (r.illegal ? "badcount" : "") + "'>"
+                    + (r.illegal || "") + "</td></tr>";
             }).join("");
             $("tallyTable").innerHTML = "<table class='ltable'>" + head + body + "</table>";
         } else {
@@ -1189,11 +1257,14 @@
         const me = MPNet.currentUid();
         const head = "<tr><th class='pos'></th><th class='team'>Team</th><th>P</th><th>W</th>"
             + "<th>D</th><th>L</th><th>PF</th><th>PA</th><th>PD</th><th>Pts</th></tr>";
+        const illegal = comp.illegal || {};
         const body = standings.map(function (r, i) {
             const m = members[r.uid] || {};
-            return "<tr" + (r.uid === me ? " class='mine'" : "") + ">"
+            const bad = !!illegal[r.uid];
+            return "<tr class='" + (r.uid === me ? "mine " : "") + (bad ? "illegal" : "") + "'>"
                 + "<td class='pos'>" + (i + 1) + "</td>"
-                + "<td class='team'>" + esc(m.name || "User") + "</td>"
+                + "<td class='team'>" + esc(m.name || "User")
+                + (bad ? "<span class='ineligible'>ineligible</span>" : "") + "</td>"
                 + "<td>" + r.played + "</td><td>" + r.won + "</td><td>" + r.drawn + "</td><td>" + r.lost + "</td>"
                 + "<td>" + r.pf + "</td><td>" + r.pa + "</td>"
                 + "<td>" + (r.pd > 0 ? "+" : "") + r.pd + "</td><td>" + r.points + "</td></tr>";

@@ -51,7 +51,7 @@
         return 0.75 - (v / 100) * 0.50;
     }
 
-    function teamRating(squad, strategy) {
+    function teamRating(squad, strategy, pool, activeConstraints) {
         var fwd = 0, fwdN = 0, bck = 0, bckN = 0;
         MPPicksRef().SLOTS.forEach(function (s) {
             var p = squad[s.id];
@@ -62,11 +62,88 @@
         var f = fwdN ? Math.round(fwd / fwdN) : 0;
         var b = bckN ? Math.round(bck / bckN) : 0;
         var w = strategyForwardWeight(strategy == null ? 50 : strategy);
-        return { forwards: f, backs: b, overall: Math.round(f * w + b * (1 - w)) };
+        var base = Math.round(f * w + b * (1 - w));
+        var breaches = (pool && activeConstraints)
+            ? squadBreaches(squad, pool, activeConstraints) : [];
+        var penalty = breachPenalty(breaches);
+        return {
+            forwards: f, backs: b,
+            base: base,
+            penalty: penalty,
+            breaches: breaches,
+            overall: Math.max(0, base - penalty)
+        };
     }
 
     function MPPicksRef() {
         return (typeof MPPicks !== "undefined") ? MPPicks : require("./picks.js");
+    }
+
+    // ── Illegal squad penalty ───────────────────────────────
+    // Prevention comes first: the draft blocks picks that would strand a
+    // squad. But the constraint rules step aside rather than freeze when a
+    // pool is genuinely over-constrained, so a squad can still finish
+    // outside the rules. It is not disqualified, it is penalised, which
+    // keeps the room playable while making the rules matter.
+    // An illegal XV is penalised on rating AND cannot win the competition.
+    // Without ineligibility the rules are decoration: a user could ignore
+    // them, field the strongest possible side and take the title anyway,
+    // which defeats the point of setting restrictions at all.
+    var PENALTY_PER_BREACH = 3;
+
+    function squadBreaches(squad, pool, activeConstraints) {
+        var out = [];
+        if (!activeConstraints || !activeConstraints.length) return out;
+        var picked = MPPicksRef().squadPlayers(squad);
+
+        activeConstraints.forEach(function (c) {
+            if (c.id === "onePerTournament") {
+                var years = {};
+                (pool || []).forEach(function (p) { if (p.year) years[p.year] = true; });
+                var all = Object.keys(years);
+                var have = {};
+                picked.forEach(function (p) { if (p.year) have[p.year] = true; });
+                var missing = all.filter(function (y) { return !have[y]; });
+                if (missing.length) {
+                    out.push({
+                        rule: "One from every tournament",
+                        detail: missing.length + " missing (" + missing.join(", ") + ")",
+                        count: missing.length
+                    });
+                }
+            }
+            if (c.id === "maxPerCountry" || c.id === "maxPerTournament") {
+                var field = (c.id === "maxPerCountry") ? "country" : "year";
+                var counts = {};
+                picked.forEach(function (p) {
+                    if (p[field]) counts[p[field]] = (counts[p[field]] || 0) + 1;
+                });
+                var over = 0, who = [];
+                Object.keys(counts).forEach(function (k) {
+                    if (counts[k] > c.value) { over += counts[k] - c.value; who.push(k + " " + counts[k]); }
+                });
+                if (over) {
+                    out.push({
+                        rule: (c.id === "maxPerCountry" ? "Max per nation" : "Max per tournament"),
+                        detail: who.join(", ") + " over the limit of " + c.value,
+                        count: over
+                    });
+                }
+            }
+        });
+
+        // A squad short of fifteen is penalised for the empty shirts too.
+        var short = MPPicksRef().emptySlots(squad).length;
+        if (short) {
+            out.push({ rule: "Incomplete XV", detail: short + " slot" + (short === 1 ? "" : "s") + " unfilled", count: short });
+        }
+        return out;
+    }
+
+    function breachPenalty(breaches) {
+        var total = 0;
+        (breaches || []).forEach(function (b) { total += b.count * PENALTY_PER_BREACH; });
+        return total;
     }
 
     // ── Kicker effect (spec section 10) ─────────────────────
@@ -286,29 +363,48 @@
     }
 
     // Who won the competition, by format.
-    function competitionWinner(uids, comp, results) {
+    // illegal is a map of uid -> true. Those squads still play, and their
+    // results still count for everyone else, but they cannot take the title.
+    function competitionWinner(uids, comp, results, illegal) {
+        illegal = illegal || {};
+        var eligible = uids.filter(function (u) { return !illegal[u]; });
+        if (!eligible.length) return null;               // title vacant
+
         var fixtures = comp.fixtures || [];
-        // A final or playoff decides it where one exists.
         var decider = null;
         fixtures.forEach(function (f, i) {
             if (f.label === "Final") decider = i;
         });
         if (decider !== null) {
             var r = results.filter(function (x) { return x.i === decider; })[0];
-            if (r) return r.winner === "a" ? r.home : r.away;
+            if (r) {
+                var won = r.winner === "a" ? r.home : r.away;
+                var lost = r.winner === "a" ? r.away : r.home;
+                if (!illegal[won]) return won;
+                // The winner is ineligible, so the title passes to the
+                // beaten finalist if they are legal, otherwise it is vacant.
+                return illegal[lost] ? null : lost;
+            }
         }
         if (uids.length === 2) {
-            var s = seriesResult(uids, results);
-            return s.winner;
+            var sr = seriesResult(uids, results);
+            if (sr.winner && !illegal[sr.winner]) return sr.winner;
+            var other = uids.filter(function (u) { return u !== sr.winner; })[0];
+            return (sr.winner && !illegal[other]) ? other : null;
         }
+        // League: the highest placed legal side takes it.
         var table = buildTable(uids, results);
-        return table.length ? table[0].uid : null;
+        for (var i = 0; i < table.length; i++) {
+            if (!illegal[table[i].uid]) return table[i].uid;
+        }
+        return null;
     }
 
     // ── Room tally (spec section 14) ────────────────────────
     // Accumulates across the season: titles won, competitions played, and
     // aggregate points difference as the tie-break.
-    function updateTally(previous, uids, winner, standings) {
+    function updateTally(previous, uids, winner, standings, illegal) {
+        illegal = illegal || {};
         var out = {};
         uids.forEach(function (u) {
             var prev = (previous && previous[u]) || { titles: 0, played: 0, points: 0, pd: 0 };
@@ -318,7 +414,8 @@
                 titles: (prev.titles || 0) + (u === winner ? 1 : 0),
                 played: (prev.played || 0) + 1,
                 points: (prev.points || 0) + (row ? row.points : 0),
-                pd: (prev.pd || 0) + (row ? row.pd : 0)
+                pd: (prev.pd || 0) + (row ? row.pd : 0),
+                illegal: (prev.illegal || 0) + (illegal[u] ? 1 : 0)
             };
         });
         return out;
@@ -327,7 +424,8 @@
     function tallyOrder(tally) {
         return Object.keys(tally || {}).map(function (u) {
             var t = tally[u];
-            return { uid: u, titles: t.titles || 0, played: t.played || 0, points: t.points || 0, pd: t.pd || 0 };
+            return { uid: u, titles: t.titles || 0, played: t.played || 0,
+                     points: t.points || 0, pd: t.pd || 0, illegal: t.illegal || 0 };
         }).sort(function (a, b) {
             if (b.titles !== a.titles) return b.titles - a.titles;
             if (b.points !== a.points) return b.points - a.points;
@@ -372,6 +470,9 @@
         blowoutCurve: blowoutCurve,
         strategyForwardWeight: strategyForwardWeight,
         teamRating: teamRating,
+        squadBreaches: squadBreaches,
+        breachPenalty: breachPenalty,
+        PENALTY_PER_BREACH: PENALTY_PER_BREACH,
         kickerDelta: kickerDelta,
         simulateMatch: simulateMatch,
         resolveKnockout: resolveKnockout,

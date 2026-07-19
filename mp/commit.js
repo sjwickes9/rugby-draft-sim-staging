@@ -70,7 +70,31 @@ window.MPCommit = (function () {
         const w = strategyForwardWeight(state.strategy);
         $("cFwd").textContent = u.fwd;
         $("cBck").textContent = u.bck;
-        $("cOverall").textContent = Math.round(u.fwd * w + u.bck * (1 - w));
+        const base = Math.round(u.fwd * w + u.bck * (1 - w));
+
+        // An illegal squad still plays, but it is penalised, and the user
+        // must be able to see that before they lock in.
+        let breaches = [];
+        try {
+            breaches = MPSim.squadBreaches(state.squad, state.pool || [], state.constraints || []);
+        } catch (e) {}
+        const penalty = MPSim.breachPenalty(breaches);
+        $("cOverall").textContent = Math.max(0, base - penalty);
+
+        const pen = $("penaltyNote");
+        if (pen) {
+            if (!penalty) { pen.classList.add("hidden"); }
+            else {
+                pen.classList.remove("hidden");
+                pen.innerHTML = "<strong>Illegal XV: you cannot win this competition</strong>"
+                    + "<span class='pen-line'>Your side still plays and its results still count "
+                    + "for everyone else, but it is not eligible for the title.</span>"
+                    + breaches.map(function (b) {
+                        return "<span class='pen-line'>" + esc(b.rule) + ": " + esc(b.detail) + "</span>";
+                    }).join("")
+                    + "<span class='pen-line'>Rating penalty: minus " + penalty + ".</span>";
+            }
+        }
         const pct = Math.round(w * 100);
         $("strategyHint").textContent = "Forwards carry " + pct + "% of the weight, backs "
             + (100 - pct) + "%. This locks for the whole competition.";
@@ -178,6 +202,8 @@ window.MPCommit = (function () {
         state.myUid = opts.myUid;
         state.code = opts.code;
         state.hostUid = opts.hostUid || null;
+        state.pool = opts.pool || [];
+        state.constraints = opts.constraints || [];
         const mine = state.commits[state.myUid];
         if (mine) {
             state.locked = true;
@@ -230,11 +256,21 @@ window.MPCommit = (function () {
             if (state.locked || !state.kickerSlot) return;
             const p = state.squad[state.kickerSlot];
             const pct = Math.round(strategyForwardWeight(state.strategy) * 100);
+            let breaches = [];
+            try {
+                breaches = MPSim.squadBreaches(state.squad, state.pool || [], state.constraints || []);
+            } catch (e) {}
+            const illegalWarn = breaches.length
+                ? "<span class='warn'>Your XV breaks the room rules, so it cannot win this "
+                  + "competition and carries a rating penalty of minus "
+                  + MPSim.breachPenalty(breaches) + ".</span>"
+                : "";
             window.MPModal({
                 title: "Lock in your choices?",
                 body: "<strong>" + esc(p.name) + "</strong> takes the goal kicks, and your forwards "
                     + "carry <strong>" + pct + "%</strong> of the weight."
-                    + "<span class='warn'>Neither can be changed for the whole competition.</span>",
+                    + "<span class='warn'>Neither can be changed for the whole competition.</span>"
+                    + illegalWarn,
                 ok: "Lock in", cancel: "Go back"
             }).then(function (yes) { if (yes) doLock(); });
         });

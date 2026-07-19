@@ -44,6 +44,7 @@ window.MPDraftUI = (function () {
         pickIndex: 0,
         picksList: [],
         complete: false,
+        relaxedNow: false,
         autoMode: false,
         autoBusy: false
     };
@@ -155,7 +156,12 @@ window.MPDraftUI = (function () {
         setTimeout(function () {
             const res = MPPicks.autoPick(state.pool, state.squad, state.taken, [],
                 state.constraints, state.ruleCtx, (window.MPRules && MPRules.isPickLegal));
-            if (!res) { state.autoBusy = false; note("No legal pick available."); return; }
+            if (!res || res.stuck) {
+                state.autoBusy = false;
+                stopAuto();
+                note("No player can fill the remaining slots. Finishing a man short.");
+                return;
+            }
             let idx = -1;
             for (let i = 0; i < state.pool.length; i++) {
                 if (state.pool[i] === res.player) { idx = i; break; }
@@ -255,6 +261,7 @@ window.MPDraftUI = (function () {
         });
 
         renderTurn(draft);
+        checkStuck();
         renderTeamsheet();
         // Always repaint the list, so taken players grey out the instant
         // another user picks, whichever tab is showing.
@@ -276,6 +283,32 @@ window.MPDraftUI = (function () {
             if (!state.taken[parts[0] + "|" + parts[1]]) avail++;
         });
         el.textContent = total ? ("Big Board " + avail + "/" + total) : "Big Board";
+    }
+
+    // If the active user cannot legally pick anything, the constraint rules
+    // step aside for that pick rather than freezing the draft. The front-row
+    // law never steps aside.
+    function checkStuck() {
+        state.relaxedNow = false;
+        const el = $("stuckNote");
+        if (!el) return;
+        if (!state.isMyTurn || state.complete || !MPPicks.emptySlots(state.squad).length) {
+            el.classList.add("hidden");
+            return;
+        }
+        const relax = MPPicks.relaxFor(state.pool, state.squad, state.taken,
+            state.constraints, state.ruleCtx, (window.MPRules && MPRules.isPickLegal));
+        if (relax.level === 0) { el.classList.add("hidden"); return; }
+
+        state.relaxedNow = true;
+        el.classList.remove("hidden");
+        el.innerHTML = relax.level === 1
+            ? "<strong>No legal pick left under the room rules.</strong> "
+              + "The restrictions have been lifted for this pick so the draft can continue. "
+              + "They apply again next time."
+            : "<strong>No player can fill your remaining slots.</strong> "
+              + "The pool has run dry, so you will finish a man short. "
+              + "Your rating is worked out from the players you do have.";
     }
 
     function renderTurn(draft) {
@@ -479,6 +512,7 @@ window.MPDraftUI = (function () {
     // "One player from each tournament": show which are covered and which
     // are still outstanding, with a warning if slots are running short.
     function coverRule(picked, rule, slotsLeft) {
+        const cov = MPPicks.coverageContext(state.pool, state.squad, state.constraints);
         const need = {};
         (MPEngine.ALL_YEARS || []).forEach(function (y) { need[y] = 0; });
         picked.forEach(function (p) { if (p.year) need[p.year] = (need[p.year] || 0) + 1; });
@@ -490,12 +524,25 @@ window.MPDraftUI = (function () {
             return "<span class='rule-chip " + (have ? "have" : "missing") + "'>" + esc(y) + "</span>";
         }).join("");
         const short = missing.length > slotsLeft;
+        const forced = cov && cov.forced && missing.length;
+        let note = "";
+        if (short) {
+            note = "<span class='rule-warn'>Cannot be met: " + missing.length
+                + " tournaments to cover with " + slotsLeft + " slot"
+                + (slotsLeft === 1 ? "" : "s") + " left. Your XV will be illegal, "
+                + "which means a rating penalty and no chance of winning this competition.</span>";
+        } else if (forced) {
+            note = "<span class='rule-warn'>Every remaining pick must come from a "
+                + "tournament you do not have yet.</span>";
+        } else if (cov) {
+            note = "<span class='rule-slack'>" + cov.slack + " free pick"
+                + (cov.slack === 1 ? "" : "s") + " left before every pick must cover a new tournament.</span>";
+        }
         return "<div class='rule-item'><div class='rule-top'>"
             + "<span class='rule-name'>One from every tournament</span>"
             + "<span class='rule-state " + (short ? "tight" : (missing.length ? "" : "ok")) + "'>"
-            + covered.length + " of " + years.length + " covered"
-            + (short ? ", only " + slotsLeft + " slots left" : "") + "</span></div>"
-            + "<div class='rule-detail'>" + chips + "</div></div>";
+            + covered.length + " of " + years.length + " covered</span></div>"
+            + "<div class='rule-detail'>" + chips + "</div>" + note + "</div>";
     }
 
     // ── Team sheet ──────────────────────────────────────────
@@ -769,7 +816,8 @@ window.MPDraftUI = (function () {
         const takenBy = state.taken[MPPicks.personKey(p)] || null;
 
         const v = slot
-            ? MPPicks.evaluate(p, slot.id, state.squad, state.taken, state.constraints,
+            ? MPPicks.evaluate(p, slot.id, state.squad, state.taken,
+                state.relaxedNow ? [] : state.constraints,
                 state.ruleCtx, (window.MPRules && MPRules.isPickLegal))
             : { eligible: !takenBy, reason: takenBy ? ("Taken by " + takenBy) : "" };
 
@@ -816,7 +864,8 @@ window.MPDraftUI = (function () {
         if (idx === -1 || !state.activeSlot) return;
         const p = state.pool[idx];
         const slotId = state.activeSlot;
-        const v = MPPicks.evaluate(p, slotId, state.squad, state.taken, state.constraints,
+        const v = MPPicks.evaluate(p, slotId, state.squad, state.taken,
+            state.relaxedNow ? [] : state.constraints,
             state.ruleCtx, (window.MPRules && MPRules.isPickLegal));
         if (!v.eligible) return;
 

@@ -638,3 +638,34 @@ input[type=color] {
 .rule-chip.full { border-color: var(--amber); color: var(--amber); }
 .rule-chip.missing { opacity: 0.55; }
 .rule-chip.have { border-color: var(--teal); color: var(--teal); }
+
+
+/* Deadlock notice */
+.stuck-note {
+    padding: 12px 14px; margin-bottom: 12px; font-size: 0.86rem; line-height: 1.45;
+    background: var(--panel); border-left: 5px solid var(--amber); border-radius: 0 8px 8px 0;
+}
+.stuck-note strong { color: var(--amber); display: block; margin-bottom: 3px; }
+
+
+/* Illegal squad penalty */
+.penalty-note {
+    padding: 10px 12px; margin: 0 0 12px; border-radius: 6px;
+    background: var(--panel-2); border-left: 4px solid var(--bad); font-size: 0.8rem;
+}
+.penalty-note strong { display: block; color: var(--bad); font-family: var(--display); letter-spacing: 0.05em; margin-bottom: 4px; }
+.pen-line { display: block; color: var(--slate); }
+
+.rule-warn { display: block; margin-top: 7px; font-size: 0.74rem; color: var(--amber); }
+.rule-slack { display: block; margin-top: 7px; font-size: 0.74rem; color: var(--slate); }
+
+
+/* Ineligible sides */
+.ltable tr.illegal td { opacity: 0.65; }
+.ltable .ineligible {
+    display: block; font-family: var(--body); text-transform: none; letter-spacing: 0;
+    font-size: 0.68rem; color: var(--bad);
+}
+.ltable td.badcount { color: var(--bad); font-family: var(--display); }
+.winner-box.vacant { border-left-color: var(--bad); background: var(--panel); }
+.winner-box.vacant .winner-name { color: var(--bad); font-size: 1.5rem; }

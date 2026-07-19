@@ -215,11 +215,60 @@
         return need;
     }
 
+    // ── Feasibility lookahead (spec 7) ──────────────────────
+    // Some rules are requirements, not just limits. "One player from every
+    // tournament" needs 10 of your 15 picks to be distinct tournaments,
+    // which leaves only 5 spare. Every duplicate spends one of those, and
+    // once they are gone the squad can no longer be completed, whatever is
+    // left in the pool.
+    //
+    // The arithmetic is exact and cheap: after any pick, slack equals empty
+    // slots minus tournaments still uncovered. Covering a new tournament
+    // leaves slack unchanged; a duplicate reduces it by one. So when slack
+    // reaches zero, only players from uncovered tournaments are legal.
+    function coverageContext(pool, squad, activeConstraints) {
+        let rule = null;
+        (activeConstraints || []).forEach(function (c) {
+            if (c.id === "onePerTournament") rule = c;
+        });
+        if (!rule) return null;
+
+        const years = {};
+        for (let i = 0; i < pool.length; i++) {
+            if (pool[i].year) years[pool[i].year] = true;
+        }
+        const all = Object.keys(years).sort();
+
+        const have = {};
+        squadPlayers(squad).forEach(function (p) { if (p.year) have[p.year] = true; });
+        const uncovered = all.filter(function (y) { return !have[y]; });
+        const empties = emptySlots(squad).length;
+
+        return {
+            all: all,
+            have: have,
+            uncovered: uncovered,
+            empties: empties,
+            slack: empties - uncovered.length,
+            forced: (empties - uncovered.length) <= 0
+        };
+    }
+
+    // Would taking this player make the squad impossible to complete?
+    function wouldStrand(player, coverage) {
+        if (!coverage || !coverage.forced) return null;
+        if (player.year && !coverage.have[player.year]) return null;   // covers a new one
+        return "Only " + coverage.empties + " slot" + (coverage.empties === 1 ? "" : "s")
+            + " left and " + coverage.uncovered.length + " tournament"
+            + (coverage.uncovered.length === 1 ? "" : "s") + " still to cover ("
+            + coverage.uncovered.join(", ") + ")";
+    }
+
     // ── Legality for a specific slot ────────────────────────
     // Combines the front-row law, slot occupancy, the taken set and the
     // room's constraint rules (via MPRules, injected so this stays pure).
     // Returns { eligible, reason, penalty, effective }.
-    function evaluate(player, slotId, squad, taken, activeConstraints, ruleCtx, isPickLegal) {
+    function evaluate(player, slotId, squad, taken, activeConstraints, ruleCtx, isPickLegal, coverage) {
         const slot = slotById(slotId);
         if (!slot) return { eligible: false, reason: "Unknown slot", penalty: null, effective: null };
         if (squad && squad[slotId]) return { eligible: false, reason: "Slot already filled", penalty: null, effective: null };
@@ -240,6 +289,12 @@
             if (!verdict.eligible) {
                 return { eligible: false, reason: verdict.reason, penalty: null, effective: null };
             }
+        }
+
+        // Requirement rules need lookahead, not just a limit check.
+        const strand = wouldStrand(player, coverage);
+        if (strand) {
+            return { eligible: false, reason: strand, penalty: null, effective: null };
         }
 
         const pen = oopPenalty(player, slot.node);
@@ -286,9 +341,69 @@
     // available player for a slot still needed. Honours the front-row
     // guarantee: if the remaining empty slots include front-row ones and
     // supply is tightening, fill those first.
+    // Is there any legal pick at all for this squad? Used to detect a
+    // deadlock before it strands someone.
+    function anyLegalPick(pool, squad, taken, activeConstraints, ruleCtx, isPickLegal) {
+        const empties = emptySlots(squad);
+        const coverage = coverageContext(pool, squad, activeConstraints);
+        for (let s = 0; s < empties.length; s++) {
+            for (let i = 0; i < pool.length; i++) {
+                const v = evaluate(pool[i], empties[s], squad, taken, activeConstraints, ruleCtx, isPickLegal, coverage);
+                if (v.eligible) return true;
+            }
+        }
+        return false;
+    }
+
+    // The relaxation ladder, used when a squad cannot legally be completed.
+    // The constraint rules are optional extras, so they give way first. The
+    // front-row law never gives way, because a centre cannot pack down at
+    // loosehead. If even that is impossible, the squad plays a man short.
+    // Returns { level, constraints } where level is:
+    //   0 all rules apply, 1 rules relaxed, 2 nothing can be picked
+    function relaxFor(pool, squad, taken, activeConstraints, ruleCtx, isPickLegal) {
+        if (anyLegalPick(pool, squad, taken, activeConstraints, ruleCtx, isPickLegal)) {
+            return { level: 0, constraints: activeConstraints, dropped: [] };
+        }
+
+        // Relax as little as possible. Dropping every rule when only one is
+        // blocking manufactures illegal squads that were avoidable, and an
+        // illegal squad cannot win, so the cost of over-relaxing is high.
+        const rules = activeConstraints || [];
+        for (let i = 0; i < rules.length; i++) {
+            const subset = rules.filter(function (r, j) { return j !== i; });
+            if (anyLegalPick(pool, squad, taken, subset, ruleCtx, isPickLegal)) {
+                return { level: 1, constraints: subset, dropped: [rules[i].id] };
+            }
+        }
+
+        // Then pairs, before giving up on the rules entirely.
+        for (let i = 0; i < rules.length; i++) {
+            for (let j = i + 1; j < rules.length; j++) {
+                const subset = rules.filter(function (r, k) { return k !== i && k !== j; });
+                if (anyLegalPick(pool, squad, taken, subset, ruleCtx, isPickLegal)) {
+                    return { level: 1, constraints: subset, dropped: [rules[i].id, rules[j].id] };
+                }
+            }
+        }
+
+        if (rules.length && anyLegalPick(pool, squad, taken, [], ruleCtx, isPickLegal)) {
+            return { level: 1, constraints: [], dropped: rules.map(function (r) { return r.id; }) };
+        }
+        return { level: 2, constraints: [], dropped: rules.map(function (r) { return r.id; }) };
+    }
+
     function autoPick(pool, squad, taken, starred, activeConstraints, ruleCtx, isPickLegal) {
         const empties = emptySlots(squad);
         if (!empties.length) return null;
+
+        // If nothing is legal under the current rules, step down the ladder
+        // rather than stranding the squad.
+        const relax = relaxFor(pool, squad, taken, activeConstraints, ruleCtx, isPickLegal);
+        if (relax.level === 2) return { stuck: true };
+        activeConstraints = relax.constraints;
+        const relaxed = relax.level > 0;
+        const coverage = coverageContext(pool, squad, activeConstraints);
 
         // Front-row slots first when they are still outstanding, so a user
         // cannot be left with unfillable front-row slots.
@@ -303,8 +418,8 @@
             for (let s = 0; s < frontFirst.length; s++) {
                 for (let k = 0; k < starred.length; k++) {
                     const cand = starred[k];
-                    const v = evaluate(cand, frontFirst[s], squad, taken, activeConstraints, ruleCtx, isPickLegal);
-                    if (v.eligible) return { player: cand, slotId: frontFirst[s], from: "queue" };
+                    const v = evaluate(cand, frontFirst[s], squad, taken, activeConstraints, ruleCtx, isPickLegal, coverage);
+                    if (v.eligible) return { player: cand, slotId: frontFirst[s], from: "queue", relaxed: relaxed };
                 }
             }
         }
@@ -315,11 +430,16 @@
             let best = null;
             for (let i = 0; i < pool.length; i++) {
                 const p = pool[i];
-                const v = evaluate(p, slotId, squad, taken, activeConstraints, ruleCtx, isPickLegal);
+                const v = evaluate(p, slotId, squad, taken, activeConstraints, ruleCtx, isPickLegal, coverage);
                 if (!v.eligible) continue;
-                if (!best || v.effective > best.effective) best = { player: p, effective: v.effective };
+                // When the coverage rule is in play, prefer players who
+                // cover a tournament not yet held, so the auto-picker does
+                // not spend its slack early and strand itself.
+                const covers = (coverage && p.year && !coverage.have[p.year]) ? 1 : 0;
+                const score = v.effective + (coverage ? covers * 1000 : 0);
+                if (!best || score > best.score) best = { player: p, effective: v.effective, score: score };
             }
-            if (best) return { player: best.player, slotId: slotId, from: "best-available" };
+            if (best) return { player: best.player, slotId: slotId, from: "best-available", relaxed: relaxed };
         }
         return null;
     }
@@ -329,6 +449,7 @@
         slotById, nodeToSlotId, playerGroups,
         isForbidden, oopPenalty, effectiveRating, placementNote, naturalSlots,
         emptySquad, filledSlots, emptySlots, squadPlayers, isComplete, frontRowStillNeeded,
-        playerKey, personKey, evaluate, candidatesForSlot, autoPick
+        playerKey, personKey, evaluate, candidatesForSlot, autoPick,
+        anyLegalPick, relaxFor, coverageContext, wouldStrand
     };
 });

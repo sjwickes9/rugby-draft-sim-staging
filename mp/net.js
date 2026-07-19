@@ -404,7 +404,9 @@ window.MPNet = (function () {
             updates["rooms/" + code + "/comp/fixtures"] = comp.fixtures;
             updates["rooms/" + code + "/comp/results"] = comp.results;
             updates["rooms/" + code + "/comp/standings"] = comp.standings;
-            updates["rooms/" + code + "/comp/winner"] = comp.winner;
+            updates["rooms/" + code + "/comp/winner"] = comp.winner || null;
+            updates["rooms/" + code + "/comp/illegal"] = comp.illegal || null;
+            updates["rooms/" + code + "/comp/breaches"] = comp.breaches || null;
             updates["rooms/" + code + "/comp/playedAt"] = firebase.database.ServerValue.TIMESTAMP;
             updates["rooms/" + code + "/tally"] = tally;
             return db.ref().update(updates).catch(function (err) {

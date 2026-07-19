@@ -24,7 +24,7 @@
     <!-- ══ LOBBY VIEW ══ -->
     <div id="lobbyView">
 
-        <p class="version" id="version">v1.2607190805</p>
+        <p class="version" id="version">v1.2607190840</p>
 
         <div id="notice" class="notice hidden">
             <span id="noticeText"></span>
@@ -159,6 +159,8 @@
             <button id="tabPicks" aria-pressed="false">Picks</button>
         </div>
 
+        <div id="stuckNote" class="stuck-note hidden"></div>
+
         <div id="pickBanner" class="pick-banner hidden">
             <span>Picking <strong id="bannerSlot"></strong></span>
             <button id="bannerCancel">Cancel</button>
@@ -230,6 +232,7 @@
                     <div class="cstat"><div class="cval" id="cFwd">0</div><div class="clbl">Forwards</div></div>
                     <div class="cstat"><div class="cval" id="cBck">0</div><div class="clbl">Backs</div></div>
                 </div>
+                <div id="penaltyNote" class="penalty-note hidden"></div>
                 <div class="strategy-ends"><span>Forwards</span><span>Balanced</span><span>Backs</span></div>
                 <input type="range" id="strategy" min="0" max="100" step="1" value="50" aria-label="Forwards to backs weighting">
                 <p class="list-hint" id="strategyHint"></p>
