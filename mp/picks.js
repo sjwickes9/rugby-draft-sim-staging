@@ -393,55 +393,105 @@
         return { level: 2, constraints: [], dropped: rules.map(function (r) { return r.id; }) };
     }
 
+    // ── Auto-pick (spec 8) ──────────────────────────────────
+    // Used when a turn expires. It is deliberately simpler than a human
+    // pick: it takes the best available player for a position they
+    // actually play, and never weighs anything subtler. Judgement, and
+    // later chemistry, is what you get for turning up and picking yourself.
+    //
+    // Order of preference:
+    //   1. The Big Board, in the user's own priority order, taking the
+    //      first player who has an empty slot they play naturally.
+    //   2. The highest rated player in the pool with a natural empty slot.
+    //   3. Only if neither exists, an out-of-position placement, because a
+    //      penalised XV beats a stalled draft.
+    // Every step must satisfy the active rules, and the front-row law.
     function autoPick(pool, squad, taken, starred, activeConstraints, ruleCtx, isPickLegal) {
         const empties = emptySlots(squad);
         if (!empties.length) return null;
 
-        // If nothing is legal under the current rules, step down the ladder
-        // rather than stranding the squad.
         const relax = relaxFor(pool, squad, taken, activeConstraints, ruleCtx, isPickLegal);
         if (relax.level === 2) return { stuck: true };
         activeConstraints = relax.constraints;
         const relaxed = relax.level > 0;
         const coverage = coverageContext(pool, squad, activeConstraints);
 
-        // Front-row slots first when they are still outstanding, so a user
-        // cannot be left with unfillable front-row slots.
-        const frontFirst = empties.slice().sort(function (a, b) {
-            const fa = NODE_GROUP[slotById(a).node] === "front-row" ? 0 : 1;
-            const fb = NODE_GROUP[slotById(b).node] === "front-row" ? 0 : 1;
-            return fa - fb;
-        });
-
-        // 1. Starred queue.
-        if (starred && starred.length) {
-            for (let s = 0; s < frontFirst.length; s++) {
-                for (let k = 0; k < starred.length; k++) {
-                    const cand = starred[k];
-                    const v = evaluate(cand, frontFirst[s], squad, taken, activeConstraints, ruleCtx, isPickLegal, coverage);
-                    if (v.eligible) return { player: cand, slotId: frontFirst[s], from: "queue", relaxed: relaxed };
-                }
-            }
-        }
-
-        // 2. Highest-rated eligible player for the first slot that needs one.
-        for (let s = 0; s < frontFirst.length; s++) {
-            const slotId = frontFirst[s];
-            let best = null;
+        // Front row first when it is getting tight, otherwise a squad can
+        // be left with front-row slots and nobody legal to fill them.
+        const frontNeeded = frontRowStillNeeded(squad);
+        let frontSupply = 0;
+        if (frontNeeded) {
             for (let i = 0; i < pool.length; i++) {
                 const p = pool[i];
+                if (!taken[personKey(p)] && playerGroups(p).indexOf("front-row") !== -1) frontSupply++;
+            }
+        }
+        const frontUrgent = frontNeeded > 0 && frontSupply <= frontNeeded + 2;
+
+        const slotsToTry = empties.slice().sort(function (a, b) {
+            const fa = NODE_GROUP[slotById(a).node] === "front-row" ? 0 : 1;
+            const fb = NODE_GROUP[slotById(b).node] === "front-row" ? 0 : 1;
+            return frontUrgent ? (fa - fb) : 0;
+        });
+
+        // A natural slot is one the player actually plays: no penalty.
+        function naturalEmptyFor(player) {
+            const nat = naturalSlots(player);
+            for (let i = 0; i < slotsToTry.length; i++) {
+                if (nat.indexOf(slotsToTry[i]) === -1) continue;
+                const v = evaluate(player, slotsToTry[i], squad, taken,
+                    activeConstraints, ruleCtx, isPickLegal, coverage);
+                if (v.eligible) return slotsToTry[i];
+            }
+            return null;
+        }
+
+        // 1. The Big Board, in the user's priority order.
+        if (starred && starred.length) {
+            for (let k = 0; k < starred.length; k++) {
+                const cand = starred[k];
+                if (!cand || taken[personKey(cand)]) continue;
+                const slotId = naturalEmptyFor(cand);
+                if (slotId) return { player: cand, slotId: slotId, from: "board", relaxed: relaxed };
+            }
+        }
+
+        // 2. Best available in the pool, for a position they play.
+        let best = null;
+        for (let i = 0; i < pool.length; i++) {
+            const p = pool[i];
+            if (taken[personKey(p)]) continue;
+            const slotId = naturalEmptyFor(p);
+            if (!slotId) continue;
+            const rating = p.rating || 0;
+            // When the coverage rule is live, a player who brings a
+            // tournament you still need outranks a slightly better one.
+            const covers = (coverage && p.year && !coverage.have[p.year]) ? 1000 : 0;
+            const score = rating + covers;
+            if (!best || score > best.score) best = { player: p, slotId: slotId, score: score };
+        }
+        if (best) return { player: best.player, slotId: best.slotId, from: "best-available", relaxed: relaxed };
+
+        // 3. Nobody fits naturally, so accept a penalty rather than stall.
+        let fallback = null;
+        for (let s = 0; s < slotsToTry.length; s++) {
+            const slotId = slotsToTry[s];
+            for (let i = 0; i < pool.length; i++) {
+                const p = pool[i];
+                if (taken[personKey(p)]) continue;
                 const v = evaluate(p, slotId, squad, taken, activeConstraints, ruleCtx, isPickLegal, coverage);
                 if (!v.eligible) continue;
-                // When the coverage rule is in play, prefer players who
-                // cover a tournament not yet held, so the auto-picker does
-                // not spend its slack early and strand itself.
-                const covers = (coverage && p.year && !coverage.have[p.year]) ? 1 : 0;
-                const score = v.effective + (coverage ? covers * 1000 : 0);
-                if (!best || score > best.score) best = { player: p, effective: v.effective, score: score };
+                if (!fallback || v.effective > fallback.effective) {
+                    fallback = { player: p, slotId: slotId, effective: v.effective };
+                }
             }
-            if (best) return { player: best.player, slotId: slotId, from: "best-available", relaxed: relaxed };
+            if (fallback) break;
         }
-        return null;
+        if (fallback) {
+            return { player: fallback.player, slotId: fallback.slotId,
+                     from: "out-of-position", relaxed: relaxed };
+        }
+        return { stuck: true };
     }
 
     return {

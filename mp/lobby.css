@@ -669,3 +669,45 @@ input[type=color] {
 .ltable td.badcount { color: var(--bad); font-family: var(--display); }
 .winner-box.vacant { border-left-color: var(--bad); background: var(--panel); }
 .winner-box.vacant .winner-name { color: var(--bad); font-size: 1.5rem; }
+
+
+/* Turn countdown */
+.turn-clock {
+    font-family: var(--display); text-transform: uppercase; letter-spacing: 0.12em;
+    font-size: 0.72rem; color: var(--slate); margin: -8px 0 14px; padding-left: 15px;
+}
+.turn-clock.urgent { color: var(--amber); }
+.turn-clock.expired { color: var(--bad); }
+.pickrow.auto .pkby::after { content: " (auto)"; color: var(--slate); font-size: 0.7rem; }
+
+
+/* Dropdown */
+.dropdown {
+    background: var(--panel); color: var(--pitch); border: 1px solid var(--line);
+    border-radius: 8px; padding: 8px 11px; font: inherit; font-size: 0.86rem;
+    font-family: var(--display); letter-spacing: 0.04em;
+}
+
+/* Big Board priority list */
+.board-intro { font-size: 0.78rem; color: var(--slate); margin: 0 0 10px; }
+.bb-row {
+    display: flex; align-items: center; gap: 9px; padding: 9px 8px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+    margin-bottom: 5px; cursor: grab;
+}
+.bb-row.dragging { opacity: 0.45; border-color: var(--teal); }
+.bb-row.over { border-color: var(--teal); border-style: dashed; }
+.bb-rank { flex: 0 0 24px; font-family: var(--display); color: var(--slate); text-align: right; font-size: 0.9rem; }
+.bb-grip { flex: 0 0 auto; color: var(--slate); cursor: grab; font-size: 0.9rem; letter-spacing: -1px; }
+.bb-info { flex: 1; min-width: 0; }
+.bb-name { font-family: var(--display); text-transform: uppercase; letter-spacing: 0.03em; font-size: 0.95rem; overflow-wrap: anywhere; }
+.bb-meta { font-size: 0.71rem; color: var(--slate); }
+.bb-rate { flex: 0 0 34px; text-align: right; font-family: var(--display); font-size: 1.05rem; }
+.bb-move { display: flex; flex-direction: column; gap: 2px; flex: 0 0 auto; }
+.bb-move button {
+    background: var(--panel-2); border: 0; color: var(--pitch); border-radius: 4px;
+    width: 24px; height: 17px; line-height: 1; cursor: pointer; font-size: 0.6rem; padding: 0;
+}
+.bb-move button:disabled { opacity: 0.3; cursor: default; }
+.bb-row.taken-row { opacity: 0.45; }
+.bb-row.taken-row .bb-name { text-decoration: line-through; }

@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607190840";
+    const VERSION = "v1.2607190929";
 
     const $ = function (id) { return document.getElementById(id); };
     const YEARS = MPEngine.ALL_YEARS;
@@ -51,6 +51,7 @@
         geo: null,
         size: 2,           // human users, 1 to 8
         season: 3,         // competitions in the season, 1 to 15
+        turnMs: 86400000,  // time allowed per pick, 0 means no limit
         path: "create",    // "create" | "join"
         countryCap: null,  // null = use the engine's auto value
         rules: { maxPerTournament: false, maxPerCountry: false, onePerTournament: false }
@@ -104,6 +105,11 @@
     }
 
     // ── Create or join ──────────────────────────────────────
+    function renderTurnLimit() {
+        const sel = $("turnLimit");
+        if (sel) sel.value = String(state.turnMs);
+    }
+
     function renderPath() {
         const creating = state.path === "create";
         $("pathCreate").setAttribute("aria-pressed", String(creating));
@@ -222,6 +228,7 @@
     // ── Refresh (readout + gate) ────────────────────────────
     function refresh() {
         renderPath();
+        renderTurnLimit();
         renderMode();
         renderPlayers();
         renderYears();
@@ -264,6 +271,10 @@
         $("sizeUp").addEventListener("click", function () { step("size", 1); });
         $("seasonDown").addEventListener("click", function () { step("season", -1); });
         $("seasonUp").addEventListener("click", function () { step("season", 1); });
+        $("turnLimit").addEventListener("change", function (e) {
+            state.turnMs = parseInt(e.target.value, 10) || 0;
+            refresh();
+        });
 
         $("yMin").addEventListener("input", function (e) {
             let v = +e.target.value; if (v > state.yMax) state.yMax = v; state.yMin = v; refresh();
@@ -355,7 +366,7 @@
     function onCreate() {
         setStatus("lobbyStatus", "Creating room and snapshotting the pool...", false);
         $("create").disabled = true;
-        MPNet.createRoom(filters(), profile(), rulesForCreate(), { tableSize: state.size, aiCount: 0, seasonLength: state.season })
+        MPNet.createRoom(filters(), profile(), rulesForCreate(), { tableSize: state.size, aiCount: 0, seasonLength: state.season, turnMs: state.turnMs })
             .then(enterRoom)
             .catch(function (err) { setStatus("lobbyStatus", err.message, true); $("create").disabled = false; });
     }
@@ -628,6 +639,14 @@
             ruleCtx: ctx,
             myUid: MPNet.currentUid(),
             roomCode: currentCode,
+            turnMs: (room.settings || {}).turnMs || 0,
+            onExpire: function (slotId, poolIndex, forUid, done) {
+                const d = latestRoom && latestRoom.draft;
+                if (!d) { done(); return; }
+                MPNet.makePick(currentCode, slotId, poolIndex, d.order, d.pickIndex, forUid)
+                    .then(function () { done(); })
+                    .catch(function () { done(); });
+            },
             live: true,
             onPick: function (slotId, poolIndex, done) {
                 const d = latestRoom && latestRoom.draft;
@@ -848,6 +867,7 @@
         // The chips store "" for All nations, not the label.
         state.geo = (st.geoLabel && GEO[st.geoLabel]) ? st.geoLabel : "";
         state.rules = Object.assign({}, st.rules || {});
+        if (st.turnMs === 0 || st.turnMs) state.turnMs = st.turnMs;
         refresh();
 
         showOnly("setupView");
@@ -890,7 +910,8 @@
             countries: f.countries || null,
             yearMin: f.yearMin || null,
             yearMax: f.yearMax || null,
-            rules: rulesForCreate()
+            rules: rulesForCreate(),
+            turnMs: state.turnMs
         };
         MPNet.updateSettings(currentCode, patch)
             .then(function () { return MPNet.startDraft(currentCode); })
@@ -962,6 +983,15 @@
         const users = st.tableSize || Object.keys(room.members || {}).length || 2;
         add("Format", esc(MPDraft.formatFor(users).name)
             + "<span class='sub'>" + users + " users, snake draft, 15 rounds each</span>");
+
+        const turn = st.turnMs || 0;
+        const turnTxt = !turn ? "No limit"
+            : turn >= 86400000 ? (turn / 86400000) + " day" + (turn === 86400000 ? "" : "s")
+            : turn >= 3600000 ? (turn / 3600000) + " hour" + (turn === 3600000 ? "" : "s")
+            : (turn / 60000) + " minutes";
+        add("Turn limit", turnTxt + "<span class='sub'>"
+            + (turn ? "If a pick is not made in time, it is made automatically from that user's Big Board"
+                    : "A draft can stall if someone stops picking") + "</span>");
 
         const season = st.seasonLength || 1;
         add("Season", season + " competition" + (season === 1 ? "" : "s")

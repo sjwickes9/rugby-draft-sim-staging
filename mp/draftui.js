@@ -45,6 +45,9 @@ window.MPDraftUI = (function () {
         picksList: [],
         complete: false,
         relaxedNow: false,
+        turnMs: 0,
+        turnStartedAt: 0,
+        expiryBusy: false,
         autoMode: false,
         autoBusy: false
     };
@@ -64,6 +67,8 @@ window.MPDraftUI = (function () {
         state.myUid = opts.myUid || null;
         state.roomCode = opts.roomCode || null;
         state.live = !!opts.live;
+        state.roomTurnMs = opts.turnMs || 0;
+        state.onExpire = opts.onExpire || function () {};
         state.starred = loadStars();
         buildIndex();
         renderAxis();
@@ -100,7 +105,15 @@ window.MPDraftUI = (function () {
     }
     function saveStars() {
         try { localStorage.setItem(starKey(), JSON.stringify(state.starred)); } catch (e) {}
+        // Mirror to the room so an expired turn can be resolved from it.
+        if (state.live && state.roomCode && window.MPNet && MPNet.saveBoard) {
+            clearTimeout(saveStarsTimer);
+            saveStarsTimer = setTimeout(function () {
+                MPNet.saveBoard(state.roomCode, state.starred);
+            }, 400);
+        }
     }
+    let saveStarsTimer = null;
 
     // ── Dev auto-pick ───────────────────────────────────────
     // Only available with ?dev=1 in the URL. Drafting two full XVs by hand
@@ -154,7 +167,7 @@ window.MPDraftUI = (function () {
         if (!state.isMyTurn || state.autoBusy) return;
         state.autoBusy = true;
         setTimeout(function () {
-            const res = MPPicks.autoPick(state.pool, state.squad, state.taken, [],
+            const res = MPPicks.autoPick(state.pool, state.squad, state.taken, boardPlayers(),
                 state.constraints, state.ruleCtx, (window.MPRules && MPRules.isPickLegal));
             if (!res || res.stuck) {
                 state.autoBusy = false;
@@ -237,13 +250,19 @@ window.MPDraftUI = (function () {
         state.order = draft.order || [];
         state.members = room.members || {};
         state.pickIndex = draft.pickIndex || 0;
+        state.currentPicker = draft.currentPicker || null;
+        state.turnStartedAt = draft.turnStartedAt || draft.startedAt || 0;
+        state.turnMs = state.roomTurnMs || 0;
 
         const total = state.order.length * MPPicks.SLOTS.length;
         state.complete = state.pickIndex >= total && total > 0;
         state.isMyTurn = !state.complete && draft.currentPicker === state.myUid;
 
-        // Reset and replay.
+        // Reset and replay. Every squad is rebuilt, not just your own, so
+        // an expired turn can be taken on the absent user's behalf.
         state.squad = MPPicks.emptySquad();
+        state.squads = {};
+        state.order.forEach(function (u) { state.squads[u] = MPPicks.emptySquad(); });
         state.taken = {};
         const picks = draft.picks || {};
         state.picksList = Object.keys(picks)
@@ -257,11 +276,14 @@ window.MPDraftUI = (function () {
             state.taken[MPPicks.personKey(p)] = (pk.by === state.myUid)
                 ? "you"
                 : ((who && who.name) || "another user");
+            if (state.squads[pk.by]) state.squads[pk.by][pk.slot] = p;
             if (pk.by === state.myUid) state.squad[pk.slot] = p;
         });
 
         renderTurn(draft);
         checkStuck();
+        paintClock();
+        startClock();
         renderTeamsheet();
         // Always repaint the list, so taken players grey out the instant
         // another user picks, whichever tab is showing.
@@ -309,6 +331,85 @@ window.MPDraftUI = (function () {
             : "<strong>No player can fill your remaining slots.</strong> "
               + "The pool has run dry, so you will finish a man short. "
               + "Your rating is worked out from the players you do have.";
+    }
+
+    // ── Turn clock ──────────────────────────────────────────
+    // A draft can run for days, so a user who goes quiet must not stall
+    // the room. When the clock runs out, any watching client may take the
+    // pick on their behalf. The rules only allow it once the deadline has
+    // genuinely passed, measured on server time, so it cannot be forced
+    // early by a device with a wrong clock.
+    function msLeft() {
+        if (!state.turnMs || !state.turnStartedAt) return null;
+        return (state.turnStartedAt + state.turnMs) - MPNet.serverNow();
+    }
+
+    function formatLeft(ms) {
+        if (ms <= 0) return "time up";
+        const s = Math.floor(ms / 1000);
+        const d = Math.floor(s / 86400);
+        const h = Math.floor((s % 86400) / 3600);
+        const m = Math.floor((s % 3600) / 60);
+        const sec = s % 60;
+        if (d) return d + "d " + h + "h left";
+        if (h) return h + "h " + m + "m left";
+        if (m) return m + "m " + sec + "s left";
+        return sec + "s left";
+    }
+
+    let clockTimer = null;
+    function startClock() {
+        if (clockTimer) return;
+        clockTimer = setInterval(function () {
+            if (!state.live || state.complete) return;
+            paintClock();
+            checkExpiry();
+        }, 1000);
+    }
+
+    function paintClock() {
+        const el = $("turnClock");
+        if (!el) return;
+        const left = msLeft();
+        if (left === null) { el.textContent = ""; return; }
+        el.textContent = formatLeft(left);
+        el.classList.toggle("urgent", left > 0 && left < 60000);
+        el.classList.toggle("expired", left <= 0);
+    }
+
+    // Any client may resolve an expired turn. The server rules enforce pick
+    // uniqueness, so if several try at once only one succeeds.
+    function checkExpiry() {
+        if (state.expiryBusy || !state.live || state.complete) return;
+        const left = msLeft();
+        if (left === null || left > 0) return;
+
+        const who = state.currentPicker;
+        if (!who) return;
+        const theirSquad = state.squads && state.squads[who];
+        if (!theirSquad) return;
+
+        state.expiryBusy = true;
+
+        const finish = function (board) {
+            const res = MPPicks.autoPick(state.pool, theirSquad, state.taken, board,
+                state.constraints, state.ruleCtx, (window.MPRules && MPRules.isPickLegal));
+            if (!res || res.stuck) { state.expiryBusy = false; return; }
+            let idx = -1;
+            for (let i = 0; i < state.pool.length; i++) {
+                if (state.pool[i] === res.player) { idx = i; break; }
+            }
+            if (idx === -1) { state.expiryBusy = false; return; }
+            state.onExpire(res.slotId, idx, who, function () { state.expiryBusy = false; });
+        };
+
+        if (who === state.myUid) { finish(boardPlayers()); return; }
+
+        // Their board is readable now that their clock has expired.
+        MPNet.readBoard(state.roomCode, who).then(function (keys) {
+            const board = (keys || []).map(findPlayerByKey).filter(Boolean);
+            finish(board);
+        }).catch(function () { finish([]); });
     }
 
     function renderTurn(draft) {
@@ -444,7 +545,7 @@ window.MPDraftUI = (function () {
             const slot = MPPicks.slotById(pk.slot);
             const round = Math.floor(row.idx / n) + 1;
             const pen = slot ? MPPicks.oopPenalty(p, slot.node) : 0;
-            return "<div class='pickrow" + (mine ? " mine" : "") + "' style='--pk:"
+            return "<div class='pickrow" + (mine ? " mine" : "") + (pk.auto ? " auto" : "") + "' style='--pk:"
                 + safeKit(who.kit || "#6E8CA6") + "'>"
                 + "<span class='pknum'>" + (row.idx + 1) + "</span>"
                 + "<span class='pkinfo'>"
@@ -724,57 +825,89 @@ window.MPDraftUI = (function () {
         return "<div class='nation-body'>" + parts.join("") + "</div>";
     }
 
+    // The Big Board is a priority list, not a filter. Its order decides
+    // what auto-pick reaches for first when a turn expires, so it is shown
+    // in that order and can be rearranged by dragging or with the arrows.
     function renderBoard(slot, q) {
-        const entries = [];
-        Object.keys(groupedPlayers).forEach(function (k) {
-            const versions = groupedPlayers[k].filter(function (v) {
-                return state.starred.indexOf(MPPicks.playerKey(v)) !== -1;
-            });
-            if (!versions.length) return;
-            const e = {
-                key: k, name: versions[0].name, country: versions[0].country,
-                versions: versions, group: primaryGroup(versions[0])
-            };
-            if (matchesSearch(e, q)) entries.push(e);
+        const rows = [];
+        state.starred.forEach(function (key, i) {
+            const p = findPlayerByKey(key);
+            if (!p) return;
+            const e = { key: key, name: p.name, country: p.country, versions: [p] };
+            if (!matchesSearch(e, q)) return;
+            rows.push({ key: key, player: p, index: i });
         });
 
-        if (!entries.length) {
+        if (!state.starred.length) {
             $("panelBody").innerHTML = "<p class='panel-empty'>Your Big Board is empty. "
-                + "Open Full Draft and star players to build a shortlist, before or during the draft.</p>";
+                + "Open Full Draft and star players to build a shortlist. "
+                + "The order matters: if your turn runs out, the pick is taken from here, "
+                + "highest first, for a position they actually play.</p>";
             return;
         }
 
-        // The Big Board honours the same Group by choice as the full list.
-        // It is a short list, so headings rather than accordions.
-        const byPosition = (state.axis === "position");
-        const buckets = {};
-        const order = [];
-        entries.forEach(function (e) {
-            const k = byPosition ? e.group : e.country;
-            if (!buckets[k]) { buckets[k] = []; order.push(k); }
-            buckets[k].push(e);
-        });
-        if (byPosition) {
-            order.sort(function (a, b) {
-                const ia = GROUP_ORDER.indexOf(a), ib = GROUP_ORDER.indexOf(b);
-                return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
-            });
-        } else {
-            order.sort();
+        const html = "<p class='board-intro'>Drag to reorder, or use the arrows. "
+            + "If your turn expires, the first player here who fits an empty position "
+            + "and meets the rules is picked.</p>"
+            + rows.map(function (r) {
+                const p = r.player;
+                const takenBy = state.taken[MPPicks.personKey(p)];
+                const nat = MPPicks.naturalSlots(p).map(function (id) {
+                    return MPPicks.slotById(id).label;
+                });
+                return "<div class='bb-row" + (takenBy ? " taken-row" : "") + "'"
+                    + " draggable='" + (takenBy ? "false" : "true") + "' data-bb='" + esc(r.key) + "'>"
+                    + "<span class='bb-rank'>" + (r.index + 1) + "</span>"
+                    + "<span class='bb-grip'>&#8942;&#8942;</span>"
+                    + "<span class='bb-info'><span class='bb-name'>" + esc(p.name) + "</span>"
+                    + "<span class='bb-meta'>" + esc(p.country) + (p.year ? " " + p.year : "")
+                    + (nat.length ? " | " + esc(nat.slice(0, 2).join(", ")) : "")
+                    + (takenBy ? " | taken by " + esc(takenBy) : "") + "</span></span>"
+                    + "<span class='bb-rate'>" + (p.rating || 0) + "</span>"
+                    + "<span class='bb-move'>"
+                    + "<button data-up='" + esc(r.key) + "'" + (r.index === 0 ? " disabled" : "") + ">&#9650;</button>"
+                    + "<button data-down='" + esc(r.key) + "'" + (r.index === state.starred.length - 1 ? " disabled" : "") + ">&#9660;</button>"
+                    + "</span>"
+                    + "<button class='star on' data-star='" + esc(r.key) + "'>&#9733;</button>"
+                    + "</div>";
+            }).join("");
+        $("panelBody").innerHTML = html || "<p class='panel-empty'>Nothing matches that search.</p>";
+    }
+
+    function findPlayerByKey(key) {
+        for (let i = 0; i < state.pool.length; i++) {
+            if (MPPicks.playerKey(state.pool[i]) === key) return state.pool[i];
         }
+        return null;
+    }
 
-        const html = order.map(function (k) {
-            const label = byPosition ? (GROUP_LABEL[k] || "Other") : k;
-            const rows = buckets[k].sort(function (a, b) {
-                if (byPosition && a.country !== b.country) return a.country.localeCompare(b.country);
-                return surname(a.name).toLowerCase().localeCompare(surname(b.name).toLowerCase());
-            }).map(function (e) { return renderEntry(e, slot); }).filter(Boolean);
-            if (!rows.length) return "";
-            return "<div class='board-head'>" + esc(label) + "</div>" + rows.join("");
-        }).join("");
+    // Reordering
+    function moveStar(key, delta) {
+        const i = state.starred.indexOf(key);
+        const j = i + delta;
+        if (i === -1 || j < 0 || j >= state.starred.length) return;
+        state.starred.splice(j, 0, state.starred.splice(i, 1)[0]);
+        saveStars();
+        renderList();
+    }
 
-        $("panelBody").innerHTML = html
-            || "<p class='panel-empty'>Nobody on your Big Board can fill that slot.</p>";
+    function dropStar(fromKey, toKey) {
+        const i = state.starred.indexOf(fromKey);
+        const j = state.starred.indexOf(toKey);
+        if (i === -1 || j === -1 || i === j) return;
+        state.starred.splice(j, 0, state.starred.splice(i, 1)[0]);
+        saveStars();
+        renderList();
+    }
+
+    // The ordered list of Big Board players, for auto-pick.
+    function boardPlayers() {
+        const out = [];
+        state.starred.forEach(function (k) {
+            const p = findPlayerByKey(k);
+            if (p) out.push(p);
+        });
+        return out;
     }
 
     function renderEntry(entry, slot) {
@@ -934,6 +1067,46 @@ window.MPDraftUI = (function () {
 
         $("panelSearch").addEventListener("input", function (e) {
             state.search = e.target.value; renderList();
+        });
+
+        // Big Board reordering: arrows for reliability, drag for speed.
+        $("panelBody").addEventListener("click", function (e) {
+            const up = e.target.closest("[data-up]");
+            if (up) { moveStar(up.getAttribute("data-up"), -1); return; }
+            const down = e.target.closest("[data-down]");
+            if (down) { moveStar(down.getAttribute("data-down"), 1); return; }
+        });
+
+        let dragKey = null;
+        $("panelBody").addEventListener("dragstart", function (e) {
+            const row = e.target.closest("[data-bb]");
+            if (!row) return;
+            dragKey = row.getAttribute("data-bb");
+            row.classList.add("dragging");
+            try { e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", dragKey); } catch (x) {}
+        });
+        $("panelBody").addEventListener("dragover", function (e) {
+            const row = e.target.closest("[data-bb]");
+            if (!row || !dragKey) return;
+            e.preventDefault();
+            row.classList.add("over");
+        });
+        $("panelBody").addEventListener("dragleave", function (e) {
+            const row = e.target.closest("[data-bb]");
+            if (row) row.classList.remove("over");
+        });
+        $("panelBody").addEventListener("drop", function (e) {
+            const row = e.target.closest("[data-bb]");
+            if (!row || !dragKey) return;
+            e.preventDefault();
+            row.classList.remove("over");
+            dropStar(dragKey, row.getAttribute("data-bb"));
+            dragKey = null;
+        });
+        $("panelBody").addEventListener("dragend", function () {
+            dragKey = null;
+            const d = $("panelBody").querySelector(".dragging");
+            if (d) d.classList.remove("dragging");
         });
 
         $("panelBody").addEventListener("click", function (e) {

@@ -24,7 +24,7 @@
     <!-- ══ LOBBY VIEW ══ -->
     <div id="lobbyView">
 
-        <p class="version" id="version">v1.2607190840</p>
+        <p class="version" id="version">v1.2607190929</p>
 
         <div id="notice" class="notice hidden">
             <span id="noticeText"></span>
@@ -105,6 +105,18 @@
                     </div>
                 </div>
             </div>
+            <div class="axis-row">
+                <span class="axis-label">Turn limit</span>
+                <select id="turnLimit" class="dropdown" aria-label="Time allowed per pick">
+                    <option value="180000">3 minutes</option>
+                    <option value="1800000">30 minutes</option>
+                    <option value="3600000">1 hour</option>
+                    <option value="21600000">6 hours</option>
+                    <option value="86400000" selected>24 hours</option>
+                    <option value="0">No limit</option>
+                </select>
+            </div>
+            <p class="list-hint">If the clock runs out, the pick is made automatically from that user's Big Board, or the best available player if their board cannot supply one.</p>
             <p class="format-line" id="formatLine"></p>
         </section>
 
@@ -151,6 +163,7 @@
     <div id="draftView" class="hidden">
 
         <div id="turnBar" class="turn-bar hidden"></div>
+        <div id="turnClock" class="turn-clock"></div>
 
         <div class="draft-tabs" role="group" aria-label="Draft sections">
             <button id="tabXV" aria-pressed="true">Your XV</button>

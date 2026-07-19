@@ -51,6 +51,7 @@ window.MPNet = (function () {
         auth.onAuthStateChanged(function (user) {
             if (user) {
                 uid = user.uid;
+                try { watchClock(); } catch (e) {}
                 const rs = readyResolvers; readyResolvers = [];
                 rs.forEach(function (r) { r(uid); });
             }
@@ -70,6 +71,18 @@ window.MPNet = (function () {
     }
 
     function currentUid() { return uid; }
+
+    // Firebase publishes the difference between this device's clock and the
+    // server's. The turn deadline is enforced server-side, so the countdown
+    // must use server time or a device with a wrong clock would show the
+    // wrong answer and try to take turns that have not expired.
+    let clockSkew = 0;
+    function watchClock() {
+        db.ref(".info/serverTimeOffset").on("value", function (snap) {
+            clockSkew = snap.val() || 0;
+        });
+    }
+    function serverNow() { return Date.now() + clockSkew; }
 
     // Remember the room across a page refresh.
     const LAST_ROOM = "mp-last-room";
@@ -152,6 +165,7 @@ window.MPNet = (function () {
                         geoLabel: filters.geoLabel || "All nations",
                         countries: filters.countries || "",
                         tableSize: extra.tableSize || 4,
+                        turnMs: (extra.turnMs === 0 || extra.turnMs) ? extra.turnMs : 86400000,
                         seasonLength: extra.seasonLength || 3,
                         competition: 1,
                         aiCount: extra.aiCount || 0,
@@ -308,6 +322,7 @@ window.MPNet = (function () {
                     pickIndex: 0,
                     currentPicker: order[0],
                     startedAt: firebase.database.ServerValue.TIMESTAMP,
+                    turnStartedAt: firebase.database.ServerValue.TIMESTAMP,
                     competition: competition
                 };
                 if (freshPool && freshPool.length) {
@@ -319,12 +334,33 @@ window.MPNet = (function () {
         });
     }
 
+    // ── Big Board sync ─────────────────────────────────────
+    // The board is kept on the room so an expired turn can be resolved
+    // from it by whichever client is watching. The rules keep it private
+    // until that user's clock has actually run out.
+    function saveBoard(code, keys) {
+        return whenReady().then(function () {
+            return db.ref("rooms/" + code + "/boards/" + uid).set(keys || []);
+        }).catch(function () { /* the board is a convenience, never fatal */ });
+    }
+
+    function readBoard(code, forUid) {
+        return whenReady().then(function () {
+            return db.ref("rooms/" + code + "/boards/" + forUid).get()
+                .then(function (snap) { return snap.val() || []; })
+                .catch(function () { return []; });
+        });
+    }
+
     // ── Make a pick (spec 8) ───────────────────────────────
     // One atomic fan-out: write the pick into its slot index, advance the
     // pick index, and hand the baton to the next user. The security rules
     // enforce all three independently, so a client cannot pick out of
     // turn, pick into an occupied index, or skip the queue.
-    function makePick(code, slotId, poolIndex, order, pickIndex) {
+    // onBehalfOf lets a watching client take an expired turn for an absent
+    // user. The rules only permit it once the clock has actually run out,
+    // and the pick is always recorded against whoever's turn it was.
+    function makePick(code, slotId, poolIndex, order, pickIndex, onBehalfOf) {
         return whenReady().then(function () {
             const nextIndex = pickIndex + 1;
             const total = order.length * MPDraft.SQUAD_SIZE;
@@ -334,7 +370,11 @@ window.MPNet = (function () {
 
             const base = "rooms/" + code + "/draft/";
             const updates = {};
-            updates[base + "picks/" + pickIndex] = { by: uid, slot: slotId, i: poolIndex };
+            updates[base + "picks/" + pickIndex] = {
+                by: onBehalfOf || uid, slot: slotId, i: poolIndex,
+                auto: onBehalfOf ? true : null
+            };
+            updates[base + "turnStartedAt"] = firebase.database.ServerValue.TIMESTAMP;
             updates[base + "pickIndex"] = nextIndex;
             updates[base + "currentPicker"] = nextPicker;
             return db.ref().update(updates).catch(function (err) {
@@ -517,6 +557,9 @@ window.MPNet = (function () {
         updateSettings: updateSettings,
         startDraft: startDraft,
         makePick: makePick,
+        saveBoard: saveBoard,
+        readBoard: readBoard,
+        serverNow: serverNow,
         submitCommit: submitCommit,
         startCompetition: startCompetition,
         finishCompetition: finishCompetition,
