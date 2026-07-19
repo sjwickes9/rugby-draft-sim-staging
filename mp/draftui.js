@@ -574,6 +574,9 @@ window.MPDraftUI = (function () {
                 + "</span></span>"
                 + "<span class='pkby'>" + (mine ? "You" : esc(who.name || "User"))
                 + "<span class='pkround'>R" + round + "</span></span>"
+                + "<span class='pkrate'>" + MPPicks.effectiveRating(p, slot ? slot.node : null)
+                + (pen > 0 ? "<span class='pkpen'>-" + pen + "</span>" : "")
+                + "</span>"
                 + "</div>";
         }).join("");
     }
@@ -1083,7 +1086,15 @@ window.MPDraftUI = (function () {
     }
 
     // ── Wiring ──────────────────────────────────────────────
+    // Listeners are attached once for the life of the page. init() is run
+    // again for each new competition to rebuild the pool and squad, and
+    // without this guard every competition added another copy of every
+    // handler. Two copies toggled an accordion twice per click, so it
+    // appeared dead on the second competition and alive again on the third.
+    let wired = false;
     function wire() {
+        if (wired) return;
+        wired = true;
         $("tabXV").addEventListener("click", function () { setTab("xv"); });
         $("tabBoard").addEventListener("click", function () { setTab("board"); });
         $("tabAll").addEventListener("click", function () { setTab("all"); });

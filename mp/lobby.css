@@ -409,7 +409,7 @@ input[type=color] {
 /* Picks tab */
 .picks-body { max-height: 66vh; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; }
 .pickrow {
-    display: flex; align-items: center; gap: 10px; padding: 10px 10px 10px 8px;
+    display: flex; align-items: center; gap: 9px; padding: 10px 12px 10px 8px;
     border-left: 4px solid var(--pk, var(--slate)); background: var(--panel);
     margin-bottom: 5px; border-radius: 0 6px 6px 0;
 }
@@ -419,10 +419,17 @@ input[type=color] {
 .pickrow .pkname { font-family: var(--display); text-transform: uppercase; letter-spacing: 0.03em; font-size: 0.98rem; overflow-wrap: anywhere; }
 .pickrow .pkmeta { font-size: 0.71rem; color: var(--slate); overflow-wrap: anywhere; }
 .pickrow .pkby {
-    flex: 0 0 auto; max-width: 34%; text-align: right;
+    flex: 1 1 auto; min-width: 0; max-width: 30%; text-align: right;
     font-family: var(--display); text-transform: uppercase; letter-spacing: 0.04em;
     font-size: 0.82rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+/* The rating gets its own fixed column so a long user name can never
+   squeeze it out of the row. */
+.pickrow .pkrate {
+    flex: 0 0 38px; text-align: right; font-family: var(--display);
+    font-size: 1.05rem; line-height: 1.1;
+}
+.pickrow .pkpen { display: block; font-size: 0.62rem; color: var(--bad); letter-spacing: 0.04em; }
 .pickrow .pkround { display: block; font-size: 0.66rem; color: var(--slate); letter-spacing: 0.06em; }
 
 /* ============================================================
