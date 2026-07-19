@@ -160,7 +160,14 @@ window.MPCommit = (function () {
         if (kl) kl.classList.toggle("needed", !state.kickerSlot && !state.locked);
         const why = $("commitWhy");
         if (why) {
-            if (state.locked) why.textContent = "Locked in. Waiting for the others.";
+            if (state.locked) {
+                const uids = Object.keys(state.members || {});
+                const out = uids.filter(function (u) { return !state.commits[u]; })
+                    .map(function (u) { return (state.members[u] || {}).name || "User"; });
+                why.textContent = out.length
+                    ? "Locked in. Waiting for " + out.join(", ") + "."
+                    : "Locked in. Everyone is ready.";
+            }
             else if (!state.kickerSlot) why.textContent = "Choose your goal kicker above to continue.";
             else why.textContent = "Ready. Neither choice can be changed afterwards.";
         }

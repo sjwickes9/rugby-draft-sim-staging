@@ -711,3 +711,6 @@ input[type=color] {
 .bb-move button:disabled { opacity: 0.3; cursor: default; }
 .bb-row.taken-row { opacity: 0.45; }
 .bb-row.taken-row .bb-name { text-decoration: line-through; }
+
+.bb-no { flex: 0 0 auto; color: var(--bad); opacity: 0.6; font-size: 0.85rem; padding: 0 6px; }
+.bb-row .take { flex: 0 0 auto; }

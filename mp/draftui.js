@@ -66,10 +66,12 @@ window.MPDraftUI = (function () {
         state.onPick = opts.onPick || null;
         state.myUid = opts.myUid || null;
         state.roomCode = opts.roomCode || null;
+        state.competition = opts.competition || 1;
         state.live = !!opts.live;
         state.roomTurnMs = opts.turnMs || 0;
         state.onExpire = opts.onExpire || function () {};
         state.starred = loadStars();
+        pruneStars();
         buildIndex();
         renderAxis();
         setTab("xv");
@@ -98,7 +100,18 @@ window.MPDraftUI = (function () {
     // The Big Board is scoped to a room. A different room means a
     // different pool, so a board carried over from another room would list
     // players who are not even in this draft.
-    function starKey() { return STAR_ROOT + ":" + (state.roomCode || "none"); }
+    function starKey() {
+        return STAR_ROOT + ":" + (state.roomCode || "none") + ":c" + (state.competition || 1);
+    }
+
+    // A new competition draws from a freshly built pool, so any board entry
+    // that no longer exists in it is dropped. Otherwise the count keeps
+    // reporting players that cannot be shown or picked.
+    function pruneStars() {
+        const before = state.starred.length;
+        state.starred = state.starred.filter(function (k) { return !!findPlayerByKey(k); });
+        if (state.starred.length !== before) saveStars();
+    }
     function loadStars() {
         try { return JSON.parse(localStorage.getItem(starKey()) || "[]"); }
         catch (e) { return []; }
@@ -449,12 +462,17 @@ window.MPDraftUI = (function () {
         "fullback": "Full backs", "other": "Other"
     };
 
+    // A player belongs to the group of the position he is actually listed
+    // at first. Scanning a fixed order instead meant anyone who could cover
+    // a second position was filed under whichever group came earlier in
+    // that order, so a fullback who also played wing or fly-half never
+    // appeared under full backs at all.
     function primaryGroup(p) {
+        const first = (p.positions && p.positions[0]) || null;
+        const g = first ? MPPicks.POS_GROUP[first] : null;
+        if (g) return g;
         const gs = MPPicks.playerGroups(p);
-        for (let i = 0; i < GROUP_ORDER.length; i++) {
-            if (gs.indexOf(GROUP_ORDER[i]) !== -1) return GROUP_ORDER[i];
-        }
-        return "other";
+        return gs.length ? gs[0] : "other";
     }
 
     function buildIndex() {
@@ -614,8 +632,13 @@ window.MPDraftUI = (function () {
     // are still outstanding, with a warning if slots are running short.
     function coverRule(picked, rule, slotsLeft) {
         const cov = MPPicks.coverageContext(state.pool, state.squad, state.constraints);
+        // Only the tournaments actually in this pool, not every tournament
+        // ever played. A room filtered to 1995 to 2015 must not be told it
+        // needs a player from 1987.
         const need = {};
-        (MPEngine.ALL_YEARS || []).forEach(function (y) { need[y] = 0; });
+        const inPool = {};
+        state.pool.forEach(function (p) { if (p.year) inPool[p.year] = true; });
+        Object.keys(inPool).forEach(function (y) { need[y] = 0; });
         picked.forEach(function (p) { if (p.year) need[p.year] = (need[p.year] || 0) + 1; });
         const years = Object.keys(need).sort();
         const covered = years.filter(function (y) { return need[y] > 0; });
@@ -864,6 +887,7 @@ window.MPDraftUI = (function () {
                     + (nat.length ? " | " + esc(nat.slice(0, 2).join(", ")) : "")
                     + (takenBy ? " | taken by " + esc(takenBy) : "") + "</span></span>"
                     + "<span class='bb-rate'>" + (p.rating || 0) + "</span>"
+                    + pickBtnFor(p, slot, takenBy)
                     + "<span class='bb-move'>"
                     + "<button data-up='" + esc(r.key) + "'" + (r.index === 0 ? " disabled" : "") + ">&#9650;</button>"
                     + "<button data-down='" + esc(r.key) + "'" + (r.index === state.starred.length - 1 ? " disabled" : "") + ">&#9660;</button>"
@@ -872,6 +896,22 @@ window.MPDraftUI = (function () {
                     + "</div>";
             }).join("");
         $("panelBody").innerHTML = html || "<p class='panel-empty'>Nothing matches that search.</p>";
+    }
+
+    // The Big Board must be pickable, not just a list. When a slot is
+    // selected, each eligible player gets a pick button exactly as in the
+    // full draft.
+    function pickBtnFor(p, slot, takenBy) {
+        if (!slot || takenBy) return "";
+        if (!state.isMyTurn || !state.live) return "";
+        const v = MPPicks.evaluate(p, slot.id, state.squad, state.taken,
+            state.relaxedNow ? [] : state.constraints, state.ruleCtx,
+            (window.MPRules && MPRules.isPickLegal),
+            MPPicks.coverageContext(state.pool, state.squad, state.constraints));
+        if (!v.eligible) return "<span class='bb-no' title='" + esc(v.reason || "") + "'>&#10007;</span>";
+        const pen = v.penalty ? " -" + v.penalty : "";
+        return "<button class='take' data-take='" + esc(MPPicks.playerKey(p))
+            + "'>Pick" + (pen ? "<small>" + pen + "</small>" : "") + "</button>";
     }
 
     function findPlayerByKey(key) {

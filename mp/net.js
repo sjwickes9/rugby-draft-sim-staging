@@ -362,32 +362,50 @@ window.MPNet = (function () {
     // and the pick is always recorded against whoever's turn it was.
     function makePick(code, slotId, poolIndex, order, pickIndex, onBehalfOf) {
         return whenReady().then(function () {
-            const nextIndex = pickIndex + 1;
-            const total = order.length * MPDraft.SQUAD_SIZE;
-            const nextPicker = (nextIndex < total)
-                ? MPDraft.pickerAt(order, nextIndex)
-                : MPDraft.pickerAt(order, pickIndex);   // draft over: leave as is
+            // Read the live draft state rather than trusting the client's
+            // cached copy. A snapshot that is one pick behind targets the
+            // wrong index, which Firebase rejects as permission denied and
+            // which previously stalled the whole draft.
+            return db.ref("rooms/" + code + "/draft").get().then(function (snap) {
+                const d = snap.val();
+                if (!d) throw new Error("That draft is no longer available.");
 
-            const base = "rooms/" + code + "/draft/";
-            const updates = {};
-            updates[base + "picks/" + pickIndex] = {
-                by: onBehalfOf || uid, slot: slotId, i: poolIndex,
-                auto: onBehalfOf ? true : null
-            };
-            updates[base + "turnStartedAt"] = firebase.database.ServerValue.TIMESTAMP;
-            updates[base + "pickIndex"] = nextIndex;
-            updates[base + "currentPicker"] = nextPicker;
-            return db.ref().update(updates).catch(function (err) {
-                throw new Error("Pick rejected (" + (err.code || err.message) + "). "
-                    + "Someone may have picked first, or it is not your turn.");
+                const liveIndex = d.pickIndex || 0;
+                const livePicker = d.currentPicker;
+                const liveOrder = d.order || order;
+
+                const forUid = onBehalfOf || uid;
+                if (livePicker !== forUid) {
+                    throw new Error("That pick was already made. The draft has moved on.");
+                }
+
+                const nextIndex = liveIndex + 1;
+                const total = liveOrder.length * MPDraft.SQUAD_SIZE;
+                const nextPicker = (nextIndex < total)
+                    ? MPDraft.pickerAt(liveOrder, nextIndex)
+                    : livePicker;
+
+                const base = "rooms/" + code + "/draft/";
+                const updates = {};
+                updates[base + "picks/" + liveIndex] = {
+                    by: livePicker, slot: slotId, i: poolIndex,
+                    auto: onBehalfOf ? true : null
+                };
+                updates[base + "turnStartedAt"] = firebase.database.ServerValue.TIMESTAMP;
+                updates[base + "pickIndex"] = nextIndex;
+                updates[base + "currentPicker"] = nextPicker;
+
+                return db.ref().update(updates).catch(function (err) {
+                    if ((err.code || "").indexOf("permission") !== -1) {
+                        throw new Error("That pick could not be made. Someone may have just "
+                            + "picked, or the turn moved on. Your board is unchanged, try again.");
+                    }
+                    throw new Error("Could not make that pick (" + (err.code || err.message) + ").");
+                });
             });
         });
     }
 
-    // ── Commit (spec 18) ───────────────────────────────────
-    // One screen, two irreversible choices: your goal kicker and your
-    // forwards/backs weighting, both locked before you see your fixtures.
-    // The rules make this write-once, so it cannot be revised later.
     function submitCommit(code, kickerSlot, strategy) {
         return whenReady().then(function () {
             return db.ref("rooms/" + code + "/commit/" + uid).set({

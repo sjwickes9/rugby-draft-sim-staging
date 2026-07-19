@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607190929";
+    const VERSION = "v1.2607191300";
 
     const $ = function (id) { return document.getElementById(id); };
     const YEARS = MPEngine.ALL_YEARS;
@@ -364,6 +364,18 @@
     }
 
     function onCreate() {
+        // Rules that cannot produce a legal XV must be caught here, not
+        // discovered at pick thirteen.
+        try {
+            const f0 = filters();
+            const a0 = MPEngine.feasibility(allSquads, f0, positionFamilyMap);
+            const rf0 = MPRules.rulesFeasible(MPRules.buildContext(f0, a0), rulesForCreate(), a0);
+            if (!rf0.ok) {
+                setStatus("lobbyStatus", rf0.reasons.join(" "), true);
+                return;
+            }
+        } catch (e) {}
+
         setStatus("lobbyStatus", "Creating room and snapshotting the pool...", false);
         $("create").disabled = true;
         MPNet.createRoom(filters(), profile(), rulesForCreate(), { tableSize: state.size, aiCount: 0, seasonLength: state.season, turnMs: state.turnMs })
@@ -639,6 +651,7 @@
             ruleCtx: ctx,
             myUid: MPNet.currentUid(),
             roomCode: currentCode,
+            competition: (room.settings || {}).competition || 1,
             turnMs: (room.settings || {}).turnMs || 0,
             onExpire: function (slotId, poolIndex, forUid, done) {
                 const d = latestRoom && latestRoom.draft;
@@ -898,6 +911,11 @@
             setStatus("setupStatus", status.reasons.join(" "), true);
             return;
         }
+        const rf = MPRules.rulesFeasible(MPRules.buildContext(check, analysis), rulesForCreate(), analysis);
+        if (!rf.ok) {
+            setStatus("setupStatus", rf.reasons.join(" "), true);
+            return;
+        }
 
         $("setupConfirm").disabled = true;
         setStatus("setupStatus", "Rebuilding the pool...", false);
@@ -1096,7 +1114,9 @@
         $("speedRow").classList.toggle("hidden", played || !isHost);
         $("compStatus").textContent = playingBack
             ? "Playing..."
-            : (played ? "" : (isHost ? "" : "Waiting for the host to play the fixtures."));
+            : (played ? "" : (isHost ? "" : "Waiting for "
+                + (((room.members || {})[(room.meta || {}).hostUid] || {}).name || "the host")
+                + " to play the fixtures."));
 
         renderSeason(room, comp);
         if (playingBack) {
@@ -1274,7 +1294,9 @@
             $("nextHint").textContent = "The next draft picks in reverse order, so the bottom of the tally picks first.";
         } else {
             nb.classList.add("hidden");
-            $("nextHint").textContent = "Waiting for the host to start competition " + (now + 1) + " of " + total + ".";
+            $("nextHint").textContent = "Waiting for "
+                + (((room.members || {})[(room.meta || {}).hostUid] || {}).name || "the host")
+                + " to set up competition " + (now + 1) + " of " + total + ".";
         }
     }
 

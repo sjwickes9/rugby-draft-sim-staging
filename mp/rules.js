@@ -172,6 +172,61 @@
         return "Not available for this window.";
     }
 
+    // ── Are the chosen rules satisfiable at all? ────────────
+    // Some combinations cannot produce a legal XV no matter how well you
+    // draft. Three nations with a cap of four each is twelve players for
+    // fifteen shirts. That must be caught before a room starts, not
+    // discovered at pick thirteen.
+    function rulesFeasible(context, enabledMap, analysis) {
+        const reasons = [];
+        const active = activeConstraints(context, enabledMap || {});
+        const byId = {};
+        active.forEach(function (r) { byId[r.id] = r.value; });
+
+        const nations = (analysis && analysis.uniqueCountries) || context.countriesPresent || 0;
+        if (byId.maxPerCountry != null && nations) {
+            const capacity = nations * byId.maxPerCountry;
+            if (capacity < SQUAD_SIZE) {
+                reasons.push("Max " + byId.maxPerCountry + " per nation across "
+                    + nations + " nation" + (nations === 1 ? "" : "s")
+                    + " allows only " + capacity + " players, and an XV needs " + SQUAD_SIZE + ".");
+            } else if (capacity === SQUAD_SIZE) {
+                // Exactly fifteen means every nation must contribute exactly
+                // the cap, with no room to work around a shortage at any
+                // position. In practice that cannot be drafted legally.
+                reasons.push("Max " + byId.maxPerCountry + " per nation across " + nations
+                    + " nations allows exactly " + SQUAD_SIZE + " players, so every nation must "
+                    + "supply exactly " + byId.maxPerCountry + ". Any shortage at one position "
+                    + "makes a legal XV impossible. Widen the pool or drop this rule.");
+            }
+        }
+
+        const tourns = context.tournaments || 0;
+        if (byId.maxPerTournament != null && tourns) {
+            const capacity = tourns * byId.maxPerTournament;
+            if (capacity < SQUAD_SIZE) {
+                reasons.push("Max " + byId.maxPerTournament + " per tournament across "
+                    + tourns + " tournament" + (tourns === 1 ? "" : "s")
+                    + " allows only " + capacity + " players, and an XV needs " + SQUAD_SIZE + ".");
+            }
+        }
+
+        if (byId.onePerTournament != null && byId.onePerTournament > SQUAD_SIZE) {
+            reasons.push("One from each of " + byId.onePerTournament
+                + " tournaments cannot fit into " + SQUAD_SIZE + " slots.");
+        }
+
+        // The two caps can also fight each other.
+        if (byId.maxPerCountry != null && byId.onePerTournament != null && nations) {
+            if (nations * byId.maxPerCountry < byId.onePerTournament) {
+                reasons.push("Covering " + byId.onePerTournament + " tournaments needs more players "
+                    + "than " + byId.maxPerCountry + " per nation allows across " + nations + " nations.");
+            }
+        }
+
+        return { ok: reasons.length === 0, reasons: reasons };
+    }
+
     // ── Pick-time validation (spec section 9) ───────────────
     // Resolve the active constraints once per draft, then call isPickLegal
     // for each candidate. picks = this drafter's entries so far. Returns
@@ -193,6 +248,6 @@
     return {
         RULES,
         windowWidthCap, countryFloor, effectiveCountryCap,
-        buildContext, evaluateRules, activeConstraints, isPickLegal
+        buildContext, evaluateRules, activeConstraints, isPickLegal, rulesFeasible
     };
 });
