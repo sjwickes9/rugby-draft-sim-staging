@@ -115,6 +115,13 @@
             ".read": "auth != null && ($uid === auth.uid || (root.child('rooms/' + $code + '/draft/currentPicker').val() === $uid && (root.child('rooms/' + $code + '/settings/turnMs').val() > 0 && now > root.child('rooms/' + $code + '/draft/turnStartedAt').val() + root.child('rooms/' + $code + '/settings/turnMs').val())))",
             ".write": "auth != null && $uid === auth.uid"
           }
+        },
+        "ready": {
+          ".write": "auth != null && root.child('rooms/' + $code + '/meta/hostUid').val() === auth.uid",
+          "$uid": {
+            ".write": "auth != null && $uid === auth.uid",
+            ".validate": "newData.isBoolean()"
+          }
         }
       }
     }
