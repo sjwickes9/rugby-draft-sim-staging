@@ -5,9 +5,17 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607191345";
+    const VERSION = "v1.2607191628";
 
     const $ = function (id) { return document.getElementById(id); };
+
+    // Attach a listener without letting one missing element abandon all the
+    // listeners that follow it.
+    function on(id, evt, fn) {
+        const el = $(id);
+        if (!el) { console.warn("Missing element: " + id); return; }
+        el.addEventListener(evt, fn);
+    }
     const YEARS = MPEngine.ALL_YEARS;
     const GEO = MPEngine.GEO_GROUPS;
 
@@ -289,65 +297,65 @@
     function step(field, delta) { state[field] += delta; refresh(); }
 
     function wire() {
-        $("themeToggle").addEventListener("click", toggleTheme);
-        $("name").addEventListener("input", renderYou);
-        $("kit1").addEventListener("input", renderYou);
-        $("kit2").addEventListener("input", renderYou);
+        on("themeToggle", "click", toggleTheme);
+        on("name", "input", renderYou);
+        on("kit1", "input", renderYou);
+        on("kit2", "input", renderYou);
 
-        $("pathCreate").addEventListener("click", function () { state.path = "create"; refresh(); });
-        $("pathJoin").addEventListener("click", function () { state.path = "join"; refresh(); });
-        $("modeCareer").addEventListener("click", function () { state.mode = "career"; refresh(); });
-        $("modeTournament").addEventListener("click", function () { state.mode = "tournament"; refresh(); });
+        on("pathCreate", "click", function () { state.path = "create"; refresh(); });
+        on("pathJoin", "click", function () { state.path = "join"; refresh(); });
+        on("modeCareer", "click", function () { state.mode = "career"; refresh(); });
+        on("modeTournament", "click", function () { state.mode = "tournament"; refresh(); });
 
-        $("sizeDown").addEventListener("click", function () { step("size", -1); });
-        $("sizeUp").addEventListener("click", function () { step("size", 1); });
-        $("seasonDown").addEventListener("click", function () { step("season", -1); });
-        $("seasonUp").addEventListener("click", function () { step("season", 1); });
-        $("turnOn").addEventListener("change", function () {
+        on("sizeDown", "click", function () { step("size", -1); });
+        on("sizeUp", "click", function () { step("size", 1); });
+        on("seasonDown", "click", function () { step("season", -1); });
+        on("seasonUp", "click", function () { step("season", 1); });
+        on("turnOn", "change", function () {
             if (!$("turnOn").checked) state.turnMs = 0;
             else { $("turnHours").value = $("turnHours").value || 24; readTurnFields(); }
             refresh();
         });
         ["turnHours", "turnMins"].forEach(function (id) {
-            $(id).addEventListener("change", function () { readTurnFields(); refresh(); });
-            $(id).addEventListener("blur", function () { readTurnFields(); refresh(); });
+            on(id, "change", function () { readTurnFields(); refresh(); });
+            on(id, "blur", function () { readTurnFields(); refresh(); });
         });
 
-        $("yMin").addEventListener("input", function (e) {
+        on("yMin", "input", function (e) {
             let v = +e.target.value; if (v > state.yMax) state.yMax = v; state.yMin = v; refresh();
         });
-        $("yMax").addEventListener("input", function (e) {
+        on("yMax", "input", function (e) {
             let v = +e.target.value; if (v < state.yMin) state.yMin = v; state.yMax = v; refresh();
         });
 
-        $("geoChips").addEventListener("click", function (e) {
+        on("geoChips", "click", function (e) {
             const btn = e.target.closest(".chip"); if (!btn) return;
             state.geo = btn.getAttribute("data-geo") || null; refresh();
         });
-        $("ruleList").addEventListener("click", function (e) {
+        on("ruleList", "click", function (e) {
             const b = e.target.closest("button[data-cap]"); if (!b) return;
             const f = filters();
             const ctx = MPRules.buildContext(f, MPEngine.feasibility(allSquads, f, positionFamilyMap));
             state.countryCap = currentCountryCap(ctx) + (+b.getAttribute("data-cap"));
             refresh();
         });
-        $("ruleList").addEventListener("change", function (e) {
+        on("ruleList", "change", function (e) {
             const cb = e.target.closest("input[data-rule]"); if (!cb) return;
             state.rules[cb.getAttribute("data-rule")] = cb.checked; refresh();
         });
 
-        $("create").addEventListener("click", onCreate);
-        $("joinBtn").addEventListener("click", onJoin);
-        $("leave").addEventListener("click", onLeave);
-        $("closeRoom").addEventListener("click", onCloseRoom);
-        $("noticeClose").addEventListener("click", function () { showNotice(""); });
-        $("startDraft").addEventListener("click", onStartDraft);
-        $("backToRoom").addEventListener("click", function () { showOnly("roomView"); });
-        $("resumeDraft").addEventListener("click", showDraft);
-        $("spSlow").addEventListener("click", function () { setSpeed(1.8); });
-        $("spMed").addEventListener("click", function () { setSpeed(1); });
-        $("spFast").addEventListener("click", function () { setSpeed(0.4); });
-        $("playBtn").addEventListener("click", function () {
+        on("create", "click", onCreate);
+        on("joinBtn", "click", onJoin);
+        on("leave", "click", onLeave);
+        on("closeRoom", "click", onCloseRoom);
+        on("noticeClose", "click", function () { showNotice(""); });
+        on("startDraft", "click", onStartDraft);
+        on("backToRoom", "click", function () { showOnly("roomView"); });
+        on("resumeDraft", "click", showDraft);
+        on("spSlow", "click", function () { setSpeed(1.8); });
+        on("spMed", "click", function () { setSpeed(1); });
+        on("spFast", "click", function () { setSpeed(0.4); });
+        on("playBtn", "click", function () {
             const room = latestRoom || {};
             const comp = room.comp || {};
             const isHost = (room.meta || {}).hostUid === MPNet.currentUid();
@@ -371,13 +379,13 @@
                     $("playBtn").disabled = false;
                 });
         });
-        $("setupConfirm").addEventListener("click", confirmSetup);
-        $("setupBack").addEventListener("click", function () {
+        on("setupConfirm", "click", confirmSetup);
+        on("setupBack", "click", function () {
             restoreOptions();
             setupShown = false;
             showOnly("roomView");
         });
-        $("preBoard").addEventListener("click", function () {
+        on("preBoard", "click", function () {
             const room = latestRoom || {};
             if (!(room.pool || []).length) {
                 setStatus("startHint", "The pool is not ready yet.", true);
@@ -387,18 +395,42 @@
             showOnly("draftView");
             MPDraftUI.setLive(false);
         });
-        $("readyBtn").addEventListener("click", function () {
+        on("readyBtn", "click", function () {
             $("readyBtn").disabled = true;
             MPNet.setReady(currentCode, true).catch(function (err) {
                 setStatus("nextHint", err.message, true);
                 $("readyBtn").disabled = false;
             });
         });
-        $("waitBoard").addEventListener("click", function () {
+        on("forceStart", "click", function () {
+            const room = latestRoom || {};
+            const mem = room.members || {};
+            const rdy = room.ready || {};
+            const out = Object.keys(mem).filter(function (u) { return !rdy[u]; });
+            modal({
+                title: "Start without them?",
+                body: names(mem, out).join(", ") + (out.length === 1 ? " has" : " have")
+                    + " not finished with the results yet. "
+                    + "<strong>The draft will begin anyway.</strong>"
+                    + "<span class='warn'>They will join the draft in progress, and any turn "
+                    + "of theirs that runs out will be auto-picked as usual.</span>",
+                ok: "Start the draft", cancel: "Keep waiting"
+            }).then(function (yes) {
+                if (!yes) return;
+                $("forceStart").disabled = true;
+                settingsConfirmed = false;
+                MPNet.startDraft(currentCode).catch(function (err) {
+                    setStatus("waitHint", err.message, true);
+                    $("forceStart").disabled = false;
+                    settingsConfirmed = true;
+                });
+            });
+        });
+        on("waitBoard", "click", function () {
             showOnly("draftView");
             MPDraftUI.setLive(false);
         });
-        $("nextComp").addEventListener("click", function () {
+        on("nextComp", "click", function () {
             modal({
                 title: "Start the next competition?",
                 body: "This returns the room to the setup screen, where you can change "
@@ -418,7 +450,7 @@
                     });
             });
         });
-        $("compBack").addEventListener("click", function () { showOnly("roomView"); });
+        on("compBack", "click", function () { showOnly("roomView"); });
     }
 
     // Rules as stored on the room, including the resolved nation cap.
@@ -661,9 +693,13 @@
                     + names(mem, waitingOn).join(", ")
                     + " to finish with the results. You can build your Big Board while you wait.";
                 $("waitList").innerHTML = readyRows(mem, rdy, MPNet.currentUid());
+                // Someone who closes the app must not hold the room up for
+                // ever, so the host can start regardless.
+                $("forceStart").classList.toggle("hidden", !amHost);
                 showOnly("waitView");
                 return;
             }
+            $("forceStart").classList.add("hidden");
             if (settingsConfirmed && !waitingOn.length && amHost) {
                 // Everyone is ready, so the draft can begin.
                 settingsConfirmed = false;
