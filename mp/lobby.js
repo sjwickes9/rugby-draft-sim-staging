@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607191628";
+    const VERSION = "v1.2607191705";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -59,7 +59,7 @@
         geo: null,
         size: 2,           // human users, 1 to 8
         season: 3,         // competitions in the season, 1 to 15
-        turnMs: 86400000,  // time allowed per pick, 0 means no limit
+        turnMs: 600000,    // time allowed per pick, 0 means no limit
         path: "create",    // "create" | "join"
         countryCap: null,  // null = use the engine's auto value
         rules: { maxPerTournament: false, maxPerCountry: false, onePerTournament: false }
@@ -313,7 +313,7 @@
         on("seasonUp", "click", function () { step("season", 1); });
         on("turnOn", "change", function () {
             if (!$("turnOn").checked) state.turnMs = 0;
-            else { $("turnHours").value = $("turnHours").value || 24; readTurnFields(); }
+            else { state.turnMs = 600000; }
             refresh();
         });
         ["turnHours", "turnMins"].forEach(function (id) {
@@ -451,6 +451,21 @@
             });
         });
         on("compBack", "click", function () { showOnly("roomView"); });
+        on("newTournament", "click", function () {
+            modal({
+                title: "Create a new tournament?",
+                body: "This season is finished. <strong>This room will be closed</strong> "
+                    + "and you will go back to the start to set up a new one."
+                    + "<span class='warn'>The results above will no longer be available.</span>",
+                ok: "Create new tournament", cancel: "Stay here"
+            }).then(function (yes) {
+                if (!yes) return;
+                const isHost = ((latestRoom || {}).meta || {}).hostUid === MPNet.currentUid();
+                const done = function () { backToLobby(); };
+                if (isHost) MPNet.closeRoom(currentCode).then(done).catch(done);
+                else MPNet.leaveRoom(currentCode).then(done).catch(done);
+            });
+        });
     }
 
     // Rules as stored on the room, including the resolved nation cap.
@@ -585,6 +600,15 @@
     let watchedComp = {};      // competition number -> already watched here
     function renderRoom(room) {
         latestRoom = room;
+        const finished = ((room.settings || {}).competition || 1) >= ((room.settings || {}).seasonLength || 1)
+            && ((room.comp || {}).results || []).length > 0;
+        const cr = $("closeRoom");
+        if (cr) cr.classList.toggle("hidden", finished);
+        const lv = $("leave");
+        if (lv) {
+            const sp = lv.querySelector("span");
+            if (sp) sp.textContent = finished ? "Create a new tournament" : "Leave room";
+        }
 
         // A new competition must reset every one-shot view flag. Doing this
         // from the room state means all clients reset, not just the host who
@@ -985,11 +1009,17 @@
         const winner = MPSim.competitionWinner(order, { fixtures: resolved }, results, illegal);
         const tally = MPSim.updateTally(room.tally, order, winner, standings, illegal);
 
-        return playBack(results, resolved).then(function () {
-            return MPNet.finishCompetition(currentCode, {
-                fixtures: resolved, results: results, standings: standings,
-                winner: winner, illegal: illegal, breaches: breachInfo
-            }, tally);
+        return MPNet.finishCompetition(currentCode, {
+            fixtures: resolved, results: results, standings: standings,
+            winner: winner, illegal: illegal, breaches: breachInfo
+        }, tally).then(function () {
+            // Everyone can start watching now. The host watches the same
+            // stored results as everyone else, rather than the room waiting
+            // on the host's playback to finish before publishing.
+            return playBack(results, resolved).then(function () {
+                watchedComp[viewCompNo] = true;
+                renderRoom(latestRoom);
+            });
         });
     }
 
@@ -1248,6 +1278,7 @@
         const hasResults = (comp.results || []).length > 0;
         const canGenerate = isHost && !hasResults;
         const canReplay = hasResults && !watchedComp[viewCompNo] && !playingBack;
+        // Once watched, there is nothing left to press.
 
         $("playBtn").classList.toggle("hidden", !(canGenerate || canReplay));
         $("playBtn").disabled = false;
@@ -1359,13 +1390,18 @@
         const nameOf = function (u) { return (members[u] || {}).name || "User"; };
         const now = st.competition || 1;
         const total = st.seasonLength || 1;
-        const played = (comp.results || []).length > 0 && !playingBack;
+        // Nothing about the outcome is shown until this user has watched it.
+        const watched = !!watchedComp[viewCompNo];
+        const played = (comp.results || []).length > 0 && !playingBack && watched;
 
         const wb = $("winnerBox");
         const tw = $("tallyWrap");
         const nb = $("nextComp");
 
         if (!played) {
+            $("seasonSummary").classList.add("hidden");
+            $("newTournament").classList.add("hidden");
+            $("compBack").classList.remove("hidden");
             wb.classList.add("hidden");
             tw.classList.add("hidden");
             nb.classList.add("hidden");
@@ -1436,6 +1472,7 @@
 
         const rb = $("readyBtn");
         const rl = $("readyList");
+        $("preBoard").classList.toggle("hidden", seasonOver);
         if (!seasonOver) {
             rb.classList.toggle("hidden", iAmReady);
             rb.disabled = false;
@@ -1447,8 +1484,19 @@
         }
 
         if (seasonOver) {
+            // The season is done: show the whole story, not the last set of
+            // fixtures, and offer the only action that still makes sense.
             nb.classList.add("hidden");
-            $("nextHint").textContent = "The season is complete. The host can close the room or start a new one.";
+            $("nextHint").textContent = "";
+            $("seasonSummary").classList.remove("hidden");
+            renderSeasonSummary(room);
+            $("fixtureList").classList.add("hidden");
+            $("tableWrap").classList.add("hidden");
+            $("seriesWrap").classList.add("hidden");
+            $("speedRow").classList.add("hidden");
+            $("playBtn").classList.add("hidden");
+            $("newTournament").classList.remove("hidden");
+            $("compBack").classList.add("hidden");
         } else if (isHost) {
             nb.classList.toggle("hidden", !iAmReady);
             nb.disabled = false;
@@ -1466,6 +1514,45 @@
                 + (((room.members || {})[(room.meta || {}).hostUid] || {}).name || "the host")
                 + " to set up competition " + (now + 1) + " of " + total + ".";
         }
+    }
+
+    // At the end of a season the last competition's fixtures are not the
+    // story: the season is. This replaces that detail with a summary of
+    // every competition played.
+    function renderSeasonSummary(room) {
+        const el = $("seasonSummary");
+        if (!el) return "";
+        const members = room.members || {};
+        const hist = room.history || {};
+        const total = (room.settings || {}).seasonLength || 1;
+        const nameOf = function (u) { return (members[u] || {}).name || "User"; };
+
+        const rows = [];
+        for (let n = 1; n <= total; n++) {
+            const h = hist[n] || (n === ((room.settings || {}).competition || 1) ? room.comp : null);
+            const w = h && h.winner;
+            rows.push("<div class='sum-row'><span class='sum-no'>" + n + "</span>"
+                + "<span class='sum-win" + (w ? "" : " sum-vacant") + "'>"
+                + (w ? esc(nameOf(w)) : "no champion") + "</span></div>");
+        }
+
+        const tally = MPSim.tallyOrder(room.tally || {});
+        const table = "<table class='ltable'><tr><th class='pos'></th><th class='team'>Team</th>"
+            + "<th>Titles</th><th>Pts</th><th>PD</th><th>Illegal</th></tr>"
+            + tally.map(function (r, i) {
+                return "<tr" + (r.uid === MPNet.currentUid() ? " class='mine'" : "") + ">"
+                    + "<td class='pos'>" + (i + 1) + "</td>"
+                    + "<td class='team'>" + esc(nameOf(r.uid)) + "</td>"
+                    + "<td class='titles'>" + r.titles + "</td>"
+                    + "<td>" + r.points + "</td>"
+                    + "<td>" + (r.pd > 0 ? "+" : "") + r.pd + "</td>"
+                    + "<td class='" + (r.illegal ? "badcount" : "") + "'>" + (r.illegal || "") + "</td></tr>";
+            }).join("") + "</table>";
+
+        el.innerHTML = "<div class='season-sum'>"
+            + "<p class='sum-head'>Every competition</p>" + rows.join("")
+            + "<p class='sum-head'>Final standings</p>" + table + "</div>";
+        return true;
     }
 
     function readyRows(members, ready, me) {

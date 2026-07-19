@@ -24,7 +24,7 @@
     <!-- ══ LOBBY VIEW ══ -->
     <div id="lobbyView">
 
-        <p class="version" id="version">v1.2607191628</p>
+        <p class="version" id="version">v1.2607191705</p>
 
         <div id="notice" class="notice hidden">
             <span id="noticeText"></span>
@@ -118,11 +118,11 @@
             <div id="turnFields" class="turn-fields">
                 <div class="turn-field">
                     <label for="turnHours">Hours</label>
-                    <input type="number" id="turnHours" min="0" max="168" step="1" value="24" inputmode="numeric">
+                    <input type="number" id="turnHours" min="0" max="168" step="1" value="0" inputmode="numeric">
                 </div>
                 <div class="turn-field">
                     <label for="turnMins">Minutes</label>
-                    <input type="number" id="turnMins" min="0" max="59" step="1" value="0" inputmode="numeric">
+                    <input type="number" id="turnMins" min="0" max="59" step="1" value="10" inputmode="numeric">
                 </div>
             </div>
             <p class="list-hint" id="turnHint"></p>
@@ -316,6 +316,8 @@
         </div>
         <div id="winnerBox" class="hidden"></div>
 
+        <div id="seasonSummary" class="hidden"></div>
+
         <div id="tallyWrap" class="hidden">
             <p class="eyebrow">Room tally <small id="tallySub"></small></p>
             <div id="tallyTable"></div>
@@ -326,6 +328,7 @@
         <p class="status" id="nextHint"></p>
         <div id="readyList" class="ready-list hidden"></div>
 
+        <button class="cta hidden" id="newTournament"><span>Create a new tournament</span></button>
         <button class="cta ghost" id="compBack"><span>Back to room</span></button>
     </div>
 

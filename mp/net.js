@@ -165,7 +165,7 @@ window.MPNet = (function () {
                         geoLabel: filters.geoLabel || "All nations",
                         countries: filters.countries || "",
                         tableSize: extra.tableSize || 4,
-                        turnMs: (extra.turnMs === 0 || extra.turnMs) ? extra.turnMs : 86400000,
+                        turnMs: (extra.turnMs === 0 || extra.turnMs) ? extra.turnMs : 600000,
                         seasonLength: extra.seasonLength || 3,
                         competition: 1,
                         aiCount: extra.aiCount || 0,

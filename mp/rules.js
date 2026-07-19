@@ -41,8 +41,13 @@
 
     // Hard floor by group size: a cap below this cannot fill fifteen
     // slots no matter how positions are juggled.
+    // The floor must leave room to manoeuvre, not merely add up to fifteen.
+    // A cap that allows exactly fifteen forces every nation to supply
+    // exactly its quota, so any shortage at one position makes a legal XV
+    // impossible. Three spare places is enough to absorb that.
+    const SUPPLY_MARGIN = 3;
     function countryFloor(countriesPresent) {
-        return Math.ceil(SQUAD_SIZE / Math.max(1, countriesPresent));
+        return Math.ceil((SQUAD_SIZE + SUPPLY_MARGIN) / Math.max(1, countriesPresent));
     }
 
     // The effective max-per-country cap. The engine takes the stricter of

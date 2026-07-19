@@ -752,3 +752,18 @@ input[type=color] {
 .ready-row .rname { flex: 1; }
 .ready-row .rstate { font-size: 0.72rem; color: var(--slate); text-transform: uppercase; letter-spacing: 0.06em; }
 .ready-row.done .rstate { color: var(--teal); }
+
+
+/* End of season summary */
+.season-sum { margin: 4px 0 18px; }
+.season-sum .sum-head {
+    font-family: var(--display); text-transform: uppercase; letter-spacing: 0.1em;
+    font-size: 0.7rem; color: var(--slate); margin: 16px 0 8px;
+}
+.sum-row {
+    display: flex; align-items: center; gap: 10px; padding: 9px 11px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px; margin-bottom: 5px;
+}
+.sum-no { flex: 0 0 26px; font-family: var(--display); color: var(--slate); font-size: 0.8rem; }
+.sum-win { flex: 1; font-family: var(--display); text-transform: uppercase; letter-spacing: 0.03em; font-size: 0.92rem; }
+.sum-vacant { color: var(--bad); }
