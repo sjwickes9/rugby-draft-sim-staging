@@ -24,7 +24,7 @@
     <!-- ══ LOBBY VIEW ══ -->
     <div id="lobbyView">
 
-        <p class="version" id="version">v1.2607191705</p>
+        <p class="version" id="version">v1.2607201028</p>
 
         <div id="notice" class="notice hidden">
             <span id="noticeText"></span>
@@ -74,6 +74,9 @@
         <div id="createPane">
 
         <div id="optionsBlock">
+
+        <button class="cta ghost" id="randomise"><span>Randomise the setup</span></button>
+
 
         <section class="block">
             <p class="eyebrow">Mode</p>
@@ -263,6 +266,7 @@
         <p class="list-hint" id="commitWhy">Choose your goal kicker above to continue.</p>
         <button class="cta" id="commitBtn" disabled><span>Lock in and kick off</span></button>
         <p class="status" id="commitStatus"></p>
+        <button class="cta ghost hidden" id="forceCommit"><span>Choose for the ones still waiting</span></button>
 
         <div id="commitWaiting" class="hidden">
             <p class="eyebrow">Waiting for</p>
@@ -284,11 +288,14 @@
 
     <!-- ══ WAITING VIEW (between competitions) ══ -->
     <div id="waitView" class="hidden">
-        <p class="eyebrow">Next competition <small id="waitSub"></small></p>
+        <p class="eyebrow" id="waitTitle">Next competition <small id="waitSub"></small></p>
         <p class="list-hint" id="waitHint"></p>
+        <div id="waitBrief" class="brief hidden"></div>
         <div id="waitList" class="ready-list"></div>
+        <p class="status" id="forceHint"></p>
+        <button class="cta hidden" id="enterDraft"><span>Enter the draft</span></button>
         <button class="cta hidden" id="forceStart"><span>Start without them</span></button>
-        <button class="cta ghost" id="waitBoard"><span>Build your Big Board</span></button>
+        <button class="cta ghost hidden" id="waitBoard"><span>Build your Big Board</span></button>
     </div>
 
     <!-- ══ FIXTURES VIEW ══ -->
@@ -329,6 +336,7 @@
         <div id="readyList" class="ready-list hidden"></div>
 
         <button class="cta hidden" id="newTournament"><span>Create a new tournament</span></button>
+        <button class="cta ghost hidden" id="goHome"><span>Return to the home page</span></button>
         <button class="cta ghost" id="compBack"><span>Back to room</span></button>
     </div>
 

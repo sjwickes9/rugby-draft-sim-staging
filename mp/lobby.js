@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607191705";
+    const VERSION = "v1.2607201028";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -148,6 +148,51 @@
         // A turn of zero would expire instantly, so keep a sane floor.
         if (ms < 60000) ms = 60000;
         state.turnMs = ms;
+    }
+
+    // Randomise the setup: a quick way to get a tournament nobody would
+    // have chosen deliberately, which is usually the interesting kind.
+    function randomiseSetup() {
+        const pick = function (arr) { return arr[Math.floor(Math.random() * arr.length)]; };
+        state.mode = pick(["tournament", "tournament", "career"]);
+
+        const geoNames = Object.keys(GEO);
+        state.geo = Math.random() < 0.4 ? "" : pick(geoNames);
+
+        if (state.mode === "tournament") {
+            const a = Math.floor(Math.random() * YEARS.length);
+            const b = Math.floor(Math.random() * YEARS.length);
+            state.yMin = Math.min(a, b);
+            state.yMax = Math.max(a, b);
+        } else {
+            state.yMin = 0;
+            state.yMax = YEARS.length - 1;
+        }
+
+        state.rules = {
+            maxPerTournament: Math.random() < 0.5,
+            maxPerCountry: Math.random() < 0.5,
+            onePerTournament: Math.random() < 0.3
+        };
+
+        // Widen until the pool can actually support the room, so randomise
+        // never lands on something that cannot be played.
+        let guard = 0;
+        while (guard++ < 40) {
+            const f = filters();
+            const a = MPEngine.feasibility(allSquads, f, positionFamilyMap);
+            const ok = MPEngine.poolStatus(a, state.size).state !== "blocked"
+                && MPRules.rulesFeasible(MPRules.buildContext(f, a), rulesForCreate(), a).ok;
+            if (ok) break;
+            if (state.yMin > 0) state.yMin--;
+            else if (state.yMax < YEARS.length - 1) state.yMax++;
+            else if (state.geo) state.geo = "";
+            else if (state.rules.onePerTournament) state.rules.onePerTournament = false;
+            else if (state.rules.maxPerCountry) state.rules.maxPerCountry = false;
+            else if (state.rules.maxPerTournament) state.rules.maxPerTournament = false;
+            else break;
+        }
+        refresh();
     }
 
     function renderPath() {
@@ -385,6 +430,7 @@
             setupShown = false;
             showOnly("roomView");
         });
+        on("randomise", "click", randomiseSetup);
         on("preBoard", "click", function () {
             const room = latestRoom || {};
             if (!(room.pool || []).length) {
@@ -402,27 +448,40 @@
                 $("readyBtn").disabled = false;
             });
         });
+        on("enterDraft", "click", function () {
+            $("enterDraft").disabled = true;
+            MPNet.enterDraft(currentCode).catch(function (err) {
+                setStatus("forceHint", err.message, true);
+                $("enterDraft").disabled = false;
+            });
+        });
+        on("goHome", "click", function () { backToLobby(); });
         on("forceStart", "click", function () {
             const room = latestRoom || {};
             const mem = room.members || {};
             const rdy = room.ready || {};
             const out = Object.keys(mem).filter(function (u) { return !rdy[u]; });
+            const timed = ((latestRoom || {}).settings || {}).turnMs > 0;
             modal({
                 title: "Start without them?",
                 body: names(mem, out).join(", ") + (out.length === 1 ? " has" : " have")
-                    + " not finished with the results yet. "
-                    + "<strong>The draft will begin anyway.</strong>"
-                    + "<span class='warn'>They will join the draft in progress, and any turn "
-                    + "of theirs that runs out will be auto-picked as usual.</span>",
+                    + " not entered the draft. <strong>The draft will begin anyway.</strong>"
+                    + "<span class='warn'>" + (timed
+                        ? "Their picks will be made automatically from their Big Board each time "
+                          + "their turn runs out."
+                        : "There is no pick timer set, so their turns will not auto-pick. "
+                          + "The draft will wait on them at every turn.")
+                    + "</span>",
                 ok: "Start the draft", cancel: "Keep waiting"
             }).then(function (yes) {
                 if (!yes) return;
                 $("forceStart").disabled = true;
-                settingsConfirmed = false;
+                out.forEach(function (u) { MPNet.enterDraft(currentCode, u); });
+                startingDraft = true;
                 MPNet.startDraft(currentCode).catch(function (err) {
-                    setStatus("waitHint", err.message, true);
+                    setStatus("forceHint", err.message, true);
                     $("forceStart").disabled = false;
-                    settingsConfirmed = true;
+                    startingDraft = false;
                 });
             });
         });
@@ -455,7 +514,8 @@
             modal({
                 title: "Create a new tournament?",
                 body: "This season is finished. <strong>This room will be closed</strong> "
-                    + "and you will go back to the start to set up a new one."
+                    + "and you will go back to the start, where you can set up a new tournament "
+                    + "or join someone else's."
                     + "<span class='warn'>The results above will no longer be available.</span>",
                 ok: "Create new tournament", cancel: "Stay here"
             }).then(function (yes) {
@@ -593,6 +653,9 @@
     let viewCompNo = 1;
     let setupShown = false;
     let settingsConfirmed = false;
+    let startingDraft = false;
+    const FORCE_GRACE_MS = 600000;   // ten minutes before the host may force
+    let forceTicker = null;
     let simSpeed = 1;          // 1.8 slow, 1 medium, 0.4 fast, as in app.js
     let playingBack = false;
     let revealed = {};         // fixture index -> true, during playback
@@ -701,44 +764,87 @@
 
         // Between competitions the room returns to lobby status so the host
         // can change the pool and rules before the next draft.
-        if (status === "lobby" && compNo > 1) {
+        // Between competitions there are two distinct states, and users
+        // must not see the new setup before it exists.
+        //   lobby     the host is still deciding: users simply wait
+        //   announced the settings are fixed: users see them and enter
+        if ((status === "lobby" || status === "announced") && compNo > 1) {
             const amHost = (room.meta || {}).hostUid === MPNet.currentUid();
-            const rdy = room.ready || {};
             const mem = room.members || {};
-            const waitingOn = Object.keys(mem).filter(function (u) { return !rdy[u]; });
+            const rdy = room.ready || {};
+            const ent = room.entered || {};
+            const announced = status === "announced";
 
-            // The host has confirmed settings but the room is not everyone's
-            // to rush: the draft waits until each user has finished with the
-            // results and said so.
-            if (settingsConfirmed && waitingOn.length) {
-                $("waitSub").textContent = "competition " + compNo
-                    + " of " + ((room.settings || {}).seasonLength || 1);
-                $("waitHint").textContent = "The pool and rules are set. Waiting for "
-                    + names(mem, waitingOn).join(", ")
-                    + " to finish with the results. You can build your Big Board while you wait.";
-                $("waitList").innerHTML = readyRows(mem, rdy, MPNet.currentUid());
-                // Someone who closes the app must not hold the room up for
-                // ever, so the host can start regardless.
-                $("forceStart").classList.toggle("hidden", !amHost);
+            if (amHost && !announced) {
+                if (!setupShown) { setupShown = true; showSetup(room); }
+                return;
+            }
+
+            if (!announced) {
+                // Nothing to show yet: no old results, no Big Board.
+                $("waitTitle").innerHTML = "Next competition";
+                $("waitSub").textContent = "";
+                $("waitHint").textContent = "Waiting for " + hostName(room)
+                    + " to set up competition " + compNo + " of "
+                    + ((room.settings || {}).seasonLength || 1) + ".";
+                $("waitBrief").classList.add("hidden");
+                $("waitBoard").classList.add("hidden");
+                $("enterDraft").classList.add("hidden");
+                $("forceStart").classList.add("hidden");
+                $("forceHint").textContent = "";
+                $("waitList").innerHTML = readyRows(mem, rdy, MPNet.currentUid(), "ready", "still with the results");
                 showOnly("waitView");
                 return;
             }
-            $("forceStart").classList.add("hidden");
-            if (settingsConfirmed && !waitingOn.length && amHost) {
-                // Everyone is ready, so the draft can begin.
-                settingsConfirmed = false;
-                MPNet.startDraft(currentCode).catch(function (err) {
-                    setStatus("setupStatus", err.message, true);
-                });
-                return;
-            }
-            if (amHost) {
-                if (!setupShown) { setupShown = true; showSetup(room); }
+
+            // Announced: show what has been set up and let people in.
+            const me2 = MPNet.currentUid();
+            const iAmIn = !!ent[me2];
+            const notIn = Object.keys(mem).filter(function (u) { return !ent[u]; });
+
+            $("waitTitle").innerHTML = "Competition " + compNo + " is ready";
+            $("waitSub").textContent = "of " + ((room.settings || {}).seasonLength || 1);
+            $("waitHint").textContent = iAmIn
+                ? "You are in. The draft begins once everyone has entered."
+                : "These are the settings for the next draft. Enter when you are ready.";
+            $("waitBrief").classList.remove("hidden");
+            $("waitBrief").innerHTML = (function () {
+                try { return buildBrief(room); } catch (e) { return ""; }
+            })();
+            $("waitBoard").classList.toggle("hidden", !iAmIn);
+            $("enterDraft").classList.toggle("hidden", iAmIn);
+            $("waitList").innerHTML = readyRows(mem, ent, me2, "in the draft", "not entered yet");
+
+            // The host may force the stragglers in, but only after a grace
+            // period, and the countdown says how long is left.
+            if (amHost && notIn.length) {
+                const since = MPNet.serverNow() - ((room.meta || {}).announcedAt || 0);
+                const left = FORCE_GRACE_MS - since;
+                if (left > 0) {
+                    $("forceStart").classList.add("hidden");
+                    $("forceHint").textContent = "You can start without "
+                        + names(mem, notIn).join(", ") + " in " + Math.ceil(left / 1000) + "s.";
+                    startForceTicker();
+                } else {
+                    $("forceStart").classList.remove("hidden");
+                    $("forceStart").disabled = false;
+                    $("forceHint").textContent = "Waiting for " + names(mem, notIn).join(", ") + ".";
+                }
             } else {
-                showOnly("roomView");
-                setStatus("startHint", "The host is setting up competition "
-                    + compNo + " of " + ((room.settings || {}).seasonLength || 1) + ".", false);
+                $("forceStart").classList.add("hidden");
+                $("forceHint").textContent = notIn.length
+                    ? "Waiting for " + names(mem, notIn).join(", ") + "." : "";
             }
+
+            // Everyone in: the host starts the draft.
+            if (amHost && !notIn.length && !startingDraft) {
+                startingDraft = true;
+                MPNet.startDraft(currentCode).catch(function (err) {
+                    startingDraft = false;
+                    setStatus("forceHint", err.message, true);
+                });
+            }
+            showOnly("waitView");
             return;
         }
         setupShown = false;
@@ -844,6 +950,28 @@
 
         if (!commitWired) {
             commitWired = true;
+            on("forceCommit", "click", function () {
+                const room = latestRoom || {};
+                const mem = room.members || {};
+                const com = room.commit || {};
+                const out = Object.keys(mem).filter(function (u) { return !com[u]; });
+                if (!out.length) return;
+                modal({
+                    title: "Choose for them?",
+                    body: names(mem, out).join(", ") + (out.length === 1 ? " has" : " have")
+                        + " not picked a goal kicker or a strategy. "
+                        + "<strong>Their best kicker and a balanced strategy will be chosen.</strong>"
+                        + "<span class='warn'>This cannot be undone, and the competition will "
+                        + "then start.</span>",
+                    ok: "Choose for them", cancel: "Keep waiting"
+                }).then(function (yes) {
+                    if (!yes) return;
+                    out.forEach(function (u) {
+                        const sq = squadFor(room, u);
+                        MPNet.forceCommit(currentCode, u, bestKickerSlot(sq), 50);
+                    });
+                });
+            });
             MPCommit.wire(function () { /* locked in; waiting list updates live */ },
                 function () { /* started; the status watcher moves everyone on */ });
         }
@@ -1097,16 +1225,13 @@
             rules: rulesForCreate(),
             turnMs: state.turnMs
         };
-        MPNet.updateSettings(currentCode, patch)
+        MPNet.announceNext(currentCode, patch)
             .then(function () {
                 restoreOptions();
                 setStatus("setupStatus", "", false);
                 $("setupConfirm").disabled = false;
                 setupShown = false;
-                settingsConfirmed = true;
-                // The draft starts from the room watcher once everyone has
-                // finished with the previous results.
-                renderRoom(latestRoom);
+                startingDraft = false;
             })
             .catch(function (err) {
                 setStatus("setupStatus", err.message, true);
@@ -1263,8 +1388,12 @@
             return m.kit || "#6E8CA6";
         };
 
+        // Scores are withheld entirely until this user has played the
+        // competition through. Publishing the results early is what lets
+        // everyone start watching at once, but it must not show the answers.
+        const watchedHere = !!watchedComp[viewCompNo];
         const results = {};
-        const source = liveResults || comp.results || [];
+        const source = liveResults || (watchedHere ? (comp.results || []) : []);
         source.forEach(function (r) {
             if (!liveRevealed || liveRevealed[r.i]) results[r.i] = r;
         });
@@ -1280,10 +1409,15 @@
         const canReplay = hasResults && !watchedComp[viewCompNo] && !playingBack;
         // Once watched, there is nothing left to press.
 
-        $("playBtn").classList.toggle("hidden", !(canGenerate || canReplay));
-        $("playBtn").disabled = false;
+        // Everyone sees the button from the start. It only becomes usable
+        // once the host has generated the results, so a user knows the
+        // tournament is coming rather than staring at an empty screen.
+        const showPlay = canGenerate || canReplay || (!hasResults && !isHost);
+        $("playBtn").classList.toggle("hidden", !showPlay || playingBack);
+        $("playBtn").disabled = !hasResults && !isHost;
         $("playBtn").querySelector("span").textContent = canGenerate
-            ? "Play the fixtures" : "Watch the tournament";
+            ? "Play the fixtures"
+            : (hasResults ? "Watch the tournament" : "Waiting for " + hostName(room));
         $("speedRow").classList.toggle("hidden", !(canGenerate || canReplay) && !playingBack);
         $("compStatus").textContent = playingBack
             ? "Playing..."
@@ -1401,6 +1535,7 @@
         if (!played) {
             $("seasonSummary").classList.add("hidden");
             $("newTournament").classList.add("hidden");
+            $("goHome").classList.add("hidden");
             $("compBack").classList.remove("hidden");
             wb.classList.add("hidden");
             tw.classList.add("hidden");
@@ -1476,8 +1611,10 @@
         if (!seasonOver) {
             rb.classList.toggle("hidden", iAmReady);
             rb.disabled = false;
-            rl.classList.toggle("hidden", !iAmReady);
-            rl.innerHTML = readyRows(members, ready, me);
+            // The list is always visible, so the host can see who is still
+            // reading before deciding whether to set the next one up.
+            rl.classList.remove("hidden");
+            rl.innerHTML = readyRows(members, ready, me, "ready", "still with the results");
         } else {
             rb.classList.add("hidden");
             rl.classList.add("hidden");
@@ -1496,6 +1633,7 @@
             $("speedRow").classList.add("hidden");
             $("playBtn").classList.add("hidden");
             $("newTournament").classList.remove("hidden");
+            $("goHome").classList.remove("hidden");
             $("compBack").classList.add("hidden");
         } else if (isHost) {
             nb.classList.toggle("hidden", !iAmReady);
@@ -1555,15 +1693,28 @@
         return true;
     }
 
-    function readyRows(members, ready, me) {
+    function readyRows(members, flags, me, doneLabel, waitLabel) {
+        doneLabel = doneLabel || "ready";
+        waitLabel = waitLabel || "still watching";
         return Object.keys(members).map(function (u) {
             const m = members[u] || {};
-            const done = !!ready[u];
+            const done = !!flags[u];
             return "<div class='ready-row " + (done ? "done" : "waiting") + "'>"
                 + "<span class='tick'>" + (done ? "\u2713" : "\u25CB") + "</span>"
                 + "<span class='rname'>" + esc(m.name || "User") + (u === me ? " (you)" : "") + "</span>"
-                + "<span class='rstate'>" + (done ? "ready" : "still watching") + "</span></div>";
+                + "<span class='rstate'>" + esc(done ? doneLabel : waitLabel) + "</span></div>";
         }).join("");
+    }
+
+    // The force countdown needs to tick even when nothing else changes.
+    function startForceTicker() {
+        if (forceTicker) return;
+        forceTicker = setInterval(function () {
+            if (!latestRoom || (latestRoom.meta || {}).status !== "announced") {
+                clearInterval(forceTicker); forceTicker = null; return;
+            }
+            renderRoom(latestRoom);
+        }, 1000);
     }
 
     function names(members, uids) {
@@ -1573,6 +1724,32 @@
     function hostName(room) {
         const h = (room.meta || {}).hostUid;
         return ((room.members || {})[h] || {}).name || "the host";
+    }
+
+    // Rebuild one user's squad from the shared pick list.
+    function squadFor(room, uid) {
+        const sq = MPPicks.emptySquad();
+        const picks = ((room.draft || {}).picks) || {};
+        const pool = room.pool || [];
+        Object.keys(picks).forEach(function (k) {
+            const pk = picks[k];
+            if (pk.by !== uid) return;
+            const p = pool[pk.i];
+            if (p) sq[pk.slot] = p;
+        });
+        return sq;
+    }
+
+    // The most reliable kicker in a squad, for when the host has to choose.
+    function bestKickerSlot(squad) {
+        let best = null, bestRate = -1;
+        MPPicks.SLOTS.forEach(function (s) {
+            const p = squad[s.id];
+            if (!p) return;
+            const rate = MPCommit.kickerRate(p);
+            if (rate > bestRate) { bestRate = rate; best = s.id; }
+        });
+        return best || "FH";
     }
 
     function renderTable(room, comp) {

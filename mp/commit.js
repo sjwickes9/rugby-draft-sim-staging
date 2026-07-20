@@ -147,6 +147,13 @@ window.MPCommit = (function () {
     }
 
     function refresh() {
+        const fc = $("forceCommit");
+        if (fc) {
+            const uids = Object.keys(state.members || {});
+            const out = uids.filter(function (u) { return !state.commits[u]; });
+            const amHost = state.hostUid === (window.MPNet && MPNet.currentUid());
+            fc.classList.toggle("hidden", !(amHost && state.locked && out.length));
+        }
         renderRatings();
         renderKickers();
         renderWaiting();

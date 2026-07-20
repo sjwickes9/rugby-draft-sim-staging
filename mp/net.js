@@ -329,8 +329,49 @@ window.MPNet = (function () {
                     updates["rooms/" + code + "/pool"] = freshPool;
                 }
                 updates["rooms/" + code + "/ready"] = null;
+                updates["rooms/" + code + "/entered"] = null;
+                updates["rooms/" + code + "/meta/announcedAt"] = null;
                 updates["rooms/" + code + "/meta/status"] = "drafting";
                 return db.ref().update(updates).then(function () { return order; });
+            });
+        });
+    }
+
+    // ── Draft entry ────────────────────────────────────────
+    // A user confirms they are in before the draft begins. The host can
+    // force an entry for anyone who has stopped responding, so one absent
+    // person cannot hold a room up indefinitely.
+    function enterDraft(code, forUid) {
+        return whenReady().then(function () {
+            return db.ref("rooms/" + code + "/entered/" + (forUid || uid)).set(true);
+        });
+    }
+
+    // Announce the next competition: settings are fixed, users are invited
+    // in, and the clock that governs forcing starts here.
+    function announceNext(code, patch) {
+        return whenReady().then(function () {
+            const updates = {};
+            Object.keys(patch || {}).forEach(function (k) {
+                updates["rooms/" + code + "/settings/" + k] = patch[k];
+            });
+            updates["rooms/" + code + "/entered"] = null;
+            updates["rooms/" + code + "/meta/announcedAt"] = firebase.database.ServerValue.TIMESTAMP;
+            updates["rooms/" + code + "/meta/status"] = "announced";
+            return db.ref().update(updates).catch(function (err) {
+                throw new Error("Could not set up the next competition ("
+                    + (err.code || err.message) + ").");
+            });
+        });
+    }
+
+    // The host may lock in a kicker and strategy for a user who has gone
+    // quiet, so the room cannot stall on the commitment screen either.
+    function forceCommit(code, forUid, kickerSlot, strategy) {
+        return whenReady().then(function () {
+            return db.ref("rooms/" + code + "/commit/" + forUid).set({
+                kickerSlot: kickerSlot, strategy: strategy, forced: true,
+                at: firebase.database.ServerValue.TIMESTAMP
             });
         });
     }
@@ -593,6 +634,9 @@ window.MPNet = (function () {
         startDraft: startDraft,
         makePick: makePick,
         setReady: setReady,
+        enterDraft: enterDraft,
+        announceNext: announceNext,
+        forceCommit: forceCommit,
         clearReady: clearReady,
         saveBoard: saveBoard,
         readBoard: readBoard,

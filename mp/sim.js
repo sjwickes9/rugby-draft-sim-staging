@@ -439,10 +439,17 @@
         return { uid: uid, played: 0, won: 0, drawn: 0, lost: 0, pf: 0, pa: 0, pd: 0, bonus: 0, points: 0 };
     }
 
+    // A league table records league matches only. Finals and playoffs are
+    // decided by the table, so counting them in it makes the finalists look
+    // as though they qualified by playing an extra game.
+    function isLeagueStage(stage) {
+        return stage !== "final" && stage !== "playoff";
+    }
+
     function buildTable(uids, results) {
         var rows = {};
         uids.forEach(function (u) { rows[u] = emptyRow(u); });
-        results.forEach(function (r) {
+        results.filter(function (r) { return isLeagueStage(r.stage); }).forEach(function (r) {
             var A = rows[r.home], B = rows[r.away];
             if (!A || !B) return;
             A.played++; B.played++;
@@ -478,6 +485,7 @@
         resolveKnockout: resolveKnockout,
         kickingCompetition: kickingCompetition,
         buildTable: buildTable,
+        isLeagueStage: isLeagueStage,
         TRY_WEIGHTS: TRY_WEIGHTS,
         buildScoreBreakdown: buildScoreBreakdown,
         seriesResult: seriesResult,
