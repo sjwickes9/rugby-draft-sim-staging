@@ -25,7 +25,7 @@
           }
         },
         "settings": {
-          ".write": "auth != null && root.child('rooms/' + $code + '/meta/hostUid').val() === auth.uid && root.child('rooms/' + $code + '/meta/status').val() === 'lobby'",
+          ".write": "auth != null && root.child('rooms/' + $code + '/meta/hostUid').val() === auth.uid && (root.child('rooms/' + $code + '/meta/status').val() === 'lobby' || root.child('rooms/' + $code + '/meta/status').val() === 'announced')",
           "competition": {
             ".write": "auth != null && root.child('rooms/' + $code + '/meta/hostUid').val() === auth.uid",
             ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 15"
@@ -38,7 +38,7 @@
           }
         },
         "pool": {
-          ".write": "auth != null && root.child('rooms/' + $code + '/meta/hostUid').val() === auth.uid && (!data.exists() || root.child('rooms/' + $code + '/meta/status').val() === 'lobby')"
+          ".write": "auth != null && root.child('rooms/' + $code + '/meta/hostUid').val() === auth.uid && (!data.exists() || root.child('rooms/' + $code + '/meta/status').val() === 'lobby' || root.child('rooms/' + $code + '/meta/status').val() === 'announced')"
         },
         "members": {
           "$uid": {
