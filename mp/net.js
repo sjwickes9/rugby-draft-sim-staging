@@ -165,6 +165,7 @@ window.MPNet = (function () {
                         geoLabel: filters.geoLabel || "All nations",
                         countries: filters.countries || "",
                         tableSize: extra.tableSize || 4,
+                        hostIdleMs: extra.hostIdleMs || 86400000,
                         turnMs: (extra.turnMs === 0 || extra.turnMs) ? extra.turnMs : 600000,
                         seasonLength: extra.seasonLength || 3,
                         competition: 1,
@@ -323,16 +324,54 @@ window.MPNet = (function () {
                     currentPicker: order[0],
                     startedAt: firebase.database.ServerValue.TIMESTAMP,
                     turnStartedAt: firebase.database.ServerValue.TIMESTAMP,
+                    turnDeadline: (function () {
+                        const t = settings.turnMs || 0;
+                        if (!t) return 0;
+                        const q = ((room.quiet || {})[order[0]]) || null;
+                        return MPDraft.deadlineFrom(serverNow(), t, q);
+                    })(),
                     competition: competition
                 };
                 if (freshPool && freshPool.length) {
                     updates["rooms/" + code + "/pool"] = freshPool;
                 }
+                updates["rooms/" + code + "/comp"] = null;
                 updates["rooms/" + code + "/ready"] = null;
                 updates["rooms/" + code + "/entered"] = null;
                 updates["rooms/" + code + "/meta/announcedAt"] = null;
                 updates["rooms/" + code + "/meta/status"] = "drafting";
                 return db.ref().update(updates).then(function () { return order; });
+            });
+        });
+    }
+
+    // ── Quiet hours ────────────────────────────────────────
+    // Personal to each user, and stored on the room because whichever
+    // client resolves an expired turn needs to know the picker's schedule.
+    function saveQuiet(code, q) {
+        return whenReady().then(function () {
+            return db.ref("rooms/" + code + "/quiet/" + uid).set(q);
+        });
+    }
+
+    // ── Host takeover ──────────────────────────────────────
+    // A host who disappears would otherwise freeze the room, since only
+    // they can play fixtures or set up the next competition.
+    function touchHost(code) {
+        return whenReady().then(function () {
+            return db.ref("rooms/" + code + "/meta/hostSeenAt")
+                .set(firebase.database.ServerValue.TIMESTAMP);
+        }).catch(function () {});
+    }
+
+    function claimHost(code) {
+        return whenReady().then(function () {
+            const updates = {};
+            updates["rooms/" + code + "/meta/hostUid"] = uid;
+            updates["rooms/" + code + "/meta/hostSeenAt"] = firebase.database.ServerValue.TIMESTAMP;
+            return db.ref().update(updates).catch(function (err) {
+                throw new Error("Could not take over as host ("
+                    + (err.code || err.message) + "). The host may have just been active.");
             });
         });
     }
@@ -450,6 +489,7 @@ window.MPNet = (function () {
                     auto: onBehalfOf ? true : null
                 };
                 updates[base + "turnStartedAt"] = firebase.database.ServerValue.TIMESTAMP;
+                updates[base + "turnDeadline"] = nextDeadline(code, nextPicker);
                 updates[base + "pickIndex"] = nextIndex;
                 updates[base + "currentPicker"] = nextPicker;
 
@@ -553,7 +593,6 @@ window.MPNet = (function () {
                     standings: (room.comp || {}).standings || null,
                     winner: (room.comp || {}).winner || null
                 };
-                updates["rooms/" + code + "/comp"] = null;
                 updates["rooms/" + code + "/commit"] = null;
                 updates["rooms/" + code + "/draft"] = null;
                 updates["rooms/" + code + "/settings/competition"] = done + 1;
@@ -567,6 +606,19 @@ window.MPNet = (function () {
                 });
             });
         });
+    }
+
+    // The next picker's deadline, allowing for their quiet hours. Computed
+    // here because a security rule cannot evaluate a personal schedule.
+    let cachedRoom = null;
+    function noteRoom(room) { cachedRoom = room; }
+
+    function nextDeadline(code, pickerUid) {
+        const room = cachedRoom || {};
+        const turnMs = ((room.settings || {}).turnMs) || 0;
+        if (!turnMs) return 0;
+        const q = ((room.quiet || {})[pickerUid]) || null;
+        return MPDraft.deadlineFrom(serverNow(), turnMs, q);
     }
 
     function tallyPoints(tally) {
@@ -633,6 +685,9 @@ window.MPNet = (function () {
         updateSettings: updateSettings,
         startDraft: startDraft,
         makePick: makePick,
+        saveQuiet: saveQuiet,
+        touchHost: touchHost,
+        claimHost: claimHost,
         setReady: setReady,
         enterDraft: enterDraft,
         announceNext: announceNext,
@@ -641,6 +696,7 @@ window.MPNet = (function () {
         saveBoard: saveBoard,
         readBoard: readBoard,
         serverNow: serverNow,
+        noteRoom: noteRoom,
         submitCommit: submitCommit,
         startCompetition: startCompetition,
         finishCompetition: finishCompetition,

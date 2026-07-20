@@ -191,7 +191,12 @@
         //  - front row: each drafter needs 3 front-row-eligible players
         // The supported number is the stricter of the two. Front row is
         // almost always the binding one in a narrow window.
-        const maxByHeadcount = Math.floor(pool.length / SQUAD_SIZE);
+        // A pool with exactly enough players deadlocks: the last user is
+        // left with whatever remains, and the front-row law means the
+        // residue may not fit the slots still empty. Testing across 410
+        // scenarios found deadlocks only at zero slack, and none once a
+        // pool had any spare at all, so every user needs a spare player.
+        const maxByHeadcount = Math.floor(pool.length / (SQUAD_SIZE + 1));
         const maxByFrontRow  = Math.floor(frontRow / FRONT_ROW_PER_SQUAD);
         const supportedPlayers = Math.min(maxByHeadcount, maxByFrontRow);
 

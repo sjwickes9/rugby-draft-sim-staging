@@ -47,6 +47,7 @@ window.MPDraftUI = (function () {
         relaxedNow: false,
         turnMs: 0,
         turnStartedAt: 0,
+        turnDeadline: 0,
         expiryBusy: false,
         autoMode: false,
         autoBusy: false
@@ -69,6 +70,7 @@ window.MPDraftUI = (function () {
         state.competition = opts.competition || 1;
         state.live = !!opts.live;
         state.roomTurnMs = opts.turnMs || 0;
+        state.quietFor = opts.quiet || {};
         state.onExpire = opts.onExpire || function () {};
         state.starred = loadStars();
         pruneStars();
@@ -265,6 +267,7 @@ window.MPDraftUI = (function () {
         state.pickIndex = draft.pickIndex || 0;
         state.currentPicker = draft.currentPicker || null;
         state.turnStartedAt = draft.turnStartedAt || draft.startedAt || 0;
+        state.turnDeadline = draft.turnDeadline || 0;
         state.turnMs = state.roomTurnMs || 0;
 
         const total = state.order.length * MPPicks.SLOTS.length;
@@ -352,8 +355,12 @@ window.MPDraftUI = (function () {
     // pick on their behalf. The rules only allow it once the deadline has
     // genuinely passed, measured on server time, so it cannot be forced
     // early by a device with a wrong clock.
+    // The deadline is stored with the turn, because it already accounts for
+    // the picker's quiet hours. Recomputing it here would ignore them.
     function msLeft() {
-        if (!state.turnMs || !state.turnStartedAt) return null;
+        if (!state.turnMs) return null;
+        if (state.turnDeadline) return state.turnDeadline - MPNet.serverNow();
+        if (!state.turnStartedAt) return null;
         return (state.turnStartedAt + state.turnMs) - MPNet.serverNow();
     }
 
@@ -385,9 +392,11 @@ window.MPDraftUI = (function () {
         if (!el) return;
         const left = msLeft();
         if (left === null) { el.textContent = ""; return; }
-        el.textContent = formatLeft(left);
-        el.classList.toggle("urgent", left > 0 && left < 60000);
-        el.classList.toggle("expired", left <= 0);
+        const q = state.quietFor && state.quietFor[state.currentPicker];
+        const asleep = q && MPDraft.inQuiet(MPNet.serverNow(), q);
+        el.textContent = asleep ? "paused overnight" : formatLeft(left);
+        el.classList.toggle("urgent", !asleep && left > 0 && left < 60000);
+        el.classList.toggle("expired", !asleep && left <= 0);
     }
 
     // Any client may resolve an expired turn. The server rules enforce pick

@@ -24,7 +24,7 @@
     <!-- ══ LOBBY VIEW ══ -->
     <div id="lobbyView">
 
-        <p class="version" id="version">v1.2607201145</p>
+        <p class="version" id="version">v1.2607202036</p>
 
         <div id="notice" class="notice hidden">
             <span id="noticeText"></span>
@@ -78,13 +78,13 @@
 
         <section class="block">
             <p class="eyebrow">Mode</p>
+            <button class="chip-btn" id="randomise">Randomise the setup</button>
             <div class="seg" role="group" aria-label="Game mode">
                 <button id="modeCareer" aria-pressed="true">Career peak
                     <span class="hint">One card per player, best rating</span></button>
                 <button id="modeTournament" aria-pressed="false">Tournament
                     <span class="hint">Every World Cup version is a pick</span></button>
             </div>
-                    <button class="chip-btn" id="randomise">Randomise the setup</button>
         </section>
 
         <section class="block" id="seatsBlock">
@@ -112,22 +112,38 @@
         </section>
 
         <section class="block" id="turnBlock">
-            <p class="eyebrow">Pick timer <small>how long each turn may take</small></p>
-            <label class="switch-row">
-                <input type="checkbox" id="turnOn" checked>
-                <span>Limit each turn</span>
-            </label>
-            <div id="turnFields" class="turn-fields">
-                <div class="turn-field">
-                    <label for="turnHours">Hours</label>
-                    <input type="number" id="turnHours" min="0" max="168" step="1" value="0" inputmode="numeric">
+            <button class="acc-head" id="turnAcc" aria-expanded="false">
+                <span class="acc-title">Timers</span>
+                <span class="acc-now" id="turnNow"></span>
+                <span class="acc-caret">&#9662;</span>
+            </button>
+            <div class="acc-body hidden" id="turnBody">
+                <p class="eyebrow">Pick timer <small>how long each turn may take</small></p>
+                <label class="switch-row">
+                    <input type="checkbox" id="turnOn" checked>
+                    <span>Limit each turn</span>
+                </label>
+                <div id="turnFields" class="turn-fields">
+                    <div class="turn-field">
+                        <label for="turnHours">Hours</label>
+                        <input type="number" id="turnHours" min="0" max="168" step="1" value="0" inputmode="numeric">
+                    </div>
+                    <div class="turn-field">
+                        <label for="turnMins">Minutes</label>
+                        <input type="number" id="turnMins" min="0" max="59" step="1" value="10" inputmode="numeric">
+                    </div>
                 </div>
-                <div class="turn-field">
-                    <label for="turnMins">Minutes</label>
-                    <input type="number" id="turnMins" min="0" max="59" step="1" value="10" inputmode="numeric">
+                <p class="list-hint" id="turnHint"></p>
+
+                <p class="eyebrow">Host inactivity <small>so a silent host cannot freeze the room</small></p>
+                <div class="turn-fields">
+                    <div class="turn-field">
+                        <label for="idleHours">Hours</label>
+                        <input type="number" id="idleHours" min="1" max="168" step="1" value="24" inputmode="numeric">
+                    </div>
                 </div>
+                <p class="list-hint">If the host does nothing for this long, anyone else in the room can take over as host.</p>
             </div>
-            <p class="list-hint" id="turnHint"></p>
         </section>
 
         <section class="block" id="yearsBlock">
@@ -356,11 +372,40 @@
         <p class="season-line" id="seasonLine"></p>
 
         <div id="roomBrief" class="brief"></div>
+
+        <section class="block" id="quietBlock">
+            <button class="acc-head" id="quietAcc" aria-expanded="false">
+                <span class="acc-title">Your quiet hours</span>
+                <span class="acc-now" id="quietNow"></span>
+                <span class="acc-caret">&#9662;</span>
+            </button>
+            <div class="acc-body hidden" id="quietBody">
+                <p class="list-hint">Your pick clock pauses during these hours, so a turn never
+                    runs out while you are asleep. This is yours alone and you can change it
+                    before each competition.</p>
+                <label class="switch-row">
+                    <input type="checkbox" id="quietOn">
+                    <span>Pause my clock overnight</span>
+                </label>
+                <div class="quiet-row">
+                    <div class="turn-field">
+                        <label for="quietStart">From</label>
+                        <input type="time" id="quietStart" value="23:00">
+                    </div>
+                    <div class="turn-field">
+                        <label for="quietEnd">Until</label>
+                        <input type="time" id="quietEnd" value="08:00">
+                    </div>
+                </div>
+                <p class="list-hint" id="quietHint"></p>
+            </div>
+        </section>
         <ul class="members" id="members"></ul>
         <div id="lotteryPanel" class="lottery hidden">
             <p class="eyebrow">Draft order</p>
             <ol class="lottery-list" id="lotteryList"></ol>
         </div>
+        <div id="hostIdle" class="stuck-note hidden"></div>
         <button class="cta ghost" id="preBoard"><span>Build your Big Board</span></button>
         <button class="cta hidden" id="startDraft"><span>Start draft</span></button>
         <button class="cta hidden" id="resumeDraft"><span>Return to draft</span></button>

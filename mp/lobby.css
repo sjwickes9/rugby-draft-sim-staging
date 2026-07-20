@@ -788,9 +788,36 @@ input[type=color] {
 
 /* Randomise, sized to match the nation chips */
 .chip-btn {
-    margin-top: 12px; width: 100%;
+    margin: 0 0 12px; width: 100%;
     background: var(--panel-2); color: var(--pitch); border: 1px solid var(--line);
     border-radius: 999px; padding: 9px 14px; cursor: pointer;
     font-family: var(--display); text-transform: uppercase; letter-spacing: 0.07em; font-size: 0.78rem;
 }
 .chip-btn:hover { border-color: var(--teal); color: var(--teal); }
+
+
+/* Options accordion */
+.acc-head {
+    width: 100%; display: flex; align-items: center; gap: 10px; padding: 4px 0;
+    background: none; border: 0; color: var(--pitch); cursor: pointer; text-align: left;
+}
+.acc-title {
+    flex: 0 0 auto; font-family: var(--display); text-transform: uppercase;
+    letter-spacing: 0.1em; font-size: 0.72rem; color: var(--slate);
+}
+.acc-now { flex: 1; font-size: 0.8rem; color: var(--pitch); }
+.acc-caret { flex: 0 0 auto; color: var(--slate); transition: transform 0.15s; }
+.acc-head[aria-expanded="true"] .acc-caret { transform: rotate(180deg); }
+.acc-body { padding-top: 12px; }
+.acc-body .eyebrow { margin-top: 16px; }
+.acc-body .eyebrow:first-child { margin-top: 0; }
+
+/* Quiet hours */
+.quiet-row { display: flex; gap: 10px; align-items: flex-end; }
+.quiet-summary { font-size: 0.82rem; color: var(--slate); }
+.quiet-summary strong { color: var(--pitch); font-family: var(--display); letter-spacing: 0.03em; }
+.quiet-warn { color: var(--amber); font-size: 0.76rem; display: block; margin-top: 6px; }
+.turn-field input[type="time"] {
+    width: 100%; background: var(--navy); color: var(--pitch); border: 1px solid var(--line);
+    border-radius: 8px; padding: 10px; font-family: var(--display); font-size: 1rem; text-align: center;
+}

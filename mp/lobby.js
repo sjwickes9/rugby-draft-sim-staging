@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607201145";
+    const VERSION = "v1.2607202036";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -60,6 +60,7 @@
         size: 2,           // human users, 1 to 8
         season: 3,         // competitions in the season, 1 to 15
         turnMs: 600000,    // time allowed per pick, 0 means no limit
+        hostIdleMs: 86400000,  // host handover after this much silence
         path: "create",    // "create" | "join"
         countryCap: null,  // null = use the engine's auto value
         rules: { maxPerTournament: false, maxPerCountry: false, onePerTournament: false }
@@ -148,7 +149,20 @@
         return parts.length ? parts.join(" ") : "0 minutes";
     }
 
+    function readIdle() {
+        const h = Math.max(1, Math.min(168, parseInt($("idleHours").value, 10) || 24));
+        state.hostIdleMs = h * 3600000;
+    }
+
+    function renderTimersSummary() {
+        const t = state.turnMs ? turnText(state.turnMs) : "no pick limit";
+        const i = Math.round((state.hostIdleMs || 86400000) / 3600000);
+        $("turnNow").textContent = t + ", host handover after " + i + "h";
+        $("idleHours").value = i;
+    }
+
     function readTurnFields() {
+        readIdle();
         if (!$("turnOn").checked) { state.turnMs = 0; return; }
         const h = Math.max(0, Math.min(168, parseInt($("turnHours").value, 10) || 0));
         const m = Math.max(0, Math.min(59, parseInt($("turnMins").value, 10) || 0));
@@ -322,6 +336,7 @@
     function refresh() {
         renderPath();
         renderTurnLimit();
+        renderTimersSummary();
         renderMode();
         renderPlayers();
         renderYears();
@@ -447,6 +462,20 @@
             // Whichever path is showing is the one Enter should take.
             if (state.path === "join") onJoin(); else onCreate();
         });
+        on("quietAcc", "click", function () {
+            const open = $("quietAcc").getAttribute("aria-expanded") === "true";
+            $("quietAcc").setAttribute("aria-expanded", String(!open));
+            $("quietBody").classList.toggle("hidden", open);
+        });
+        on("turnAcc", "click", function () {
+            const open = $("turnAcc").getAttribute("aria-expanded") === "true";
+            $("turnAcc").setAttribute("aria-expanded", String(!open));
+            $("turnBody").classList.toggle("hidden", open);
+        });
+        ["quietOn", "quietStart", "quietEnd"].forEach(function (id) {
+            on(id, "change", saveQuiet);
+        });
+        on("idleHours", "change", function () { readTurnFields(); refresh(); });
         on("randomise", "click", randomiseSetup);
         on("preBoard", "click", function () {
             const room = latestRoom || {};
@@ -579,7 +608,7 @@
 
         setStatus("lobbyStatus", "Creating room and snapshotting the pool...", false);
         $("create").disabled = true;
-        MPNet.createRoom(filters(), profile(), rulesForCreate(), { tableSize: state.size, aiCount: 0, seasonLength: state.season, turnMs: state.turnMs })
+        MPNet.createRoom(filters(), profile(), rulesForCreate(), { tableSize: state.size, aiCount: 0, seasonLength: state.season, turnMs: state.turnMs, hostIdleMs: state.hostIdleMs })
             .then(enterRoom)
             .catch(function (err) { setStatus("lobbyStatus", err.message, true); $("create").disabled = false; });
     }
@@ -592,6 +621,8 @@
             .catch(function (err) { setStatus("lobbyStatus", err.message, true); });
     }
     function onLeave() {
+        // A closed room needs no server call: just go home.
+        if (roomClosed) { roomClosed = false; roomClosedByMe = false; backToLobby(""); return; }
         if (!currentCode) { backToLobby("") ; return; }
         const code = currentCode;
         // Stop watching first, so the room disappearing underneath us
@@ -620,6 +651,7 @@
 
     function doCloseRoom() {
         if (!currentCode) return;
+        roomClosedByMe = true;
         const code = currentCode;
         if (unwatch) { unwatch(); unwatch = null; }
         currentCode = null;
@@ -639,6 +671,25 @@
                 setStatus("startHint", err.message, true);
                 $("startDraft").disabled = false;
             });
+    }
+
+    // A closed room stays readable, but every action that would need the
+    // server is retired, so nothing fails confusingly in the background.
+    function markRoomClosed() {
+        ["readyBtn", "nextComp", "playBtn", "enterDraft", "forceStart",
+         "startDraft", "preBoard", "closeRoom", "showTeams"].forEach(function (id) {
+            const el = $(id);
+            if (el && id !== "showTeams") el.classList.add("hidden");
+        });
+        const lv = $("leave");
+        if (lv) {
+            const sp = lv.querySelector("span");
+            if (sp) sp.textContent = "Back to the home page";
+            lv.classList.remove("hidden");
+        }
+        const cb = $("compBack");
+        if (cb) cb.classList.remove("hidden");
+        setStatus("nextHint", "This room has been closed by the host.", false);
     }
 
     function backToLobby(msg) {
@@ -677,6 +728,9 @@
     let viewCompNo = 1;
     let setupShown = false;
     let settingsConfirmed = false;
+    let roomClosedByMe = false;
+    let roomClosed = false;
+    let quietState = { on: false, start: "23:00", end: "08:00" };
     let startingDraft = false;
     const FORCE_GRACE_MS = 600000;   // ten minutes before the host may force
     let forceTicker = null;
@@ -686,6 +740,24 @@
     let liveFixtures = null;   // resolved fixtures while playing back
     let watchedComp = {};      // competition number -> already watched here
     function renderRoom(room) {
+        // The room has been closed, or this user removed from it. Firebase
+        // reports that as an empty snapshot. Nobody is thrown out: they may
+        // still be reading the results or looking through the squads. The
+        // room simply stops being live, and they are told why.
+        if (!room || !room.meta) {
+            if (currentCode && !roomClosed) {
+                roomClosed = true;
+                if (unwatch) { unwatch(); unwatch = null; }
+                MPNet.forgetRoom();
+                if (!roomClosedByMe) {
+                    showNotice("The host has closed this room. You can still look through "
+                        + "the results, but nothing further will happen here.");
+                }
+                markRoomClosed();
+            }
+            return;
+        }
+        roomClosed = false;
         latestRoom = room;
         const finished = ((room.settings || {}).competition || 1) >= ((room.settings || {}).seasonLength || 1)
             && ((room.comp || {}).results || []).length > 0;
@@ -748,6 +820,13 @@
 
         // Season position
         renderBrief(room);
+        renderHostIdle(room);
+        MPNet.noteRoom(room);
+        // Keep the host's heartbeat fresh so a live host is never displaced.
+        if ((room.meta || {}).hostUid === MPNet.currentUid()) {
+            const seen = (room.meta || {}).hostSeenAt || 0;
+            if (MPNet.serverNow() - seen > 60000) MPNet.touchHost(currentCode);
+        }
         $("seasonLine").textContent = "Competition " + (s.competition || 1)
             + " of " + (s.seasonLength || 1);
 
@@ -947,6 +1026,7 @@
             roomCode: currentCode,
             competition: (room.settings || {}).competition || 1,
             turnMs: (room.settings || {}).turnMs || 0,
+            quiet: room.quiet || {},
             onExpire: function (slotId, poolIndex, forUid, done) {
                 const d = latestRoom && latestRoom.draft;
                 if (!d) { done(); return; }
@@ -1203,6 +1283,7 @@
         state.geo = (st.geoLabel && GEO[st.geoLabel]) ? st.geoLabel : "";
         state.rules = Object.assign({}, st.rules || {});
         if (st.turnMs === 0 || st.turnMs) state.turnMs = st.turnMs;
+        if (st.hostIdleMs) state.hostIdleMs = st.hostIdleMs;
         refresh();
 
         showOnly("setupView");
@@ -1251,7 +1332,8 @@
             yearMin: f.yearMin || null,
             yearMax: f.yearMax || null,
             rules: rulesForCreate(),
-            turnMs: state.turnMs
+            turnMs: state.turnMs,
+            hostIdleMs: state.hostIdleMs
         };
         MPNet.announceNext(currentCode, patch)
             .then(function () {
@@ -1267,10 +1349,85 @@
             });
     }
 
+    // ── Quiet hours ─────────────────────────────────────────
+    // Personal, not a room rule. The pick clock pauses during these hours
+    // for whoever is on the clock, so nobody has to draft at 3am.
+    const QUIET_KEY = "mp-quiet-hours";
+
+    function loadQuiet() {
+        try {
+            const raw = localStorage.getItem(QUIET_KEY);
+            if (raw) return JSON.parse(raw);
+        } catch (e) {}
+        return { on: false, start: "23:00", end: "08:00" };
+    }
+
+    function currentQuiet() {
+        return {
+            on: !!$("quietOn").checked,
+            start: $("quietStart").value || "23:00",
+            end: $("quietEnd").value || "08:00",
+            // Minutes to add to UTC for this device's local time.
+            tzOffset: -new Date().getTimezoneOffset()
+        };
+    }
+
+    function renderQuiet() {
+        const q = quietState;
+        $("quietOn").checked = !!q.on;
+        $("quietStart").value = q.start || "23:00";
+        $("quietEnd").value = q.end || "08:00";
+        $("quietStart").disabled = !q.on;
+        $("quietEnd").disabled = !q.on;
+        $("quietNow").textContent = q.on ? (q.start + " to " + q.end) : "off";
+
+        const ok = MPDraft.quietValid(q);
+        const len = MPDraft.quietLength(MPDraft.hhmmToMin(q.start), MPDraft.hhmmToMin(q.end));
+        $("quietHint").innerHTML = !q.on
+            ? "Your clock runs continuously."
+            : (ok
+                ? "Your clock pauses for " + Math.round(len / 60) + " hours a night."
+                : "<span class='quiet-warn'>Too long. You must leave at least eight hours "
+                  + "a day when your clock can run, or a draft could never finish.</span>");
+        return ok;
+    }
+
+    function saveQuiet() {
+        quietState = currentQuiet();
+        const ok = renderQuiet();
+        try { localStorage.setItem(QUIET_KEY, JSON.stringify(quietState)); } catch (e) {}
+        if (ok && currentCode) MPNet.saveQuiet(currentCode, quietState).catch(function () {});
+    }
+
     // ── Room brief ──────────────────────────────────────────
     // A joiner needs the whole setup before the draft starts: the pool,
     // the constraints and the format. Anything that will limit their picks
     // belongs here, not discovered mid-draft.
+    // If the host has gone quiet for longer than the room allows, anyone
+    // else may take over, so the room cannot be frozen by one absence.
+    function renderHostIdle(room) {
+        const el = $("hostIdle");
+        if (!el) return;
+        const meta = room.meta || {};
+        const me = MPNet.currentUid();
+        const limit = (room.settings || {}).hostIdleMs || 86400000;
+        const idle = MPNet.serverNow() - (meta.hostSeenAt || meta.createdAt || 0);
+        if (meta.hostUid === me || idle < limit) { el.classList.add("hidden"); return; }
+        el.classList.remove("hidden");
+        el.innerHTML = "<strong>" + esc(hostName(room)) + " has been away for "
+            + Math.floor(idle / 3600000) + " hours.</strong>"
+            + "The room cannot move on without a host. "
+            + "<button class='chip-btn' id='takeHost'>Take over as host</button>";
+        const b = $("takeHost");
+        if (b) b.onclick = function () {
+            b.disabled = true;
+            MPNet.claimHost(currentCode).catch(function (err) {
+                setStatus("startHint", err.message, true);
+                b.disabled = false;
+            });
+        };
+    }
+
     function renderBrief(room) {
         const el = $("roomBrief");
         if (!el) return;
@@ -1907,6 +2064,8 @@
     function boot() {
         const v = $("version");
         if (v) v.textContent = VERSION;
+        quietState = loadQuiet();
+        renderQuiet();
         const saved = recallName();
         if (saved && $("name") && !$("name").value) $("name").value = saved;
         initTheme();

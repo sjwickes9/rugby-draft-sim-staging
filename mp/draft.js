@@ -102,7 +102,89 @@
         return FORMATS[userCount] || FORMATS[8];
     }
 
+    // ── Quiet hours (spec 16) ───────────────────────────────
+    // A snake draft has exactly one person on the clock at any moment, so
+    // only that person's schedule is ever evaluated and multiple time zones
+    // never have to be reconciled. The deadline counts down only during
+    // their waking window: quiet hours pause it rather than shortening it.
+    const MIN_ACTIVE_MINUTES = 8 * 60;   // quiet hours can never exceed 16h
+
+    // Minutes past local midnight, from "HH:MM".
+    function hhmmToMin(t) {
+        const bits = String(t || "").split(":");
+        const h = parseInt(bits[0], 10), m = parseInt(bits[1], 10);
+        if (isNaN(h) || isNaN(m)) return null;
+        return (h * 60) + m;
+    }
+
+    function minToHhmm(mins) {
+        const m = ((mins % 1440) + 1440) % 1440;
+        return String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0");
+    }
+
+    // How long the quiet window lasts, allowing for it crossing midnight.
+    function quietLength(startMin, endMin) {
+        return ((endMin - startMin) + 1440) % 1440;
+    }
+
+    // Reject a window that would leave less than eight active hours.
+    function quietValid(q) {
+        if (!q || !q.on) return true;
+        const s = hhmmToMin(q.start), e = hhmmToMin(q.end);
+        if (s === null || e === null) return false;
+        return (1440 - quietLength(s, e)) >= MIN_ACTIVE_MINUTES;
+    }
+
+    // Is this instant inside the person's quiet window?
+    function inQuiet(atMs, q) {
+        if (!q || !q.on) return false;
+        const s = hhmmToMin(q.start), e = hhmmToMin(q.end);
+        if (s === null || e === null) return false;
+        if (s === e) return false;
+        // tzOffset is minutes to ADD to UTC to get their local time.
+        const local = new Date(atMs + ((q.tzOffset || 0) * 60000));
+        const mins = (local.getUTCHours() * 60) + local.getUTCMinutes();
+        const len = quietLength(s, e);
+        const since = ((mins - s) + 1440) % 1440;
+        return since < len;
+    }
+
+    // When does the current quiet window end, from this instant?
+    function quietEnds(atMs, q) {
+        const e = hhmmToMin(q.end);
+        const local = new Date(atMs + ((q.tzOffset || 0) * 60000));
+        const mins = (local.getUTCHours() * 60) + local.getUTCMinutes();
+        let ahead = ((e - mins) + 1440) % 1440;
+        if (ahead === 0) ahead = 1440;
+        return atMs + (ahead * 60000);
+    }
+
+    // The deadline for a turn starting now, consuming only active time.
+    function deadlineFrom(startMs, turnMs, q) {
+        if (!turnMs) return 0;
+        if (!q || !q.on || !quietValid(q)) return startMs + turnMs;
+        let cursor = startMs;
+        let remaining = turnMs;
+        let guard = 0;
+        while (remaining > 0 && guard++ < 40) {
+            if (inQuiet(cursor, q)) { cursor = quietEnds(cursor, q); continue; }
+            // Active until the quiet window next begins.
+            const s = hhmmToMin(q.start);
+            const local = new Date(cursor + ((q.tzOffset || 0) * 60000));
+            const mins = (local.getUTCHours() * 60) + local.getUTCMinutes();
+            let untilQuiet = ((s - mins) + 1440) % 1440;
+            if (untilQuiet === 0) untilQuiet = 1440;
+            const activeMs = untilQuiet * 60000;
+            if (remaining <= activeMs) return cursor + remaining;
+            cursor += activeMs;
+            remaining -= activeMs;
+        }
+        return cursor;
+    }
+
     return {
+        MIN_ACTIVE_MINUTES, hhmmToMin, minToHhmm, quietLength,
+        quietValid, inQuiet, quietEnds, deadlineFrom,
         SQUAD_SIZE, FORMATS,
         makeRng, newSeed,
         lottery, reverseStandingsOrder,
