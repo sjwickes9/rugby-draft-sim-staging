@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607201028";
+    const VERSION = "v1.2607201145";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -95,6 +95,14 @@
         if (state.geo) f.countries = GEO[state.geo];
         if (state.mode === "tournament") { f.yearMin = YEARS[state.yMin]; f.yearMax = YEARS[state.yMax]; }
         return f;
+    }
+
+    const NAME_KEY = "mp-display-name";
+    function rememberName(n) {
+        try { if (n) localStorage.setItem(NAME_KEY, n); } catch (e) {}
+    }
+    function recallName() {
+        try { return localStorage.getItem(NAME_KEY) || ""; } catch (e) { return ""; }
     }
 
     function profile() {
@@ -430,6 +438,15 @@
             setupShown = false;
             showOnly("roomView");
         });
+        on("join", "keydown", function (e) {
+            if (e.key === "Enter") { e.preventDefault(); onJoin(); }
+        });
+        on("name", "keydown", function (e) {
+            if (e.key !== "Enter") return;
+            e.preventDefault();
+            // Whichever path is showing is the one Enter should take.
+            if (state.path === "join") onJoin(); else onCreate();
+        });
         on("randomise", "click", randomiseSetup);
         on("preBoard", "click", function () {
             const room = latestRoom || {};
@@ -509,6 +526,11 @@
                     });
             });
         });
+        on("showTeams", "click", function () {
+            renderTeams(latestRoom || {});
+            showOnly("teamsView");
+        });
+        on("teamsBack", "click", function () { showOnly("compView"); });
         on("compBack", "click", function () { showOnly("roomView"); });
         on("newTournament", "click", function () {
             modal({
@@ -542,6 +564,7 @@
     }
 
     function onCreate() {
+        rememberName(($("name").value || "").trim());
         // Rules that cannot produce a legal XV must be caught here, not
         // discovered at pick thirteen.
         try {
@@ -561,6 +584,7 @@
             .catch(function (err) { setStatus("lobbyStatus", err.message, true); $("create").disabled = false; });
     }
     function onJoin() {
+        rememberName(($("name").value || "").trim());
         const code = $("join").value.toUpperCase().trim();
         if (code.length !== 4) { setStatus("lobbyStatus", "A room code is four characters.", true); return; }
         setStatus("lobbyStatus", "Joining " + code + "...", false);
@@ -770,37 +794,43 @@
         //   announced the settings are fixed: users see them and enter
         if ((status === "lobby" || status === "announced") && compNo > 1) {
             const amHost = (room.meta || {}).hostUid === MPNet.currentUid();
+            const me2 = MPNet.currentUid();
             const mem = room.members || {};
             const rdy = room.ready || {};
             const ent = room.entered || {};
             const announced = status === "announced";
 
-            if (amHost && !announced) {
-                if (!setupShown) { setupShown = true; showSetup(room); }
-                return;
-            }
-
             if (!announced) {
-                // Nothing to show yet: no old results, no Big Board.
+                // The host is still choosing. Nobody else should be moved
+                // anywhere: a user who has not finished with the results
+                // must keep them, and the ones who have get a plain notice.
+                if (amHost) {
+                    if (!setupShown) { setupShown = true; showSetup(room); }
+                    return;
+                }
+                if (!rdy[me2]) return;      // stay on the results screen
+
                 $("waitTitle").innerHTML = "Next competition";
                 $("waitSub").textContent = "";
-                $("waitHint").textContent = "Waiting for " + hostName(room)
-                    + " to set up competition " + compNo + " of "
-                    + ((room.settings || {}).seasonLength || 1) + ".";
+                $("waitHint").textContent = hostName(room)
+                    + " is setting up competition " + compNo + " of "
+                    + ((room.settings || {}).seasonLength || 1)
+                    + ". You will see the pool and the rules as soon as it is confirmed.";
                 $("waitBrief").classList.add("hidden");
                 $("waitBoard").classList.add("hidden");
                 $("enterDraft").classList.add("hidden");
                 $("forceStart").classList.add("hidden");
                 $("forceHint").textContent = "";
-                $("waitList").innerHTML = readyRows(mem, rdy, MPNet.currentUid(), "ready", "still with the results");
+                $("waitList").innerHTML = readyRows(mem, rdy, me2, "ready", "still with the results");
                 showOnly("waitView");
                 return;
             }
 
-            // Announced: show what has been set up and let people in.
-            const me2 = MPNet.currentUid();
+            // Announced: the settings are fixed, so everyone including the
+            // host sees them, can build a board, and waits on the rest.
             const iAmIn = !!ent[me2];
             const notIn = Object.keys(mem).filter(function (u) { return !ent[u]; });
+            const notReady = Object.keys(mem).filter(function (u) { return !rdy[u]; });
 
             $("waitTitle").innerHTML = "Competition " + compNo + " is ready";
             $("waitSub").textContent = "of " + ((room.settings || {}).seasonLength || 1);
@@ -815,15 +845,13 @@
             $("enterDraft").classList.toggle("hidden", iAmIn);
             $("waitList").innerHTML = readyRows(mem, ent, me2, "in the draft", "not entered yet");
 
-            // The host may force the stragglers in, but only after a grace
-            // period, and the countdown says how long is left.
             if (amHost && notIn.length) {
                 const since = MPNet.serverNow() - ((room.meta || {}).announcedAt || 0);
                 const left = FORCE_GRACE_MS - since;
                 if (left > 0) {
                     $("forceStart").classList.add("hidden");
-                    $("forceHint").textContent = "You can start without "
-                        + names(mem, notIn).join(", ") + " in " + Math.ceil(left / 1000) + "s.";
+                    $("forceHint").textContent = "Waiting for " + names(mem, notIn).join(", ")
+                        + ". You can start without them in " + Math.ceil(left / 1000) + "s.";
                     startForceTicker();
                 } else {
                     $("forceStart").classList.remove("hidden");
@@ -833,10 +861,10 @@
             } else {
                 $("forceStart").classList.add("hidden");
                 $("forceHint").textContent = notIn.length
-                    ? "Waiting for " + names(mem, notIn).join(", ") + "." : "";
+                    ? "Waiting for " + names(mem, notIn).join(", ") + "."
+                    : (notReady.length ? "Still with the results: " + names(mem, notReady).join(", ") : "");
             }
 
-            // Everyone in: the host starts the draft.
             if (amHost && !notIn.length && !startingDraft) {
                 startingDraft = true;
                 MPNet.startDraft(currentCode).catch(function (err) {
@@ -1012,7 +1040,7 @@
         showOnly("commitView");
     }
 
-    const ALL_VIEWS = ["lobbyView", "roomView", "setupView", "waitView", "draftView", "commitView", "compView"];
+    const ALL_VIEWS = ["lobbyView", "roomView", "setupView", "waitView", "teamsView", "draftView", "commitView", "compView"];
     function showOnly(id) {
         ALL_VIEWS.forEach(function (v) {
             const el = $(v);
@@ -1605,6 +1633,7 @@
         const iAmReady = !!ready[me];
         const outstanding = Object.keys(members).filter(function (u) { return !ready[u]; });
 
+        $("showTeams").classList.toggle("hidden", !watchedComp[viewCompNo]);
         const rb = $("readyBtn");
         const rl = $("readyList");
         $("preBoard").classList.toggle("hidden", seasonOver);
@@ -1752,6 +1781,51 @@
         return best || "FH";
     }
 
+    // Every squad, so people can argue about each other's picks. Shown once
+    // the tournament has been watched, since it gives away nothing then.
+    function renderTeams(room) {
+        const members = room.members || {};
+        const order = ((room.draft || {}).order) || Object.keys(members);
+        const comp = room.comp || {};
+        const commits = room.commit || {};
+        const illegal = comp.illegal || {};
+        const breaches = comp.breaches || {};
+        const me = MPNet.currentUid();
+
+        $("teamsSub").textContent = "competition " + ((room.settings || {}).competition || 1);
+
+        $("teamsBody").innerHTML = order.map(function (u) {
+            const sq = squadFor(room, u);
+            const c = commits[u] || {};
+            const kickSlot = c.kickerSlot || null;
+            const r = MPSim.teamRating(sq, c.strategy);
+            const fw = Math.round(MPSim.strategyForwardWeight(c.strategy == null ? 50 : c.strategy) * 100);
+
+            const rows = MPPicks.SLOTS.map(function (slot) {
+                const p = sq[slot.id];
+                if (!p) return "<div class='sq-row'><span class='sq-num'>" + slot.num
+                    + "</span><span class='sq-nm'>not filled</span></div>";
+                const pen = MPPicks.oopPenalty(p, slot.node);
+                return "<div class='sq-row'><span class='sq-num'>" + slot.num + "</span>"
+                    + "<span class='sq-nm'>" + esc(p.name)
+                    + (slot.id === kickSlot ? " <span class='kick'>KICKER</span>" : "") + "</span>"
+                    + "<span class='sq-ct'>" + esc(p.country) + (p.year ? " " + p.year : "") + "</span>"
+                    + "<span class='sq-rt'>" + MPPicks.effectiveRating(p, slot.node)
+                    + (pen ? "<small class='pen'> -" + pen + "</small>" : "") + "</span></div>";
+            }).join("");
+
+            const bad = illegal[u];
+            const bl = (breaches[u] || []).map(function (b) { return b.rule; }).join(", ");
+            return "<div class='squad-card" + (u === me ? " mine" : "") + "'>"
+                + "<div class='squad-head'><span class='squad-name'>"
+                + esc((members[u] || {}).name || "User") + (u === me ? " (you)" : "")
+                + "</span><span class='squad-rate'>" + r.overall + "</span></div>"
+                + "<div class='squad-meta'>Forwards " + fw + "% of the weight"
+                + (bad ? " | <span class='illegal-tag'>illegal: " + esc(bl) + "</span>" : "")
+                + "</div><div class='squad-list'>" + rows + "</div></div>";
+        }).join("");
+    }
+
     function renderTable(room, comp) {
         const standings = comp.standings;
         const wrap = $("tableWrap");
@@ -1833,6 +1907,8 @@
     function boot() {
         const v = $("version");
         if (v) v.textContent = VERSION;
+        const saved = recallName();
+        if (saved && $("name") && !$("name").value) $("name").value = saved;
         initTheme();
         initSpeed();
         randomKit();

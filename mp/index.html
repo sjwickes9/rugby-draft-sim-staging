@@ -24,7 +24,7 @@
     <!-- ══ LOBBY VIEW ══ -->
     <div id="lobbyView">
 
-        <p class="version" id="version">v1.2607201028</p>
+        <p class="version" id="version">v1.2607201145</p>
 
         <div id="notice" class="notice hidden">
             <span id="noticeText"></span>
@@ -75,8 +75,6 @@
 
         <div id="optionsBlock">
 
-        <button class="cta ghost" id="randomise"><span>Randomise the setup</span></button>
-
 
         <section class="block">
             <p class="eyebrow">Mode</p>
@@ -86,6 +84,7 @@
                 <button id="modeTournament" aria-pressed="false">Tournament
                     <span class="hint">Every World Cup version is a pick</span></button>
             </div>
+                    <button class="chip-btn" id="randomise">Randomise the setup</button>
         </section>
 
         <section class="block" id="seatsBlock">
@@ -286,6 +285,14 @@
         <button class="cta ghost" id="setupBack"><span>Back to room</span></button>
     </div>
 
+    <!-- ══ TEAMS VIEW ══ -->
+    <div id="teamsView" class="hidden">
+        <p class="eyebrow">Every squad <small id="teamsSub"></small></p>
+        <p class="list-hint">The XVs everyone drafted, with their goal kicker and strategy.</p>
+        <div id="teamsBody"></div>
+        <button class="cta ghost" id="teamsBack"><span>Back to the results</span></button>
+    </div>
+
     <!-- ══ WAITING VIEW (between competitions) ══ -->
     <div id="waitView" class="hidden">
         <p class="eyebrow" id="waitTitle">Next competition <small id="waitSub"></small></p>
@@ -330,6 +337,7 @@
             <div id="tallyTable"></div>
         </div>
 
+        <button class="cta ghost" id="showTeams"><span>See every squad</span></button>
         <button class="cta hidden" id="readyBtn"><span>Ready for the next competition</span></button>
         <button class="cta hidden" id="nextComp"><span>Setup the next competition</span></button>
         <p class="status" id="nextHint"></p>

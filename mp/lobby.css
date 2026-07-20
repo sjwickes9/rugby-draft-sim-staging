@@ -767,3 +767,30 @@ input[type=color] {
 .sum-no { flex: 0 0 26px; font-family: var(--display); color: var(--slate); font-size: 0.8rem; }
 .sum-win { flex: 1; font-family: var(--display); text-transform: uppercase; letter-spacing: 0.03em; font-size: 0.92rem; }
 .sum-vacant { color: var(--bad); }
+
+
+/* Every squad */
+.squad-card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; margin-bottom: 14px; overflow: hidden; }
+.squad-card.mine { border-color: var(--teal); }
+.squad-head { display: flex; align-items: baseline; gap: 9px; padding: 12px 14px; background: var(--panel-2); }
+.squad-name { flex: 1; font-family: var(--display); text-transform: uppercase; letter-spacing: 0.04em; font-size: 1rem; }
+.squad-rate { font-family: var(--display); font-size: 1.2rem; }
+.squad-meta { padding: 8px 14px; font-size: 0.75rem; color: var(--slate); border-bottom: 1px solid var(--line); }
+.squad-meta .illegal-tag { color: var(--bad); }
+.squad-list { padding: 4px 0; }
+.sq-row { display: flex; gap: 9px; padding: 6px 14px; font-size: 0.83rem; align-items: baseline; }
+.sq-num { flex: 0 0 20px; color: var(--slate); font-family: var(--display); font-size: 0.75rem; }
+.sq-nm { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.sq-ct { flex: 0 0 auto; color: var(--slate); font-size: 0.72rem; }
+.sq-rt { flex: 0 0 30px; text-align: right; font-family: var(--display); }
+.sq-row .kick { color: var(--amber); font-size: 0.7rem; }
+
+
+/* Randomise, sized to match the nation chips */
+.chip-btn {
+    margin-top: 12px; width: 100%;
+    background: var(--panel-2); color: var(--pitch); border: 1px solid var(--line);
+    border-radius: 999px; padding: 9px 14px; cursor: pointer;
+    font-family: var(--display); text-transform: uppercase; letter-spacing: 0.07em; font-size: 0.78rem;
+}
+.chip-btn:hover { border-color: var(--teal); color: var(--teal); }
