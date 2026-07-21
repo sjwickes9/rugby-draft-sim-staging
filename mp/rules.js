@@ -257,9 +257,17 @@
     // for each candidate. picks = this drafter's entries so far. Returns
     // { eligible, reason } with the first violated rule's inline reason.
     function activeConstraints(context, enabledMap) {
-        return evaluateRules(context, enabledMap)
+        const chosen = enabledMap || {};
+        return evaluateRules(context, chosen)
             .filter(r => r.enabled)
-            .map(r => ({ id: r.id, value: r.value, check: RULES.find(x => x.id === r.id).check }));
+            .map(function (r) {
+                let value = r.value;
+                // The host may adjust these two, so a stored choice wins over
+                // the engine's automatic value.
+                if (r.id === "maxPerCountry" && chosen.countryCap != null) value = chosen.countryCap;
+                if (r.id === "minPerCountry" && chosen.minNations != null) value = chosen.minNations;
+                return { id: r.id, value: value, check: RULES.find(x => x.id === r.id).check };
+            });
     }
 
     function isPickLegal(picks, candidate, active, context) {

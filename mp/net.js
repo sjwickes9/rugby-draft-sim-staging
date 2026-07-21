@@ -213,7 +213,7 @@ window.MPNet = (function () {
                     // An existing member may always rejoin, including mid-draft
                     // after a refresh. Only new users are turned away once the
                     // draft has started, since seats and pick order are fixed.
-                    if (!already && meta.status !== "lobby") {
+                    if (!already && meta.status !== "lobby" && meta.status !== "announced") {
                         throw new Error("That draft has already started.");
                     }
                     return db.ref("rooms/" + code + "/settings").get().then(function (setSnap) {
@@ -282,7 +282,11 @@ window.MPNet = (function () {
                 const room = snap.val();
                 if (!room) throw new Error("That room no longer exists.");
                 if (room.meta.hostUid !== uid) throw new Error("Only the host can start the draft.");
-                if (room.meta.status !== "lobby") throw new Error("The draft has already started.");
+                // 'announced' means the settings are fixed and people are
+                // entering. That is precisely when the draft should start.
+                if (room.meta.status !== "lobby" && room.meta.status !== "announced") {
+                    throw new Error("The draft has already started.");
+                }
 
                 const members = room.members || {};
                 const uids = Object.keys(members);

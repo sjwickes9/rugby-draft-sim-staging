@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607211345";
+    const VERSION = "v1.2607211445";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -24,22 +24,22 @@
     const RULE_TEXT = {
         maxPerTournament: {
             label: "Max players per World Cup",
-            desc: "No more than this many players from any single World Cup.",
+            desc: "No more than this many from any one World Cup.",
             value: function (v) { return "Max " + v + " players"; }
         },
         maxPerCountry: {
             label: "Max players per nation",
-            desc: "No more than this many players from any single nation. Adjustable.",
+            desc: "No more than this many from any one nation.",
             value: function (v) { return "Max " + v + " players"; }
         },
         minPerCountry: {
             label: "Minimum nations in your XV",
-            desc: "Your XV must draw on at least this many different nations, so it cannot be built from one or two squads.",
-            value: function (v) { return "At least " + v + " nations"; }
+            desc: "Your XV must use at least this many nations.",
+            value: function (v) { return v + " nations"; }
         },
         onePerTournament: {
             label: "One from every World Cup",
-            desc: "Your XV must include at least one player from each World Cup in the window.",
+            desc: "At least one player from every World Cup in range.",
             value: function () { return "At least 1 each"; }
         }
     };
@@ -305,7 +305,17 @@
             // The nation cap is adjustable when on, clamped to the floor
             // below which fifteen slots cannot be filled.
             let control;
-            if (r.id === "maxPerCountry" && r.enabled) {
+            if (r.id === "minPerCountry" && r.enabled) {
+                // Editable from two up to every nation in the pool, so a Six
+                // Nations room can demand all six be represented.
+                const maxN = ctx.countriesPresent || 2;
+                const val = currentMinNations(ctx);
+                control = "<span class='mini-step'>"
+                    + "<button data-min='-1' " + (val <= 2 ? "disabled" : "") + " aria-label='Fewer nations'>&minus;</button>"
+                    + "<span class='value'>" + val + "</span>"
+                    + "<button data-min='1' " + (val >= maxN ? "disabled" : "") + " aria-label='More nations'>+</button>"
+                    + "</span>";
+            } else if (r.id === "maxPerCountry" && r.enabled) {
                 const floor = MPRules.effectiveCountryCap(ctx).floor;
                 const val = currentCountryCap(ctx);
                 control = "<span class='mini-step'>"
@@ -331,6 +341,14 @@
 
     // The active nation cap: the host's chosen value if set, otherwise the
     // engine's auto-derived one. Always clamped to the hard floor.
+    // Clamped to the pool: never below two, never above the nations present.
+    function currentMinNations(ctx) {
+        const maxN = Math.max(2, ctx.countriesPresent || 2);
+        const dflt = Math.min(maxN, Math.max(2, Math.min(5, Math.floor(maxN / 2))));
+        const v = (state.minNations == null) ? dflt : state.minNations;
+        return Math.max(2, Math.min(maxN, v));
+    }
+
     function currentCountryCap(ctx) {
         const d = MPRules.effectiveCountryCap(ctx);
         const v = (state.countryCap == null) ? d.cap : state.countryCap;
@@ -413,6 +431,14 @@
             refresh();
         });
         on("ruleList", "change", function (e) {
+            const mn = e.target.closest("[data-min]");
+            if (mn) {
+                const ctx = MPRules.buildContext(filters(),
+                    MPEngine.feasibility(allSquads, filters(), positionFamilyMap));
+                state.minNations = currentMinNations(ctx) + parseInt(mn.getAttribute("data-min"), 10);
+                refresh();
+                return;
+            }
             const cb = e.target.closest("input[data-rule]"); if (!cb) return;
             state.rules[cb.getAttribute("data-rule")] = cb.checked; refresh();
         });
@@ -596,6 +622,7 @@
             onePerTournament: !!state.rules.onePerTournament
         };
         if (out.maxPerCountry) out.countryCap = currentCountryCap(ctx);
+        if (out.minPerCountry) out.minNations = currentMinNations(ctx);
         return out;
     }
 

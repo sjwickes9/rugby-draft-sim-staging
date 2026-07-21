@@ -164,12 +164,16 @@ input[type=color] {
 
 /* ── Rule toggles ──────────────────────────────────────── */
 .rules { display: flex; flex-direction: column; gap: 8px; }
-.rule { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
+/* The text column is capped so the control beside it never gets squeezed
+   into a three-line stack. */
+.rule { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
+.rule > div:first-child { flex: 1 1 auto; min-width: 0; max-width: 62%; }
+.rule > div:last-child { flex: 0 0 auto; }
 .rule .label { font-size: 0.98rem; }
-.rule .value { font-family: var(--display); color: var(--teal); font-size: 0.95rem; }
+.rule .value { font-family: var(--display); color: var(--teal); font-size: 0.95rem; white-space: nowrap; }
 .rule.off .label { color: var(--slate); }
 .rule.unavailable { opacity: 0.5; }
-.rule .why { display: block; font-size: 0.74rem; color: var(--slate); margin-top: 3px; }
+.rule .why { display: block; font-size: 0.74rem; color: var(--slate); margin-top: 3px; line-height: 1.35; }
 .sw { position: relative; width: 44px; height: 26px; flex: none; }
 .sw input { position: absolute; inset: 0; opacity: 0; cursor: pointer; margin: 0; }
 .sw .knob { position: absolute; inset: 0; background: var(--panel-2); border-radius: 999px; transition: background 0.15s; }
@@ -179,7 +183,7 @@ input[type=color] {
 .sw input:disabled { cursor: not-allowed; }
 .sw input:focus-visible + .knob { box-shadow: 0 0 0 3px var(--amber); }
 
-.mini-step { display: inline-flex; align-items: center; gap: 8px; }
+.mini-step { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
 .mini-step button {
     width: 30px; height: 30px; border-radius: 6px; cursor: pointer;
     background: var(--panel-2); color: var(--pitch); border: 1px solid var(--line);
