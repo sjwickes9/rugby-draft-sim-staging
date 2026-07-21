@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607211135";
+    const VERSION = "v1.2607211228";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -475,7 +475,7 @@
         on("preBoard", "click", function () {
             const room = latestRoom || {};
             if (!(room.pool || []).length) {
-                setStatus("startHint", "The pool is not ready yet.", true);
+                showNotice("The pool is not ready yet."); setStatus("startHint", "The pool is not ready yet.", true);
                 return;
             }
             ensureDraftInit(room);
@@ -486,20 +486,19 @@
             $("readyBtn").disabled = true;
             MPNet.setReady(currentCode, true)
                 .then(function () {
-                    // Re-enable regardless: the room state decides whether the
-                    // button is shown, and a stuck disabled button with no
-                    // visible change is the worst possible outcome.
                     $("readyBtn").disabled = false;
+                    setStatus("nextHint", "", false);
                 })
                 .catch(function (err) {
-                    setStatus("nextHint", err.message, true);
+                    showNotice("Could not mark you ready: "
+                        + (err && err.message ? err.message : "unknown error"));
                     $("readyBtn").disabled = false;
                 });
         });
         on("enterDraft", "click", function () {
             $("enterDraft").disabled = true;
             MPNet.enterDraft(currentCode).catch(function (err) {
-                setStatus("forceHint", err.message, true);
+                showNotice("Could not enter the draft: " + err.message);
                 $("enterDraft").disabled = false;
             });
         });
@@ -527,7 +526,7 @@
                 out.forEach(function (u) { MPNet.enterDraft(currentCode, u); });
                 startingDraft = true;
                 MPNet.startDraft(currentCode).catch(function (err) {
-                    setStatus("forceHint", err.message, true);
+                    showNotice(err.message); setStatus("forceHint", err.message, true);
                     $("forceStart").disabled = false;
                     startingDraft = false;
                 });
@@ -670,7 +669,7 @@
         MPNet.startDraft(currentCode)
             .then(function () { setStatus("startHint", "", false); })
             .catch(function (err) {
-                setStatus("startHint", err.message, true);
+                showNotice(err.message); setStatus("startHint", err.message, true);
                 $("startDraft").disabled = false;
             });
     }
@@ -750,6 +749,17 @@
         return (c && c.number) || ((room && room.settings && room.settings.competition) || 1);
     }
     function renderRoom(room) {
+        try {
+            renderRoomInner(room);
+        } catch (err) {
+            console.error("renderRoom failed", err);
+            showNotice("Something went wrong drawing this screen: "
+                + (err && err.message ? err.message : "unknown error")
+                + ". Please send this to Simon.");
+        }
+    }
+
+    function renderRoomInner(room) {
         // The room has been closed, or this user removed from it. Firebase
         // reports that as an empty snapshot. Nobody is thrown out: they may
         // still be reading the results or looking through the squads. The
@@ -1000,7 +1010,7 @@
                 startingDraft = true;
                 MPNet.startDraft(currentCode).catch(function (err) {
                     startingDraft = false;
-                    setStatus("forceHint", err.message, true);
+                    showNotice(err.message); setStatus("forceHint", err.message, true);
                 });
             }
             showOnly("waitView");
@@ -1436,6 +1446,7 @@
                 startingDraft = false;
             })
             .catch(function (err) {
+                showNotice("Could not set up the next competition: " + err.message);
                 setStatus("setupStatus", err.message, true);
                 $("setupConfirm").disabled = false;
             });
@@ -1503,7 +1514,11 @@
         const meta = room.meta || {};
         const me = MPNet.currentUid();
         const limit = (room.settings || {}).hostIdleMs || 86400000;
-        const idle = MPNet.serverNow() - (meta.hostSeenAt || meta.createdAt || 0);
+        // A room from before heartbeats existed has no hostSeenAt. Treating
+        // that as "away since 1970" wrongly offers a takeover immediately.
+        const seen = meta.hostSeenAt || meta.createdAt || 0;
+        if (!seen) { el.classList.add("hidden"); return; }
+        const idle = MPNet.serverNow() - seen;
         if (meta.hostUid === me || idle < limit) { el.classList.add("hidden"); return; }
         el.classList.remove("hidden");
         el.innerHTML = "<strong>" + esc(hostName(room)) + " has been away for "
@@ -1514,7 +1529,7 @@
         if (b) b.onclick = function () {
             b.disabled = true;
             MPNet.claimHost(currentCode).catch(function (err) {
-                setStatus("startHint", err.message, true);
+                showNotice(err.message); setStatus("startHint", err.message, true);
                 b.disabled = false;
             });
         };

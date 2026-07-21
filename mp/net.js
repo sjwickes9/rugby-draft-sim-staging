@@ -382,7 +382,12 @@ window.MPNet = (function () {
     // person cannot hold a room up indefinitely.
     function enterDraft(code, forUid) {
         return whenReady().then(function () {
-            return db.ref("rooms/" + code + "/entered/" + (forUid || uid)).set(true);
+            return db.ref("rooms/" + code + "/entered/" + (forUid || uid)).set(true)
+                .catch(function (err) {
+                    throw new Error("Could not enter the draft (" + (err.code || err.message)
+                        + "). If this says permission denied, the security rules need "
+                        + "republishing from the Firebase console.");
+                });
         });
     }
 
@@ -421,7 +426,12 @@ window.MPNet = (function () {
     // begins once everyone has.
     function setReady(code, value) {
         return whenReady().then(function () {
-            return db.ref("rooms/" + code + "/ready/" + uid).set(!!value);
+            return db.ref("rooms/" + code + "/ready/" + uid).set(!!value)
+                .catch(function (err) {
+                    throw new Error("Could not mark you ready (" + (err.code || err.message)
+                        + "). If this says permission denied, the security rules need "
+                        + "republishing from the Firebase console.");
+                });
         });
     }
 
