@@ -24,7 +24,7 @@
     <!-- ══ LOBBY VIEW ══ -->
     <div id="lobbyView">
 
-        <p class="version" id="version">v1.2607212050</p>
+        <p class="version" id="version">v1.2607212115</p>
 
         <div id="notice" class="notice hidden">
             <span id="noticeText"></span>
@@ -305,6 +305,15 @@
         <button class="cta ghost" id="setupBack"><span>Back to room</span></button>
     </div>
 
+    <!-- ══ SEASON OUTCOME VIEW ══ -->
+    <div id="seasonView" class="hidden">
+        <p class="eyebrow">Season outcome <small id="seasonSub"></small></p>
+        <div id="seasonSummary"></div>
+        <button class="cta" id="newTournament"><span>Create a new tournament</span></button>
+        <button class="cta ghost" id="goHome"><span>Return to the home page</span></button>
+        <button class="cta ghost" id="seasonBack"><span>Back to the results</span></button>
+    </div>
+
     <!-- ══ TEAMS VIEW ══ -->
     <div id="teamsView" class="hidden">
         <p class="eyebrow">Every squad <small id="teamsSub"></small></p>
@@ -350,7 +359,6 @@
         </div>
         <div id="winnerBox" class="hidden"></div>
 
-        <div id="seasonSummary" class="hidden"></div>
 
         <div id="tallyWrap" class="hidden">
             <p class="eyebrow">Room tally <small id="tallySub"></small></p>
@@ -363,8 +371,7 @@
         <p class="status" id="nextHint"></p>
         <div id="readyList" class="ready-list hidden"></div>
 
-        <button class="cta hidden" id="newTournament"><span>Create a new tournament</span></button>
-        <button class="cta ghost hidden" id="goHome"><span>Return to the home page</span></button>
+        <button class="cta hidden" id="viewSeason"><span>View season outcome</span></button>
         <button class="cta ghost" id="compBack"><span>Back to room</span></button>
     </div>
 

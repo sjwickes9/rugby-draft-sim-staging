@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607212050";
+    const VERSION = "v1.2607212115";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -601,6 +601,11 @@
             showOnly("teamsView");
         });
         on("teamsBack", "click", function () { showOnly("compView"); });
+        on("viewSeason", "click", function () {
+            renderSeasonSummary(latestRoom || {});
+            showOnly("seasonView");
+        });
+        on("seasonBack", "click", function () { showOnly("compView"); });
         on("compBack", "click", function () { showOnly("roomView"); });
         on("newTournament", "click", function () {
             modal({
@@ -1032,11 +1037,10 @@
                 modal({
                     title: "Competition " + compNo + " is ready",
                     body: hostName(room) + " has set up the next draft. "
-                        + "<strong>Have a look at the pool and the rules, then enter.</strong>"
-                        + "<span class='warn'>The draft starts once everyone has entered.</span>",
-                    ok: "Have a look", cancel: "Enter now"
-                }).then(function (look) {
-                    if (!look) MPNet.enterDraft(currentCode).catch(function () {});
+                        + "<strong>The pool and the rules are below.</strong>"
+                        + "<span class='warn'>Press Enter the draft when you are ready. "
+                        + "It begins once everyone has.</span>",
+                    ok: "Show me", cancel: ""
                 });
             }
             $("waitBrief").classList.remove("hidden");
@@ -1274,7 +1278,7 @@
         showOnly("commitView");
     }
 
-    const ALL_VIEWS = ["lobbyView", "roomView", "setupView", "waitView", "teamsView", "draftView", "commitView", "compView"];
+    const ALL_VIEWS = ["lobbyView", "roomView", "setupView", "waitView", "teamsView", "seasonView", "draftView", "commitView", "compView"];
     function showOnly(id) {
         ALL_VIEWS.forEach(function (v) {
             const el = $(v);
@@ -1905,9 +1909,7 @@
         const nb = $("nextComp");
 
         if (!played) {
-            $("seasonSummary").classList.add("hidden");
-            $("newTournament").classList.add("hidden");
-            $("goHome").classList.add("hidden");
+            $("viewSeason").classList.add("hidden");
             $("compBack").classList.remove("hidden");
             wb.classList.add("hidden");
             tw.classList.add("hidden");
@@ -1994,20 +1996,12 @@
         }
 
         if (seasonOver) {
-            // The season is done: show the whole story, not the last set of
-            // fixtures, and offer the only action that still makes sense.
+            // The season is done, but the last competition's results are
+            // still worth reading, so nothing here is hidden. The season
+            // itself gets a screen of its own.
             nb.classList.add("hidden");
-            $("nextHint").textContent = "";
-            $("seasonSummary").classList.remove("hidden");
-            renderSeasonSummary(room);
-            $("fixtureList").classList.add("hidden");
-            $("tableWrap").classList.add("hidden");
-            $("seriesWrap").classList.add("hidden");
-            $("speedRow").classList.add("hidden");
-            $("playBtn").classList.add("hidden");
-            $("newTournament").classList.remove("hidden");
-            $("goHome").classList.remove("hidden");
-            $("compBack").classList.add("hidden");
+            $("nextHint").textContent = "That is the season complete.";
+            $("viewSeason").classList.remove("hidden");
         } else if (isHost) {
             nb.classList.toggle("hidden", !iAmReady);
             nb.disabled = false;
@@ -2060,8 +2054,12 @@
                     + "<td class='" + (r.illegal ? "badcount" : "") + "'>" + (r.illegal || "") + "</td></tr>";
             }).join("") + "</table>";
 
+        const champ = MPSim.tallyOrder(room.tally || {})[0];
+        $("seasonSub").textContent = champ
+            ? ((members[champ.uid] || {}).name || "User") + " takes the season"
+            : "";
         el.innerHTML = "<div class='season-sum'>"
-            + "<p class='sum-head'>Every competition</p>" + rows.join("")
+            + "<p class='sum-head'>Winner of each competition</p>" + rows.join("")
             + "<p class='sum-head'>Final standings</p>" + table + "</div>";
         return true;
     }
@@ -2223,7 +2221,10 @@
             $("modalTitle").textContent = opts.title || "Are you sure?";
             $("modalBody").innerHTML = opts.body || "";
             $("modalOk").textContent = opts.ok || "Confirm";
-            $("modalCancel").textContent = opts.cancel || "Cancel";
+            // An empty cancel label means there is only one way out, which
+            // is right when both buttons would have done the same thing.
+            $("modalCancel").textContent = opts.cancel === "" ? "" : (opts.cancel || "Cancel");
+            $("modalCancel").classList.toggle("hidden", opts.cancel === "");
             $("modal").classList.remove("hidden");
             $("modalScrim").classList.remove("hidden");
 
