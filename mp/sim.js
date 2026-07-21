@@ -51,7 +51,12 @@
         return 0.75 - (v / 100) * 0.50;
     }
 
-    function teamRating(squad, strategy, pool, activeConstraints) {
+    function MPChemRef() {
+        return (typeof MPChem !== "undefined") ? MPChem
+            : (typeof require === "function" ? require("./chem.js") : null);
+    }
+
+    function teamRating(squad, strategy, pool, activeConstraints, chemOpts) {
         var fwd = 0, fwdN = 0, bck = 0, bckN = 0;
         MPPicksRef().SLOTS.forEach(function (s) {
             var p = squad[s.id];
@@ -63,15 +68,28 @@
         var b = bckN ? Math.round(bck / bckN) : 0;
         var w = strategyForwardWeight(strategy == null ? 50 : strategy);
         var base = Math.round(f * w + b * (1 - w));
+
+        // Chemistry counts for whatever is in the squad, however it got
+        // there. A player taken automatically when a clock ran out still
+        // links with the rest, because a Big Board may have been ordered
+        // around a partnership in the first place.
+        var chem = null, chemBonus = 0;
+        var C = MPChemRef();
+        if (C) {
+            chem = C.bonus(squad, base, chemOpts || {});
+            chemBonus = chem.applied;
+        }
         var breaches = (pool && activeConstraints)
             ? squadBreaches(squad, pool, activeConstraints) : [];
         var penalty = breachPenalty(breaches);
         return {
             forwards: f, backs: b,
             base: base,
+            chem: chem,
+            chemBonus: chemBonus,
             penalty: penalty,
             breaches: breaches,
-            overall: Math.max(0, base - penalty)
+            overall: Math.max(0, base + chemBonus - penalty)
         };
     }
 

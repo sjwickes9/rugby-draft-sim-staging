@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607211942";
+    const VERSION = "v1.2607211949";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -1173,6 +1173,12 @@
             competition: (room.settings || {}).competition || 1,
             turnMs: (room.settings || {}).turnMs || 0,
             quiet: room.quiet || {},
+            mode: (room.settings || {}).mode || "career",
+            tournamentCount: (function () {
+                const ys = {};
+                (room.pool || []).forEach(function (p) { if (p.year) ys[p.year] = 1; });
+                return Object.keys(ys).length || 99;
+            })(),
             onExpire: function (slotId, poolIndex, forUid, done) {
                 const d = latestRoom && latestRoom.draft;
                 if (!d) { done(); return; }
@@ -2126,7 +2132,14 @@
             const sq = squadFor(room, u);
             const c = commits[u] || {};
             const kickSlot = c.kickerSlot || null;
-            const r = MPSim.teamRating(sq, c.strategy);
+            const r = MPSim.teamRating(sq, c.strategy, null, null, {
+                mode: (room.settings || {}).mode || "career",
+                tournamentCount: (function () {
+                    const ys = {};
+                    (room.pool || []).forEach(function (p) { if (p.year) ys[p.year] = 1; });
+                    return Object.keys(ys).length || 99;
+                })()
+            });
             const fw = Math.round(MPSim.strategyForwardWeight(c.strategy == null ? 50 : c.strategy) * 100);
 
             const rows = MPPicks.SLOTS.map(function (slot) {
@@ -2150,7 +2163,17 @@
                 + "</span><span class='squad-rate'>" + r.overall + "</span></div>"
                 + "<div class='squad-meta'>Forwards " + fw + "% of the weight"
                 + (bad ? " | <span class='illegal-tag'>illegal: " + esc(bl) + "</span>" : "")
-                + "</div><div class='squad-list'>" + rows + "</div></div>";
+                + "</div>"
+                + (r.chem
+                    ? "<div class='squad-chem'>Chemistry <strong>" + r.chem.formed + "/7</strong>"
+                      + (r.chemBonus ? " worth <strong>+" + r.chemBonus.toFixed(1) + "</strong>" : "")
+                      + (r.chem.formed
+                          ? ": " + r.chem.links.filter(function (l) { return l.tier !== "none"; })
+                              .map(function (l) { return esc(l.label); }).join(", ")
+                          : "")
+                      + "</div>"
+                    : "")
+                + "<div class='squad-list'>" + rows + "</div></div>";
         }).join("");
     }
 

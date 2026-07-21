@@ -71,6 +71,8 @@ window.MPDraftUI = (function () {
         state.live = !!opts.live;
         state.roomTurnMs = opts.turnMs || 0;
         state.quietFor = opts.quiet || {};
+        state.roomMode = opts.mode || "career";
+        state.tournamentCount = opts.tournamentCount || 99;
         state.onExpire = opts.onExpire || function () {};
         state.starred = loadStars();
         pruneStars();
@@ -617,6 +619,41 @@ window.MPDraftUI = (function () {
         }).join("");
     }
 
+    // ── Chemistry (spec 15) ─────────────────────────────────
+    // Links light up as they form. The moment someone notices their 9 and
+    // their 10 actually played together is the whole point of the feature,
+    // so it has to be visible while picking, not revealed afterwards.
+    function renderChem() {
+        const el = $("chemPanel");
+        if (!el || typeof MPChem === "undefined") return;
+
+        const opts = {
+            mode: state.roomMode || "career",
+            tournamentCount: state.tournamentCount || 99
+        };
+        const b = MPChem.bonus(state.squad, 80, opts);
+
+        const rows = b.links.map(function (l) {
+            const cls = "chem-link " + l.tier;
+            const mark = l.tier === "full" ? "\u25CF" : (l.tier === "half" ? "\u25D0" : "\u25CB");
+            const detail = l.tier === "none"
+                ? ""
+                : "<span class='chem-who'>" + esc(l.players.join(" and "))
+                  + " <em>" + esc(l.country) + "</em></span>";
+            return "<div class='" + cls + "'><span class='chem-mark'>" + mark + "</span>"
+                + "<span class='chem-label'>" + l.label + "</span>" + detail + "</div>";
+        }).join("");
+
+        el.classList.remove("hidden");
+        el.innerHTML = "<div class='chem-head'><span>Chemistry</span>"
+            + "<span class='chem-score'>" + b.formed + "/7"
+            + (b.applied ? "  +" + b.applied.toFixed(1) : "") + "</span></div>"
+            + rows
+            + (b.narrow
+                ? "<p class='chem-note'>Short window, so links are worth half.</p>"
+                : "");
+    }
+
     // ── Rules progress (spec 7) ─────────────────────────────
     // A draft can run for days, so the constraints must be visible with
     // your progress against them rather than held in memory.
@@ -714,6 +751,7 @@ window.MPDraftUI = (function () {
         const kit = myKit();
         $("squadProgress").textContent = MPPicks.filledSlots(sq).length + " of 15 picked";
         renderRules();
+        renderChem();
         const sheet = $("teamsheet");
         sheet.style.setProperty("--kit1", kit.a);
         sheet.style.setProperty("--kit2", kit.b);
