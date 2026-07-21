@@ -48,7 +48,7 @@
         },
         "members": {
           "$uid": {
-            ".write": "auth != null && $uid === auth.uid",
+            ".write": "auth != null && ($uid === auth.uid || root.child('rooms/' + $code + '/meta/hostUid').val() === auth.uid)",
             "name": {
               ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 20"
             },
@@ -95,7 +95,7 @@
           ".write": "auth != null && root.child('rooms/' + $code + '/meta/hostUid').val() === auth.uid && (!data.child('picks').exists() || root.child('rooms/' + $code + '/meta/status').val() === 'competing')",
           "picks": {
             "$idx": {
-              ".write": "auth != null && !data.exists() && $idx === (root.child('rooms/' + $code + '/draft/pickIndex').val() + '') && (root.child('rooms/' + $code + '/draft/currentPicker').val() === auth.uid || (root.child('rooms/' + $code + '/draft/turnDeadline').val() > 0 && now > root.child('rooms/' + $code + '/draft/turnDeadline').val()))",
+              ".write": "auth != null && !data.exists() && $idx === (root.child('rooms/' + $code + '/draft/pickIndex').val() + '') && (root.child('rooms/' + $code + '/draft/currentPicker').val() === auth.uid || (root.child('rooms/' + $code + '/draft/turnDeadline').val() > 0 && now > root.child('rooms/' + $code + '/draft/turnDeadline').val()) || (root.child('rooms/' + $code + '/meta/hostUid').val() === auth.uid && root.child('rooms/' + $code + '/members/' + root.child('rooms/' + $code + '/draft/currentPicker').val() + '/ai').exists()))",
               ".validate": "newData.hasChildren(['by','slot','i']) && newData.child('by').val() === root.child('rooms/' + $code + '/draft/currentPicker').val()",
               "by": {
                 ".validate": "newData.isString()"
@@ -109,17 +109,17 @@
             }
           },
           "pickIndex": {
-            ".write": "auth != null && (root.child('rooms/' + $code + '/draft/currentPicker').val() === auth.uid || (root.child('rooms/' + $code + '/draft/turnDeadline').val() > 0 && now > root.child('rooms/' + $code + '/draft/turnDeadline').val())) && newData.isNumber() && newData.val() === data.val() + 1"
+            ".write": "auth != null && (root.child('rooms/' + $code + '/draft/currentPicker').val() === auth.uid || (root.child('rooms/' + $code + '/draft/turnDeadline').val() > 0 && now > root.child('rooms/' + $code + '/draft/turnDeadline').val()) || (root.child('rooms/' + $code + '/meta/hostUid').val() === auth.uid && root.child('rooms/' + $code + '/members/' + root.child('rooms/' + $code + '/draft/currentPicker').val() + '/ai').exists())) && newData.isNumber() && newData.val() === data.val() + 1"
           },
           "currentPicker": {
-            ".write": "auth != null && (root.child('rooms/' + $code + '/draft/currentPicker').val() === auth.uid || (root.child('rooms/' + $code + '/draft/turnDeadline').val() > 0 && now > root.child('rooms/' + $code + '/draft/turnDeadline').val())) && newData.isString()"
+            ".write": "auth != null && (root.child('rooms/' + $code + '/draft/currentPicker').val() === auth.uid || (root.child('rooms/' + $code + '/draft/turnDeadline').val() > 0 && now > root.child('rooms/' + $code + '/draft/turnDeadline').val()) || (root.child('rooms/' + $code + '/meta/hostUid').val() === auth.uid && root.child('rooms/' + $code + '/members/' + root.child('rooms/' + $code + '/draft/currentPicker').val() + '/ai').exists())) && newData.isString()"
           },
           "turnStartedAt": {
-            ".write": "auth != null && (root.child('rooms/' + $code + '/draft/currentPicker').val() === auth.uid || (root.child('rooms/' + $code + '/draft/turnDeadline').val() > 0 && now > root.child('rooms/' + $code + '/draft/turnDeadline').val()))",
+            ".write": "auth != null && (root.child('rooms/' + $code + '/draft/currentPicker').val() === auth.uid || (root.child('rooms/' + $code + '/draft/turnDeadline').val() > 0 && now > root.child('rooms/' + $code + '/draft/turnDeadline').val()) || (root.child('rooms/' + $code + '/meta/hostUid').val() === auth.uid && root.child('rooms/' + $code + '/members/' + root.child('rooms/' + $code + '/draft/currentPicker').val() + '/ai').exists()))",
             ".validate": "newData.isNumber()"
           },
           "turnDeadline": {
-            ".write": "auth != null && (root.child('rooms/' + $code + '/draft/currentPicker').val() === auth.uid || (root.child('rooms/' + $code + '/draft/turnDeadline').val() > 0 && now > root.child('rooms/' + $code + '/draft/turnDeadline').val()))",
+            ".write": "auth != null && (root.child('rooms/' + $code + '/draft/currentPicker').val() === auth.uid || (root.child('rooms/' + $code + '/draft/turnDeadline').val() > 0 && now > root.child('rooms/' + $code + '/draft/turnDeadline').val()) || (root.child('rooms/' + $code + '/meta/hostUid').val() === auth.uid && root.child('rooms/' + $code + '/members/' + root.child('rooms/' + $code + '/draft/currentPicker').val() + '/ai').exists()))",
             ".validate": "newData.isNumber() && newData.val() <= now + root.child('rooms/' + $code + '/settings/turnMs').val() + 90000000"
           }
         },
