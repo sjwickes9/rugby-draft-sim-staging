@@ -560,6 +560,7 @@ window.MPNet = (function () {
             updates["rooms/" + code + "/comp/fixtures"] = comp.fixtures;
             updates["rooms/" + code + "/comp/results"] = comp.results;
             updates["rooms/" + code + "/comp/standings"] = comp.standings;
+            updates["rooms/" + code + "/comp/number"] = comp.number || null;
             updates["rooms/" + code + "/comp/winner"] = comp.winner || null;
             updates["rooms/" + code + "/comp/illegal"] = comp.illegal || null;
             updates["rooms/" + code + "/comp/breaches"] = comp.breaches || null;

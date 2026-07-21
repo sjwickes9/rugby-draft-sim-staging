@@ -357,11 +357,16 @@ window.MPDraftUI = (function () {
     // early by a device with a wrong clock.
     // The deadline is stored with the turn, because it already accounts for
     // the picker's quiet hours. Recomputing it here would ignore them.
+    // What the person on the clock actually has left to pick with. Quiet
+    // hours are excluded, because showing "10 hours left" when they have
+    // ten minutes of waking time is worse than showing nothing.
     function msLeft() {
         if (!state.turnMs) return null;
-        if (state.turnDeadline) return state.turnDeadline - MPNet.serverNow();
+        const now = MPNet.serverNow();
+        const q = state.quietFor && state.quietFor[state.currentPicker];
+        if (state.turnDeadline) return MPDraft.activeLeft(now, state.turnDeadline, q);
         if (!state.turnStartedAt) return null;
-        return (state.turnStartedAt + state.turnMs) - MPNet.serverNow();
+        return (state.turnStartedAt + state.turnMs) - now;
     }
 
     function formatLeft(ms) {
@@ -375,6 +380,14 @@ window.MPDraftUI = (function () {
         if (h) return h + "h " + m + "m left";
         if (m) return m + "m " + sec + "s left";
         return sec + "s left";
+    }
+
+    function formatShort(ms) {
+        const s = Math.max(0, Math.floor(ms / 1000));
+        const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
+        if (h) return h + "h " + m + "m";
+        if (m) return m + "m";
+        return s + "s";
     }
 
     let clockTimer = null;
@@ -393,8 +406,22 @@ window.MPDraftUI = (function () {
         const left = msLeft();
         if (left === null) { el.textContent = ""; return; }
         const q = state.quietFor && state.quietFor[state.currentPicker];
-        const asleep = q && MPDraft.inQuiet(MPNet.serverNow(), q);
-        el.textContent = asleep ? "paused overnight" : formatLeft(left);
+        const now = MPNet.serverNow();
+        const asleep = q && MPDraft.inQuiet(now, q);
+        const pauseIn = q ? MPDraft.msUntilQuiet(now, q) : null;
+
+        let txt;
+        if (asleep) {
+            txt = "paused until " + (q.end || "morning");
+        } else {
+            txt = formatLeft(left);
+            // Only worth mentioning when the pause is imminent enough to
+            // matter within this turn.
+            if (pauseIn !== null && pauseIn < left) {
+                txt += "  |  pauses in " + formatShort(pauseIn);
+            }
+        }
+        el.textContent = txt;
         el.classList.toggle("urgent", !asleep && left > 0 && left < 60000);
         el.classList.toggle("expired", !asleep && left <= 0);
     }

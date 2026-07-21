@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607202036";
+    const VERSION = "v1.2607210933";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -431,7 +431,7 @@
                 // Results already exist, so replay them locally.
                 $("playBtn").disabled = true;
                 playBack(comp.results, comp.fixtures).then(function () {
-                    watchedComp[viewCompNo] = true;
+                    watchedComp[compKey(latestRoom || {})] = true;
                     renderRoom(latestRoom);
                 });
                 return;
@@ -461,11 +461,6 @@
             e.preventDefault();
             // Whichever path is showing is the one Enter should take.
             if (state.path === "join") onJoin(); else onCreate();
-        });
-        on("quietAcc", "click", function () {
-            const open = $("quietAcc").getAttribute("aria-expanded") === "true";
-            $("quietAcc").setAttribute("aria-expanded", String(!open));
-            $("quietBody").classList.toggle("hidden", open);
         });
         on("turnAcc", "click", function () {
             const open = $("turnAcc").getAttribute("aria-expanded") === "true";
@@ -739,6 +734,13 @@
     let revealed = {};         // fixture index -> true, during playback
     let liveFixtures = null;   // resolved fixtures while playing back
     let watchedComp = {};      // competition number -> already watched here
+    // The results on screen may belong to the previous competition while the
+    // next one is being set up, so the watch flag follows the results, not
+    // the room's current competition counter.
+    function compKey(room) {
+        const c = room && room.comp;
+        return (c && c.number) || ((room && room.settings && room.settings.competition) || 1);
+    }
     function renderRoom(room) {
         // The room has been closed, or this user removed from it. Firebase
         // reports that as an empty snapshot. Nobody is thrown out: they may
@@ -750,8 +752,31 @@
                 if (unwatch) { unwatch(); unwatch = null; }
                 MPNet.forgetRoom();
                 if (!roomClosedByMe) {
-                    showNotice("The host has closed this room. You can still look through "
-                        + "the results, but nothing further will happen here.");
+                    // Mid-draft this is not a footnote: the draft is over.
+                    // Say so plainly and stop the clock and the auto-picker.
+                    const drafting = !$("draftView").classList.contains("hidden")
+                        || !$("commitView").classList.contains("hidden");
+                    if (window.MPDraftUI) {
+                        if (MPDraftUI.stopAuto) MPDraftUI.stopAuto();
+                        if (MPDraftUI.setLive) MPDraftUI.setLive(false);
+                    }
+                    if (drafting) {
+                        showNotice("The host has closed this room, so this draft has ended. "
+                            + "Nothing more can be picked here.");
+                        modal({
+                            title: "The host closed the room",
+                            body: "This draft has ended and cannot be finished. "
+                                + "<strong>Nothing you picked will be played.</strong>"
+                                + "<span class='warn'>You can start a new tournament or join "
+                                + "someone else's from the home page.</span>",
+                            ok: "Back to the home page", cancel: "Stay and look around"
+                        }).then(function (yes) {
+                            if (yes) { roomClosed = false; roomClosedByMe = false; backToLobby(""); }
+                        });
+                    } else {
+                        showNotice("The host has closed this room. You can still look through "
+                            + "the results, but nothing further will happen here.");
+                    }
                 }
                 markRoomClosed();
             }
@@ -782,16 +807,15 @@
             playingBack = false;
             setupShown = false;
             settingsConfirmed = false;
-            watchedComp = {};
             const pb = $("playBtn");
             if (pb) pb.disabled = false;
             const nc = $("nextComp");
             if (nc) nc.disabled = false;
             if (window.MPCommit && MPCommit.reset) MPCommit.reset();
             if (window.MPDraftUI && MPDraftUI.stopAuto) MPDraftUI.stopAuto();
-            $("draftView").classList.add("hidden");
-            $("commitView").classList.add("hidden");
-            $("compView").classList.add("hidden");
+            // Deliberately no view hiding here. Doing so blanked the screen
+            // for anyone still reading the previous results, because the
+            // routing below may legitimately leave them where they are.
         }
         if (!room) {
             // The host closed the room while we were in it. Do not strand
@@ -887,7 +911,11 @@
                     if (!setupShown) { setupShown = true; showSetup(room); }
                     return;
                 }
-                if (!rdy[me2]) return;      // stay on the results screen
+                if (!rdy[me2]) {
+                    // Keep them with the results they are still reading.
+                    if ($("teamsView").classList.contains("hidden")) showOnly("compView");
+                    return;
+                }
 
                 $("waitTitle").innerHTML = "Next competition";
                 $("waitSub").textContent = "";
@@ -1253,7 +1281,7 @@
             // stored results as everyone else, rather than the room waiting
             // on the host's playback to finish before publishing.
             return playBack(results, resolved).then(function () {
-                watchedComp[viewCompNo] = true;
+                watchedComp[compKey(latestRoom || {})] = true;
                 renderRoom(latestRoom);
             });
         });
@@ -1379,7 +1407,7 @@
         $("quietEnd").value = q.end || "08:00";
         $("quietStart").disabled = !q.on;
         $("quietEnd").disabled = !q.on;
-        $("quietNow").textContent = q.on ? (q.start + " to " + q.end) : "off";
+        $("quietNow").textContent = q.on ? (q.start + " to " + q.end) : "not set";
 
         const ok = MPDraft.quietValid(q);
         const len = MPDraft.quietLength(MPDraft.hhmmToMin(q.start), MPDraft.hhmmToMin(q.end));
@@ -1576,7 +1604,7 @@
         // Scores are withheld entirely until this user has played the
         // competition through. Publishing the results early is what lets
         // everyone start watching at once, but it must not show the answers.
-        const watchedHere = !!watchedComp[viewCompNo];
+        const watchedHere = !!watchedComp[compKey(room)];
         const results = {};
         const source = liveResults || (watchedHere ? (comp.results || []) : []);
         source.forEach(function (r) {
@@ -1591,7 +1619,7 @@
         // watch the competition unfold rather than meeting a finished table.
         const hasResults = (comp.results || []).length > 0;
         const canGenerate = isHost && !hasResults;
-        const canReplay = hasResults && !watchedComp[viewCompNo] && !playingBack;
+        const canReplay = hasResults && !watchedComp[compKey(room)] && !playingBack;
         // Once watched, there is nothing left to press.
 
         // Everyone sees the button from the start. It only becomes usable
@@ -1611,7 +1639,7 @@
                 + " to play the fixtures."));
 
         renderSeason(room, comp);
-        const unwatched = (comp.results || []).length > 0 && !watchedComp[viewCompNo];
+        const unwatched = (comp.results || []).length > 0 && !watchedComp[compKey(room)];
         if (playingBack || unwatched) {
             $("tableWrap").classList.add("hidden");
             $("seriesWrap").classList.add("hidden");
@@ -1710,7 +1738,7 @@
         const now = st.competition || 1;
         const total = st.seasonLength || 1;
         // Nothing about the outcome is shown until this user has watched it.
-        const watched = !!watchedComp[viewCompNo];
+        const watched = !!watchedComp[compKey(room)];
         const played = (comp.results || []).length > 0 && !playingBack && watched;
 
         const wb = $("winnerBox");
@@ -1790,7 +1818,7 @@
         const iAmReady = !!ready[me];
         const outstanding = Object.keys(members).filter(function (u) { return !ready[u]; });
 
-        $("showTeams").classList.toggle("hidden", !watchedComp[viewCompNo]);
+        $("showTeams").classList.toggle("hidden", !watchedComp[compKey(room)]);
         const rb = $("readyBtn");
         const rl = $("readyList");
         $("preBoard").classList.toggle("hidden", seasonOver);

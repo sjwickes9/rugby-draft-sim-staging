@@ -182,7 +182,42 @@
         return cursor;
     }
 
+    // How much usable time is left before the deadline, ignoring any quiet
+    // hours in between. This is the number a person actually cares about:
+    // "you have eight minutes to pick", not "the deadline is 10 hours away
+    // because you will be asleep for most of it".
+    function activeLeft(nowMs, deadlineMs, q) {
+        if (!deadlineMs) return null;
+        if (!q || !q.on) return deadlineMs - nowMs;
+        let cursor = nowMs, active = 0, guard = 0;
+        while (cursor < deadlineMs && guard++ < 40) {
+            if (inQuiet(cursor, q)) { cursor = Math.min(quietEnds(cursor, q), deadlineMs); continue; }
+            const s = hhmmToMin(q.start);
+            const local = new Date(cursor + ((q.tzOffset || 0) * 60000));
+            const mins = (local.getUTCHours() * 60) + local.getUTCMinutes();
+            let until = ((s - mins) + 1440) % 1440;
+            if (until === 0) until = 1440;
+            const next = Math.min(cursor + (until * 60000), deadlineMs);
+            active += next - cursor;
+            cursor = next;
+        }
+        return active;
+    }
+
+    // How long until this person's quiet hours begin, or null if not set.
+    function msUntilQuiet(nowMs, q) {
+        if (!q || !q.on) return null;
+        if (inQuiet(nowMs, q)) return 0;
+        const s = hhmmToMin(q.start);
+        const local = new Date(nowMs + ((q.tzOffset || 0) * 60000));
+        const mins = (local.getUTCHours() * 60) + local.getUTCMinutes();
+        let until = ((s - mins) + 1440) % 1440;
+        if (until === 0) until = 1440;
+        return until * 60000;
+    }
+
     return {
+        activeLeft, msUntilQuiet,
         MIN_ACTIVE_MINUTES, hhmmToMin, minToHhmm, quietLength,
         quietValid, inQuiet, quietEnds, deadlineFrom,
         SQUAD_SIZE, FORMATS,

@@ -797,17 +797,23 @@ input[type=color] {
 
 
 /* Options accordion */
-.acc-head {
-    width: 100%; display: flex; align-items: center; gap: 10px; padding: 4px 0;
-    background: none; border: 0; color: var(--pitch); cursor: pointer; text-align: left;
+/* A section heading with its own expand control sitting beside it */
+.section-toggle { display: flex; align-items: center; gap: 10px; }
+.acc-btn {
+    background: var(--panel-2); border: 1px solid var(--line); color: var(--pitch);
+    border-radius: 6px; width: 30px; height: 24px; cursor: pointer; padding: 0;
+    display: inline-flex; align-items: center; justify-content: center;
 }
-.acc-title {
-    flex: 0 0 auto; font-family: var(--display); text-transform: uppercase;
-    letter-spacing: 0.1em; font-size: 0.72rem; color: var(--slate);
+.acc-btn:hover { border-color: var(--teal); color: var(--teal); }
+.acc-caret { transition: transform 0.15s; font-size: 0.7rem; }
+.acc-btn[aria-expanded="true"] .acc-caret { transform: rotate(180deg); }
+.acc-now { font-size: 0.82rem; color: var(--slate); margin: 0 0 4px; }
+.sub-label {
+    font-family: var(--display); text-transform: uppercase; letter-spacing: 0.08em;
+    font-size: 0.68rem; color: var(--slate); margin: 16px 0 8px;
 }
-.acc-now { flex: 1; font-size: 0.8rem; color: var(--pitch); }
-.acc-caret { flex: 0 0 auto; color: var(--slate); transition: transform 0.15s; }
-.acc-head[aria-expanded="true"] .acc-caret { transform: rotate(180deg); }
+.sub-label:first-child { margin-top: 0; }
+.sub-label small { text-transform: none; letter-spacing: 0; font-size: 0.72rem; opacity: 0.8; }
 .acc-body { padding-top: 12px; }
 .acc-body .eyebrow { margin-top: 16px; }
 .acc-body .eyebrow:first-child { margin-top: 0; }
