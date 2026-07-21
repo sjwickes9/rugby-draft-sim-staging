@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607211445";
+    const VERSION = "v1.2607211942";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -387,7 +387,12 @@
     // ── Events ──────────────────────────────────────────────
     function step(field, delta) { state[field] += delta; refresh(); }
 
+    // Registering twice makes every click fire twice, which silently doubles
+    // steppers and can fire an action the user only asked for once.
+    let wired = false;
     function wire() {
+        if (wired) return;
+        wired = true;
         on("themeToggle", "click", toggleTheme);
         on("name", "input", renderYou);
         on("kit1", "input", renderYou);
@@ -424,21 +429,23 @@
             state.geo = btn.getAttribute("data-geo") || null; refresh();
         });
         on("ruleList", "click", function (e) {
-            const b = e.target.closest("button[data-cap]"); if (!b) return;
             const f = filters();
             const ctx = MPRules.buildContext(f, MPEngine.feasibility(allSquads, f, positionFamilyMap));
-            state.countryCap = currentCountryCap(ctx) + (+b.getAttribute("data-cap"));
-            refresh();
-        });
-        on("ruleList", "change", function (e) {
-            const mn = e.target.closest("[data-min]");
+
+            // Buttons raise click, not change. Both steppers belong here.
+            const mn = e.target.closest("button[data-min]");
             if (mn) {
-                const ctx = MPRules.buildContext(filters(),
-                    MPEngine.feasibility(allSquads, filters(), positionFamilyMap));
-                state.minNations = currentMinNations(ctx) + parseInt(mn.getAttribute("data-min"), 10);
+                state.minNations = currentMinNations(ctx) + (+mn.getAttribute("data-min"));
                 refresh();
                 return;
             }
+            const b = e.target.closest("button[data-cap]");
+            if (b) {
+                state.countryCap = currentCountryCap(ctx) + (+b.getAttribute("data-cap"));
+                refresh();
+            }
+        });
+        on("ruleList", "change", function (e) {
             const cb = e.target.closest("input[data-rule]"); if (!cb) return;
             state.rules[cb.getAttribute("data-rule")] = cb.checked; refresh();
         });
@@ -870,10 +877,12 @@
             setupShown = false;
             settingsConfirmed = false;
             announceSeen = false;
-            const pb = $("playBtn");
-            if (pb) pb.disabled = false;
-            const nc = $("nextComp");
-            if (nc) nc.disabled = false;
+            // Clear any disabled state left over from the last competition.
+            ["playBtn", "nextComp", "readyBtn", "enterDraft", "forceStart",
+             "startDraft", "setupConfirm", "preBoard", "waitBoard"].forEach(function (id) {
+                const el = $(id);
+                if (el) el.disabled = false;
+            });
             if (window.MPCommit && MPCommit.reset) MPCommit.reset();
             if (window.MPDraftUI && MPDraftUI.stopAuto) MPDraftUI.stopAuto();
             // Deliberately no view hiding here. Doing so blanked the screen
@@ -1034,6 +1043,7 @@
             })();
             $("waitBoard").classList.toggle("hidden", !iAmIn);
             $("enterDraft").classList.toggle("hidden", iAmIn);
+            $("enterDraft").disabled = false;
             $("waitList").innerHTML = readyRows(mem, ent, me2, "in the draft", "not entered yet");
 
             if (amHost && notIn.length) {
