@@ -103,7 +103,8 @@
             conflicts: [],
             value: function (ctx) {
                 // Ask for a meaningful spread without making it unfillable.
-                return Math.min(ctx.countriesPresent, Math.max(2, Math.min(5,
+                // Never more than there are places in the XV.
+                return Math.min(SQUAD_SIZE, ctx.countriesPresent, Math.max(2, Math.min(5,
                     Math.floor(ctx.countriesPresent / 2))));
             },
             check: function (player, squad, ctx, value) {
@@ -265,7 +266,13 @@
                 // The host may adjust these two, so a stored choice wins over
                 // the engine's automatic value.
                 if (r.id === "maxPerCountry" && chosen.countryCap != null) value = chosen.countryCap;
-                if (r.id === "minPerCountry" && chosen.minNations != null) value = chosen.minNations;
+                if (r.id === "minPerCountry" && chosen.minNations != null) {
+                    // Never demand more nations than the XV has places, nor
+                    // more than the pool can actually supply. Either would
+                    // make every squad illegal no matter how it was drafted.
+                    value = Math.max(2, Math.min(SQUAD_SIZE,
+                        context.countriesPresent || SQUAD_SIZE, chosen.minNations));
+                }
                 return { id: r.id, value: value, check: RULES.find(x => x.id === r.id).check };
             });
     }
