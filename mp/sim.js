@@ -112,6 +112,18 @@
                     });
                 }
             }
+            if (c.id === "minPerCountry") {
+                var nats = {};
+                picked.forEach(function (p) { if (p.country) nats[p.country] = true; });
+                var have = Object.keys(nats).length;
+                if (have < c.value) {
+                    out.push({
+                        rule: "Minimum nations",
+                        detail: have + " nation" + (have === 1 ? "" : "s") + " used, " + c.value + " required",
+                        count: c.value - have
+                    });
+                }
+            }
             if (c.id === "maxPerCountry" || c.id === "maxPerTournament") {
                 var field = (c.id === "maxPerCountry") ? "country" : "year";
                 var counts = {};

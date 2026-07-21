@@ -93,6 +93,26 @@
             }
         },
         {
+            id: "minPerCountry",
+            label: "At least N nations represented",
+            // A ceiling stops one nation dominating. A floor forces genuine
+            // spread, which is a different and complementary idea: without
+            // it a two-nation XV is legal under any cap.
+            requires: function (ctx) { return ctx.countriesPresent >= 3; },
+            warnIf: function () { return false; },
+            conflicts: [],
+            value: function (ctx) {
+                // Ask for a meaningful spread without making it unfillable.
+                return Math.min(ctx.countriesPresent, Math.max(2, Math.min(5,
+                    Math.floor(ctx.countriesPresent / 2))));
+            },
+            check: function (player, squad, ctx, value) {
+                // Only ever bites at the end: it cannot be judged mid-draft,
+                // so it is validated as a breach rather than blocking a pick.
+                return null;
+            }
+        },
+        {
             id: "onePerTournament",
             label: "One player from each tournament",
             // Auto-satisfied at a single tournament, and cannot ask for

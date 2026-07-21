@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607211306";
+    const VERSION = "v1.2607211324";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -31,6 +31,11 @@
             label: "Max players per nation",
             desc: "No more than this many players from any single nation. Adjustable.",
             value: function (v) { return "Max " + v + " players"; }
+        },
+        minPerCountry: {
+            label: "Minimum nations in your XV",
+            desc: "Your XV must draw on at least this many different nations, so it cannot be built from one or two squads.",
+            value: function (v) { return "At least " + v + " nations"; }
         },
         onePerTournament: {
             label: "One from every World Cup",
@@ -587,6 +592,7 @@
         const out = {
             maxPerTournament: !!state.rules.maxPerTournament,
             maxPerCountry: !!state.rules.maxPerCountry,
+            minPerCountry: !!state.rules.minPerCountry,
             onePerTournament: !!state.rules.onePerTournament
         };
         if (out.maxPerCountry) out.countryCap = currentCountryCap(ctx);
@@ -676,6 +682,31 @@
 
     // A closed room stays readable, but every action that would need the
     // server is retired, so nothing fails confusingly in the background.
+    // Only called once the server has confirmed the room is really gone.
+    // The listener is deliberately left running: it costs nothing and means
+    // a recovering connection repairs itself.
+    function declareRoomClosed() {
+        if (roomClosed) return;
+        roomClosed = true;
+        MPNet.forgetRoom();
+        if (!roomClosedByMe) {
+            const drafting = !$("draftView").classList.contains("hidden")
+                || !$("commitView").classList.contains("hidden");
+            if (window.MPDraftUI) {
+                if (MPDraftUI.stopAuto) MPDraftUI.stopAuto();
+                if (MPDraftUI.setLive) MPDraftUI.setLive(false);
+            }
+            if (drafting) {
+                showNotice("The host has closed this room, so this draft has ended. "
+                    + "Nothing more can be picked here.");
+            } else {
+                showNotice("The host has closed this room. You can still look through "
+                    + "the results, but nothing further will happen here.");
+            }
+        }
+        markRoomClosed();
+    }
+
     function markRoomClosed() {
         ["readyBtn", "nextComp", "playBtn", "enterDraft", "forceStart",
          "startDraft", "preBoard", "closeRoom", "showTeams"].forEach(function (id) {
@@ -721,7 +752,13 @@
         showOnly("roomView");
         $("roomCode").innerHTML = code + "<small>share this code</small>";
         if (unwatch) unwatch();
-        unwatch = MPNet.watchRoom(code, renderRoom);
+        unwatch = MPNet.watchRoom(code, renderRoom, function (err) {
+            // A read failure is worth saying out loud: silently losing the
+            // connection is what made every button appear to do nothing.
+            showNotice("Lost contact with the room ("
+                + (err && (err.code || err.message) ? (err.code || err.message) : "unknown")
+                + "). Reload the page if this does not clear.");
+        });
     }
     let latestRoom = null;
     let seenDrafting = false;
@@ -731,6 +768,7 @@
     let settingsConfirmed = false;
     let roomClosedByMe = false;
     let roomClosed = false;
+    let checkingClosed = false;
     let quietState = { on: false, start: "23:00", end: "08:00" };
     let announceSeen = false;
     let startingDraft = false;
@@ -765,38 +803,17 @@
         // still be reading the results or looking through the squads. The
         // room simply stops being live, and they are told why.
         if (!room || !room.meta) {
-            if (currentCode && !roomClosed) {
-                roomClosed = true;
-                if (unwatch) { unwatch(); unwatch = null; }
-                MPNet.forgetRoom();
-                if (!roomClosedByMe) {
-                    // Mid-draft this is not a footnote: the draft is over.
-                    // Say so plainly and stop the clock and the auto-picker.
-                    const drafting = !$("draftView").classList.contains("hidden")
-                        || !$("commitView").classList.contains("hidden");
-                    if (window.MPDraftUI) {
-                        if (MPDraftUI.stopAuto) MPDraftUI.stopAuto();
-                        if (MPDraftUI.setLive) MPDraftUI.setLive(false);
-                    }
-                    if (drafting) {
-                        showNotice("The host has closed this room, so this draft has ended. "
-                            + "Nothing more can be picked here.");
-                        modal({
-                            title: "The host closed the room",
-                            body: "This draft has ended and cannot be finished. "
-                                + "<strong>Nothing you picked will be played.</strong>"
-                                + "<span class='warn'>You can start a new tournament or join "
-                                + "someone else's from the home page.</span>",
-                            ok: "Back to the home page", cancel: "Stay and look around"
-                        }).then(function (yes) {
-                            if (yes) { roomClosed = false; roomClosedByMe = false; backToLobby(""); }
-                        });
-                    } else {
-                        showNotice("The host has closed this room. You can still look through "
-                            + "the results, but nothing further will happen here.");
-                    }
-                }
-                markRoomClosed();
+            // Confirm with the server before acting. A single empty snapshot
+            // can be a transient read failure, and tearing the listener down
+            // on one made every later click appear to do nothing, because
+            // the room could never update again.
+            if (currentCode && !roomClosed && !checkingClosed) {
+                checkingClosed = true;
+                MPNet.roomExists(currentCode).then(function (stillThere) {
+                    checkingClosed = false;
+                    if (stillThere) return;          // false alarm, keep watching
+                    declareRoomClosed();
+                });
             }
             return;
         }
@@ -1624,6 +1641,7 @@
     function ruleText(r) {
         if (r.id === "maxPerCountry") return "Maximum " + r.value + " players from any one nation";
         if (r.id === "maxPerTournament") return "Maximum " + r.value + " players from any one tournament";
+        if (r.id === "minPerCountry") return "At least " + r.value + " different nations in your XV";
         if (r.id === "onePerTournament") return "One player from each of the " + r.value + " tournaments";
         return r.id;
     }

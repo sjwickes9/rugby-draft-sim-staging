@@ -645,10 +645,25 @@ window.MPNet = (function () {
     // ── Watch a room ────────────────────────────────────────
     // cb receives the whole room object on every change. Returns an
     // unsubscribe function.
-    function watchRoom(code, cb) {
+    // A read error is not the same as a deleted room, and previously both
+    // arrived as a null snapshot. The listener now reports which it was, so
+    // a momentary permission blip cannot be mistaken for a closed room.
+    function watchRoom(code, cb, onError) {
         const ref = db.ref("rooms/" + code);
-        const handler = ref.on("value", function (snap) { cb(snap.val()); });
+        const handler = ref.on("value",
+            function (snap) { cb(snap.val()); },
+            function (err) { if (onError) onError(err); });
         return function () { ref.off("value", handler); };
+    }
+
+    // Ask the server directly whether a room still exists, used to confirm
+    // a disappearance before acting on it.
+    function roomExists(code) {
+        return whenReady().then(function () {
+            return db.ref("rooms/" + code + "/meta").get()
+                .then(function (snap) { return snap.exists(); })
+                .catch(function () { return true; });   // unsure: assume it is there
+        });
     }
 
     // ── Leave and close ─────────────────────────────────────
@@ -717,6 +732,7 @@ window.MPNet = (function () {
         forgetRoom: forgetRoom,
         joinRoom: joinRoom,
         watchRoom: watchRoom,
+        roomExists: roomExists,
         leaveRoom: leaveRoom,
         closeRoom: closeRoom,
         MAX_MEMBERS: MAX_MEMBERS
