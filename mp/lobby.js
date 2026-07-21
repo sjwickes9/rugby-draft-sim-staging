@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607211324";
+    const VERSION = "v1.2607211345";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -961,7 +961,7 @@
                     return;
                 }
 
-                $("waitTitle").innerHTML = "Next competition";
+                $("waitTitleText").textContent = "Next competition";
                 $("waitSub").textContent = "";
                 $("waitHint").textContent = hostName(room)
                     + " is setting up competition " + compNo + " of "
@@ -983,7 +983,7 @@
             const notIn = Object.keys(mem).filter(function (u) { return !ent[u]; });
             const notReady = Object.keys(mem).filter(function (u) { return !rdy[u]; });
 
-            $("waitTitle").innerHTML = "Competition " + compNo + " is ready";
+            $("waitTitleText").textContent = "Competition " + compNo + " is ready";
             $("waitSub").textContent = "of " + ((room.settings || {}).seasonLength || 1);
             $("waitHint").textContent = iAmIn
                 ? "You are in. The draft begins once everyone has entered."
