@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607212128";
+    const VERSION = "v1.2607212139";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -1690,7 +1690,20 @@
 
                 MPNet.makePick(currentCode, res.slotId, idx, draft.order, draft.pickIndex, picker)
                     .catch(function (err) { showNotice("AI pick failed: " + err.message); })
-                    .then(function () { aiBusy = false; });
+                    .then(function () {
+                        aiBusy = false;
+                        // The render that would have started the next AI turn
+                        // has already happened by now, so nothing else will
+                        // trigger it. Carry on from here instead.
+                        // Give the snapshot a moment to land, so the next turn
+                        // is decided from the state the server actually has
+                        // rather than from a copy that is one pick behind.
+                        setTimeout(function () {
+                            if (latestRoom && (latestRoom.meta || {}).status === "drafting") {
+                                driveAi(latestRoom);
+                            }
+                        }, 350);
+                    });
             } catch (e) {
                 aiBusy = false;
                 showNotice("AI pick failed: " + (e && e.message ? e.message : "unknown"));
