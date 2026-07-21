@@ -26,11 +26,11 @@
     // The seven links, in the order they read on a team sheet. A link is a
     // pair of slots, or a group from which any two adjacent members count.
     const LINKS = [
-        { id: "halves",    label: "9 and 10",        slots: ["SH", "FH"] },
+        { id: "halves",    label: "Halfbacks",       slots: ["SH", "FH"] },
         { id: "frontRow",  label: "Front row",       slots: ["LH", "HK", "TH"], anyTwo: true },
-        { id: "locks",     label: "Both locks",      slots: ["L4", "L5"] },
+        { id: "locks",     label: "Locks",           slots: ["L4", "L5"] },
         { id: "backRow",   label: "Back row",        slots: ["BF", "OF", "N8"], anyTwo: true },
-        { id: "centres",   label: "Both centres",    slots: ["IC", "OC"] },
+        { id: "centres",   label: "Centres",         slots: ["IC", "OC"] },
         { id: "midfield",  label: "10 and 12",       slots: ["FH", "IC"] },
         { id: "backThree", label: "Back three",      slots: ["LW", "RW", "FB"], anyTwo: true }
     ];

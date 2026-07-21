@@ -101,15 +101,41 @@ window.MPCommit = (function () {
     }
 
     // ── Kicker list ─────────────────────────────────────────
+    // Which slots are part of a formed link, and how strong. Used to tint
+    // the kicker list so the partnerships are visible while choosing.
+    function chemBySlot() {
+        const out = {};
+        if (typeof MPChem === "undefined") return out;
+        const a = MPChem.analyse(state.squad, {
+            mode: state.roomMode || "career",
+            tournamentCount: state.tournamentCount || 99
+        });
+        a.links.forEach(function (l) {
+            if (l.tier === "none") return;
+            // For any-two groups, only the pair that actually linked counts.
+            const names = l.players;
+            l.slots.forEach(function (id) {
+                const p = state.squad[id];
+                if (!p || names.indexOf(p.name) === -1) return;
+                if (l.tier === "full" || !out[id]) out[id] = l.tier;
+            });
+        });
+        return out;
+    }
+
     function renderKickers() {
+        const link = chemBySlot();
         const rows = MPPicks.SLOTS.map(function (s) {
             const p = state.squad[s.id];
             if (!p) return "";
             const chosen = state.kickerSlot === s.id;
+            const tier = link[s.id];
             // No success rate and no kicker mark here on purpose. Knowing who
             // could kick is part of the skill, so the choice is made on your
             // own knowledge rather than a number on the screen.
-            return "<button class='kicker" + (chosen ? " chosen" : "") + "' data-kicker='" + s.id + "'"
+            return "<button class='kicker" + (chosen ? " chosen" : "")
+                + (tier === "full" ? " linked" : (tier === "half" ? " linked-half" : ""))
+                + "' data-kicker='" + s.id + "'"
                 + (state.locked ? " disabled" : "") + ">"
                 + "<span class='knum'>" + s.num + "</span>"
                 + "<span class='kinfo'><span class='kname'>" + esc(p.name) + "</span>"
@@ -119,6 +145,22 @@ window.MPCommit = (function () {
                 + "</button>";
         }).join("");
         $("kickerList").innerHTML = rows;
+
+        // A short summary above the list, so the tinting is explained.
+        const el = $("commitChem");
+        if (el && typeof MPChem !== "undefined") {
+            const b = MPChem.bonus(state.squad, 80, {
+                mode: state.roomMode || "career",
+                tournamentCount: state.tournamentCount || 99
+            });
+            el.innerHTML = "<span class='chem-title'>Chemistry</span>"
+                + "<span class='chem-chips'>"
+                + b.links.map(function (l) {
+                    return "<span class='chem-chip " + l.tier + "'>" + l.label + "</span>";
+                }).join("")
+                + "</span><span class='chem-score'>" + b.formed + "/7"
+                + (b.applied ? " <em>+" + b.applied.toFixed(1) + "</em>" : "") + "</span>";
+        }
     }
 
     function renderWaiting() {

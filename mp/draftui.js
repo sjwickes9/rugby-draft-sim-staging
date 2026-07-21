@@ -633,30 +633,50 @@ window.MPDraftUI = (function () {
         };
         const b = MPChem.bonus(state.squad, 80, opts);
 
-        const rows = b.links.map(function (l) {
-            const cls = "chem-link " + l.tier;
-            const mark = l.tier === "full" ? "\u25CF" : (l.tier === "half" ? "\u25D0" : "\u25CB");
-            const detail = l.tier === "none"
-                ? ""
-                : "<span class='chem-who'>" + esc(l.players.join(" and "))
-                  + " <em>" + esc(l.country) + "</em></span>";
-            return "<div class='" + cls + "'><span class='chem-mark'>" + mark + "</span>"
-                + "<span class='chem-label'>" + l.label + "</span>" + detail + "</div>";
+        // A row of chips reads at a glance while picking. The names are not
+        // repeated: the team sheet is right there and already shows them.
+        const chips = b.links.map(function (l) {
+            return "<span class='chem-chip " + l.tier + "'>" + l.label + "</span>";
         }).join("");
 
         el.classList.remove("hidden");
-        el.innerHTML = "<div class='chem-head'><span>Chemistry</span>"
+        el.innerHTML = "<div class='chem-bar'>"
+            + "<span class='chem-title'>Chemistry</span>"
+            + "<span class='chem-chips'>" + chips + "</span>"
             + "<span class='chem-score'>" + b.formed + "/7"
-            + (b.applied ? "  +" + b.applied.toFixed(1) : "") + "</span></div>"
-            + rows
-            + (b.narrow
-                ? "<p class='chem-note'>Short window, so links are worth half.</p>"
-                : "");
+            + (b.applied ? " <em>+" + b.applied.toFixed(1) + "</em>" : "") + "</span>"
+            + "</div>"
+            + (b.narrow ? "<p class='chem-note'>Short window, so links count half.</p>" : "");
     }
 
     // ── Rules progress (spec 7) ─────────────────────────────
     // A draft can run for days, so the constraints must be visible with
     // your progress against them rather than held in memory.
+    // A floor rather than a ceiling, so it needs its own readout: how many
+    // nations you have, how many you need, and a warning once every
+    // remaining pick has to bring a new one.
+    function spreadRule(picked, r, left) {
+        const used = {};
+        picked.forEach(function (p) { if (p.country) used[p.country] = true; });
+        const have = Object.keys(used).length;
+        const short = Math.max(0, r.value - have);
+        const done = short === 0;
+        const forced = !done && short >= left;
+        const chips = Object.keys(used).sort().map(function (k) {
+            return "<span class='rule-chip full'>" + esc(k) + "</span>";
+        }).join("");
+        const note = done
+            ? "requirement met"
+            : (forced ? "every remaining pick must be a new nation"
+                      : short + " more needed");
+        return "<div class='rule-item'><div class='rule-top'>"
+            + "<span class='rule-name'>At least " + r.value + " nations</span>"
+            + "<span class='rule-state " + (done ? "ok" : (forced ? "tight" : "")) + "'>"
+            + have + " of " + r.value + ", " + note + "</span></div>"
+            + (chips ? "<div class='rule-detail'>" + chips + "</div>" : "")
+            + "</div>";
+    }
+
     function renderRules() {
         const el = $("rulePanel");
         if (!el) return;
@@ -671,6 +691,7 @@ window.MPDraftUI = (function () {
             if (r.id === "maxPerCountry") return countRule(picked, r, "country", "nation");
             if (r.id === "maxPerTournament") return countRule(picked, r, "year", "tournament");
             if (r.id === "onePerTournament") return coverRule(picked, r, left);
+            if (r.id === "minPerCountry") return spreadRule(picked, r, left);
             return "";
         }).filter(Boolean).join("");
         el.innerHTML = html;

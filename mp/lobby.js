@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607211949";
+    const VERSION = "v1.2607212019";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -1786,8 +1786,11 @@
 
         renderSeason(room, comp);
         const unwatched = (comp.results || []).length > 0 && !watchedComp[compKey(room)];
+        const twoUp = (((room.draft || {}).order) || []).length === 2;
         if (playingBack || unwatched) {
             $("tableWrap").classList.add("hidden");
+            // During playback the series verdict would give the game away,
+            // so it is withheld until the last Test has been seen.
             $("seriesWrap").classList.add("hidden");
         } else if (!renderSeries(room, comp)) {
             renderTable(room, comp);
