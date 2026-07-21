@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607210933";
+    const VERSION = "v1.2607211135";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -484,10 +484,17 @@
         });
         on("readyBtn", "click", function () {
             $("readyBtn").disabled = true;
-            MPNet.setReady(currentCode, true).catch(function (err) {
-                setStatus("nextHint", err.message, true);
-                $("readyBtn").disabled = false;
-            });
+            MPNet.setReady(currentCode, true)
+                .then(function () {
+                    // Re-enable regardless: the room state decides whether the
+                    // button is shown, and a stuck disabled button with no
+                    // visible change is the worst possible outcome.
+                    $("readyBtn").disabled = false;
+                })
+                .catch(function (err) {
+                    setStatus("nextHint", err.message, true);
+                    $("readyBtn").disabled = false;
+                });
         });
         on("enterDraft", "click", function () {
             $("enterDraft").disabled = true;
@@ -726,6 +733,7 @@
     let roomClosedByMe = false;
     let roomClosed = false;
     let quietState = { on: false, start: "23:00", end: "08:00" };
+    let announceSeen = false;
     let startingDraft = false;
     const FORCE_GRACE_MS = 600000;   // ten minutes before the host may force
     let forceTicker = null;
@@ -807,6 +815,7 @@
             playingBack = false;
             setupShown = false;
             settingsConfirmed = false;
+            announceSeen = false;
             const pb = $("playBtn");
             if (pb) pb.disabled = false;
             const nc = $("nextComp");
@@ -909,10 +918,12 @@
                 // must keep them, and the ones who have get a plain notice.
                 if (amHost) {
                     if (!setupShown) { setupShown = true; showSetup(room); }
+                    else renderSetupStatus(room);
                     return;
                 }
                 if (!rdy[me2]) {
-                    // Keep them with the results they are still reading.
+                    // Keep them with the results they are still reading. This
+                    // only applies before the host has confirmed anything.
                     if ($("teamsView").classList.contains("hidden")) showOnly("compView");
                     return;
                 }
@@ -943,7 +954,20 @@
             $("waitSub").textContent = "of " + ((room.settings || {}).seasonLength || 1);
             $("waitHint").textContent = iAmIn
                 ? "You are in. The draft begins once everyone has entered."
-                : "These are the settings for the next draft. Enter when you are ready.";
+                : "These are the settings for the next draft. Press Enter the draft below "
+                  + "when you are ready, and it will begin once everyone has.";
+            if (!announceSeen && !iAmIn && !amHost) {
+                announceSeen = true;
+                modal({
+                    title: "Competition " + compNo + " is ready",
+                    body: hostName(room) + " has set up the next draft. "
+                        + "<strong>Have a look at the pool and the rules, then enter.</strong>"
+                        + "<span class='warn'>The draft starts once everyone has entered.</span>",
+                    ok: "Have a look", cancel: "Enter now"
+                }).then(function (look) {
+                    if (!look) MPNet.enterDraft(currentCode).catch(function () {});
+                });
+            }
             $("waitBrief").classList.remove("hidden");
             $("waitBrief").innerHTML = (function () {
                 try { return buildBrief(room); } catch (e) { return ""; }
@@ -1000,7 +1024,31 @@
             $("resumeDraft").classList.remove("hidden");
             $("startDraft").classList.add("hidden");
             setStatus("startHint", "", false);
-            if (!seenDrafting) { seenDrafting = true; showDraft(); }
+            if (!seenDrafting) {
+                seenDrafting = true;
+                const amHost = (room.meta || {}).hostUid === MPNet.currentUid();
+                if (amHost) {
+                    showDraft();
+                } else {
+                    // The user may be mid-way through setting quiet hours or
+                    // reading the brief, so they are told and choose to go in.
+                    $("startDraft").classList.add("hidden");
+                    $("resumeDraft").classList.remove("hidden");
+                    const sp = $("resumeDraft").querySelector("span");
+                    if (sp) sp.textContent = "Enter the draft";
+                    showOnly("roomView");
+                    modal({
+                        title: "The draft has started",
+                        body: hostName(room) + " has started the draft."
+                            + (((room.settings || {}).turnMs)
+                                ? "<span class='warn'>Each turn is limited to "
+                                  + turnText((room.settings || {}).turnMs)
+                                  + ", so do not leave it too long.</span>"
+                                : ""),
+                        ok: "Enter the draft", cancel: "In a moment"
+                    }).then(function (yes) { if (yes) showDraft(); });
+                }
+            }
         } else {
             $("resumeDraft").classList.add("hidden");
         }
@@ -1292,6 +1340,21 @@
     // than duplicating the controls, the whole options block is moved into
     // the setup view and moved back afterwards, so there is one set of
     // controls and one set of handlers.
+    function renderSetupStatus(room) {
+        const el = $("setupReady");
+        if (!el) return;
+        const mem = room.members || {};
+        const rdy = room.ready || {};
+        const out = Object.keys(mem).filter(function (u) { return !rdy[u]; });
+        el.innerHTML = "<p class='sub-label'>Where everyone is</p>"
+            + readyRows(mem, rdy, MPNet.currentUid(), "ready to move on", "still with the results")
+            + "<p class='list-hint'>" + (out.length
+                ? "You can still set this up and confirm it. "
+                  + names(mem, out).join(", ") + (out.length === 1 ? " will" : " will")
+                  + " be invited in as soon as you do."
+                : "Everyone has finished with the results.") + "</p>";
+    }
+
     function showSetup(room) {
         const block = $("optionsBlock");
         const host = $("setupHost");
@@ -1302,6 +1365,7 @@
         const st = room.settings || {};
         $("setupSub").textContent = "competition " + (st.competition || 2)
             + " of " + (st.seasonLength || 1);
+        renderSetupStatus(room);
 
         // Load the room's current settings into the controls.
         state.mode = st.mode === "career" ? "career" : "tournament";
