@@ -349,6 +349,43 @@ window.MPNet = (function () {
         });
     }
 
+    // ── AI seats ───────────────────────────────────────────
+    // An AI has no client, so the host creates its member node and later
+    // writes its picks. The seat is otherwise an ordinary member.
+    function addAiSeats(code, seats) {
+        return whenReady().then(function () {
+            const updates = {};
+            (seats || []).forEach(function (s) {
+                updates["rooms/" + code + "/members/" + s.uid] = {
+                    name: s.name,
+                    kit: s.kit || "#8899AA",
+                    joinedAt: firebase.database.ServerValue.TIMESTAMP,
+                    ai: { traits: s.traits, seed: s.seed }
+                };
+                updates["rooms/" + code + "/entered/" + s.uid] = true;
+                updates["rooms/" + code + "/ready/" + s.uid] = true;
+            });
+            if (!Object.keys(updates).length) return null;
+            return db.ref().update(updates).catch(function (err) {
+                throw new Error("Could not add the AI sides ("
+                    + (err.code || err.message) + ").");
+            });
+        });
+    }
+
+    function removeAiSeats(code, uids) {
+        return whenReady().then(function () {
+            const updates = {};
+            (uids || []).forEach(function (u) {
+                updates["rooms/" + code + "/members/" + u] = null;
+                updates["rooms/" + code + "/entered/" + u] = null;
+                updates["rooms/" + code + "/ready/" + u] = null;
+            });
+            if (!Object.keys(updates).length) return null;
+            return db.ref().update(updates);
+        });
+    }
+
     // ── Quiet hours ────────────────────────────────────────
     // Personal to each user, and stored on the room because whichever
     // client resolves an expired turn needs to know the picker's schedule.
@@ -715,6 +752,8 @@ window.MPNet = (function () {
         updateSettings: updateSettings,
         startDraft: startDraft,
         makePick: makePick,
+        addAiSeats: addAiSeats,
+        removeAiSeats: removeAiSeats,
         saveQuiet: saveQuiet,
         touchHost: touchHost,
         claimHost: claimHost,

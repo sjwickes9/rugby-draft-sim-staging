@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607212115";
+    const VERSION = "v1.2607212128";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -64,6 +64,7 @@
         geo: null,
         size: 2,           // human users, 1 to 8
         season: 3,         // competitions in the season, 1 to 15
+        aiCount: 0,        // AI sides drafting alongside the humans
         turnMs: 600000,    // time allowed per pick, 0 means no limit
         hostIdleMs: 86400000,  // host handover after this much silence
         path: "create",    // "create" | "join"
@@ -222,6 +223,14 @@
         refresh();
     }
 
+    // Total sides is humans plus AI, and the pool has to support all of
+    // them, so the two steppers share one ceiling.
+    function setAi(n) {
+        const room = 8 - state.size;
+        state.aiCount = Math.max(0, Math.min(room, n));
+        refresh();
+    }
+
     function renderPath() {
         const creating = state.path === "create";
         $("pathCreate").setAttribute("aria-pressed", String(creating));
@@ -245,6 +254,8 @@
         if (state.season < 1) state.season = 1;
         if (state.season > 15) state.season = 15;
         $("sizeNum").textContent = state.size;
+        $("aiNum").textContent = state.aiCount;
+        if (state.aiCount > 8 - state.size) state.aiCount = Math.max(0, 8 - state.size);
         $("seasonNum").textContent = state.season;
         $("sizeDown").disabled = state.size <= 1;
         $("sizeUp").disabled = state.size >= 8;
@@ -511,6 +522,8 @@
             on(id, "change", saveQuiet);
         });
         on("idleHours", "change", function () { readTurnFields(); refresh(); });
+        on("aiUp", "click", function () { setAi(state.aiCount + 1); });
+        on("aiDown", "click", function () { setAi(state.aiCount - 1); });
         on("randomise", "click", randomiseSetup);
         on("preBoard", "click", function () {
             const room = latestRoom || {};
@@ -656,7 +669,17 @@
 
         setStatus("lobbyStatus", "Creating room and snapshotting the pool...", false);
         $("create").disabled = true;
-        MPNet.createRoom(filters(), profile(), rulesForCreate(), { tableSize: state.size, aiCount: 0, seasonLength: state.season, turnMs: state.turnMs, hostIdleMs: state.hostIdleMs })
+        MPNet.createRoom(filters(), profile(), rulesForCreate(), { tableSize: state.size + state.aiCount, aiCount: state.aiCount, seasonLength: state.season, turnMs: state.turnMs, hostIdleMs: state.hostIdleMs })
+            .then(function (code) {
+                // Seats are generated from the built pool, so a personality
+                // can only prefer nations that are actually available.
+                if (!state.aiCount) return code;
+                let pool = [];
+                try { pool = MPEngine.buildPool(allSquads, filters(), positionFamilyMap); } catch (e) {}
+                const seats = MPAI.makeSeats(state.aiCount, pool, Math.floor(Math.random() * 1e9),
+                    [($("name").value || "").trim()]);
+                return MPNet.addAiSeats(code, seats).then(function () { return code; });
+            })
             .then(enterRoom)
             .catch(function (err) { setStatus("lobbyStatus", err.message, true); $("create").disabled = false; });
     }
@@ -950,8 +973,9 @@
             $("lotteryList").innerHTML = draft.order.map(function (u) {
                 const m = members[u] || {};
                 const you = (u === MPNet.currentUid());
+                const aiTag = m.ai ? "<span class='ai-tag'>AI</span>" : "";
                 return "<li style='border-left-color:" + (m.kit || "#16E0CD") + "'>"
-                    + esc(m.name || "Player") + (you ? " (you)" : "") + "</li>";
+                    + esc(m.name || "Player") + (you ? " (you)" : "") + aiTag + "</li>";
             }).join("");
         } else {
             $("lotteryPanel").classList.add("hidden");
@@ -1092,6 +1116,7 @@
         }
 
         if (status === "drafting") {
+            driveAi(room);
             // A new competition writes a fresh draft node, so rebuild the
             // draft UI rather than reusing the finished one.
             ensureDraftInit(room);
@@ -1607,6 +1632,72 @@
         };
     }
 
+    // An AI has no client, so the host writes its picks. A short pause
+    // keeps the draft watchable rather than turning it into a loading bar.
+    let aiBusy = false;
+    function driveAi(room) {
+        if (aiBusy) return;
+        if ((room.meta || {}).hostUid !== MPNet.currentUid()) return;
+        const draft = room.draft || {};
+        const picker = draft.currentPicker;
+        const seat = (room.members || {})[picker];
+        if (!seat || !seat.ai) return;
+
+        aiBusy = true;
+        setTimeout(function () {
+            try {
+                const st = room.settings || {};
+                const ff = {
+                    mode: st.mode || "career",
+                    yearMin: st.yearMin, yearMax: st.yearMax,
+                    countries: st.countries || null
+                };
+                const pool = room.pool || [];
+                const an = MPEngine.feasibility(allSquads, ff, positionFamilyMap);
+                const ctx = MPRules.buildContext(ff, an);
+                const active = MPRules.activeConstraints(ctx, st.rules || {});
+
+                // Rebuild this seat's squad and everything already taken.
+                const squad = MPPicks.emptySquad();
+                const taken = {};
+                Object.keys(draft.picks || {}).forEach(function (k) {
+                    const pk = draft.picks[k];
+                    const p = pool[pk.i];
+                    if (!p) return;
+                    taken[MPPicks.personKey(p)] = true;
+                    if (pk.by === picker) squad[pk.slot] = p;
+                });
+
+                const years = {};
+                pool.forEach(function (p) { if (p.year) years[p.year] = 1; });
+                const opts = {
+                    mode: st.mode || "career",
+                    tournamentCount: Object.keys(years).length || 99,
+                    years: Object.keys(years).sort()
+                };
+
+                let res = MPAI.pick(MPPicks, MPRules, pool, squad, taken, active, ctx,
+                    { traits: seat.ai.traits, seed: seat.ai.seed }, opts);
+                // Fall back to the ordinary engine rather than stalling the room.
+                if (!res) {
+                    res = MPPicks.autoPick(pool, squad, taken, [], active, ctx, MPRules.isPickLegal);
+                }
+                if (!res || res.stuck) { aiBusy = false; return; }
+
+                let idx = -1;
+                for (let i = 0; i < pool.length; i++) if (pool[i] === res.player) { idx = i; break; }
+                if (idx === -1) { aiBusy = false; return; }
+
+                MPNet.makePick(currentCode, res.slotId, idx, draft.order, draft.pickIndex, picker)
+                    .catch(function (err) { showNotice("AI pick failed: " + err.message); })
+                    .then(function () { aiBusy = false; });
+            } catch (e) {
+                aiBusy = false;
+                showNotice("AI pick failed: " + (e && e.message ? e.message : "unknown"));
+            }
+        }, 1200);
+    }
+
     function renderBrief(room) {
         const el = $("roomBrief");
         if (!el) return;
@@ -2060,7 +2151,18 @@
             : "";
         el.innerHTML = "<div class='season-sum'>"
             + "<p class='sum-head'>Winner of each competition</p>" + rows.join("")
-            + "<p class='sum-head'>Final standings</p>" + table + "</div>";
+            + "<p class='sum-head'>Final standings</p>" + table
+            + (function () {
+                const ai = Object.keys(members).filter(function (u) { return (members[u] || {}).ai; });
+                if (!ai.length || typeof MPAI === "undefined") return "";
+                return "<p class='sum-head'>How the AI sides drafted</p>"
+                    + ai.map(function (u) {
+                        return "<div class='sum-row'><span class='sum-win'>"
+                            + esc(nameOf(u)) + "</span><span class='ai-traits'>"
+                            + esc(MPAI.describe((members[u] || {}).ai.traits)) + "</span></div>";
+                    }).join("");
+            })()
+            + "</div>";
         return true;
     }
 

@@ -24,7 +24,7 @@
     <!-- ══ LOBBY VIEW ══ -->
     <div id="lobbyView">
 
-        <p class="version" id="version">v1.2607212115</p>
+        <p class="version" id="version">v1.2607212128</p>
 
         <div id="notice" class="notice hidden">
             <span id="noticeText"></span>
@@ -85,6 +85,14 @@
                         <button id="sizeDown" aria-label="Fewer users">&minus;</button>
                         <span class="num" id="sizeNum">2</span>
                         <button id="sizeUp" aria-label="More users">+</button>
+                    </div>
+                </div>
+                <div class="stepper">
+                    <label class="field">AI sides</label>
+                    <div class="cap">
+                        <button id="aiDown" aria-label="Fewer AI sides">&minus;</button>
+                        <span class="num" id="aiNum">0</span>
+                        <button id="aiUp" aria-label="More AI sides">+</button>
                     </div>
                 </div>
                 <div class="stepper">
@@ -451,6 +459,7 @@
 <script src="draftui.js"></script>
 <script src="fixtures.js"></script>
 <script src="chem.js"></script>
+<script src="ai.js"></script>
 <script src="sim.js"></script>
 <script src="commit.js"></script>
 </body>
