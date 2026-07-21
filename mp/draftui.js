@@ -643,8 +643,7 @@ window.MPDraftUI = (function () {
         el.innerHTML = "<div class='chem-bar'>"
             + "<span class='chem-title'>Chemistry</span>"
             + "<span class='chem-chips'>" + chips + "</span>"
-            + "<span class='chem-score'>" + b.formed + "/7"
-            + (b.applied ? " <em>+" + b.applied.toFixed(1) + "</em>" : "") + "</span>"
+            + "<span class='chem-score'>" + b.formed + "/7</span>"
             + "</div>"
             + (b.narrow ? "<p class='chem-note'>Short window, so links count half.</p>" : "");
     }

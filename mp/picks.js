@@ -346,6 +346,7 @@
     function anyLegalPick(pool, squad, taken, activeConstraints, ruleCtx, isPickLegal) {
         const empties = emptySlots(squad);
         const coverage = coverageContext(pool, squad, activeConstraints);
+
         for (let s = 0; s < empties.length; s++) {
             for (let i = 0; i < pool.length; i++) {
                 const v = evaluate(pool[i], empties[s], squad, taken, activeConstraints, ruleCtx, isPickLegal, coverage);
@@ -406,6 +407,24 @@
     //   3. Only if neither exists, an out-of-position placement, because a
     //      penalised XV beats a stalled draft.
     // Every step must satisfy the active rules, and the front-row law.
+    // How many further nations must appear, given what is already picked
+    // and how many slots remain. Returns a set of nations already used when
+    // the requirement has become forced, otherwise null.
+    function nationsStillForced(squad, activeConstraints, slotsLeft) {
+        const rule = (activeConstraints || []).find(function (c) { return c.id === "minPerCountry"; });
+        if (!rule) return null;
+        const used = {};
+        squadPlayers(squad).forEach(function (p) { if (p.country) used[p.country] = true; });
+        const have = Object.keys(used).length;
+        const short = rule.value - have;
+        if (short <= 0) return null;
+        // Steer one slot before it becomes arithmetically forced. Waiting
+        // until short equals slotsLeft leaves no room for the case where the
+        // only remaining slots cannot be filled from an unused nation.
+        if (short < slotsLeft - 1) return null;
+        return used;
+    }
+
     function autoPick(pool, squad, taken, starred, activeConstraints, ruleCtx, isPickLegal) {
         const empties = emptySlots(squad);
         if (!empties.length) return null;
@@ -415,6 +434,13 @@
         activeConstraints = relax.constraints;
         const relaxed = relax.level > 0;
         const coverage = coverageContext(pool, squad, activeConstraints);
+
+        // A minimum-nations rule cannot be judged pick by pick, so nothing
+        // steers towards it and an automatic draft will breach it whenever
+        // the natural picks happen not to spread widely enough. Once the
+        // nations still needed equal the slots still empty, every remaining
+        // pick must bring a new nation or the squad cannot come good.
+        const needNations = nationsStillForced(squad, activeConstraints, empties.length);
 
         // Front row first when it is getting tight, otherwise a squad can
         // be left with front-row slots and nobody legal to fill them.
@@ -434,6 +460,13 @@
             return frontUrgent ? (fa - fb) : 0;
         });
 
+        // When the nations requirement is forced, a candidate that adds no
+        // new nation cannot be part of a legal finish, so it is skipped.
+        function nationOk(player) {
+            if (!needNations) return true;
+            return !!(player.country && !needNations[player.country]);
+        }
+
         // A natural slot is one the player actually plays: no penalty.
         function naturalEmptyFor(player) {
             const nat = naturalSlots(player);
@@ -450,7 +483,9 @@
         if (starred && starred.length) {
             for (let k = 0; k < starred.length; k++) {
                 const cand = starred[k];
-                if (!cand || taken[personKey(cand)]) continue;
+                // The Big Board is a preference, not a licence to finish
+                // illegal, so the nations requirement still applies here.
+                if (!cand || taken[personKey(cand)] || !nationOk(cand)) continue;
                 const slotId = naturalEmptyFor(cand);
                 if (slotId) return { player: cand, slotId: slotId, from: "board", relaxed: relaxed };
             }
@@ -460,7 +495,7 @@
         let best = null;
         for (let i = 0; i < pool.length; i++) {
             const p = pool[i];
-            if (taken[personKey(p)]) continue;
+            if (taken[personKey(p)] || !nationOk(p)) continue;
             const slotId = naturalEmptyFor(p);
             if (!slotId) continue;
             const rating = p.rating || 0;
@@ -478,7 +513,7 @@
             const slotId = slotsToTry[s];
             for (let i = 0; i < pool.length; i++) {
                 const p = pool[i];
-                if (taken[personKey(p)]) continue;
+                if (taken[personKey(p)] || !nationOk(p)) continue;
                 const v = evaluate(p, slotId, squad, taken, activeConstraints, ruleCtx, isPickLegal, coverage);
                 if (!v.eligible) continue;
                 if (!fallback || v.effective > fallback.effective) {

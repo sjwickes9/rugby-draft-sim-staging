@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607212022";
+    const VERSION = "v1.2607212050";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -308,7 +308,7 @@
             if (r.id === "minPerCountry" && r.enabled) {
                 // Editable from two up to every nation in the pool, so a Six
                 // Nations room can demand all six be represented.
-                const maxN = ctx.countriesPresent || 2;
+                const maxN = Math.max(2, Math.min(15, ctx.countriesPresent || 2));
                 const val = currentMinNations(ctx);
                 control = "<span class='mini-step'>"
                     + "<button data-min='-1' " + (val <= 2 ? "disabled" : "") + " aria-label='Fewer nations'>&minus;</button>"
@@ -343,7 +343,9 @@
     // engine's auto-derived one. Always clamped to the hard floor.
     // Clamped to the pool: never below two, never above the nations present.
     function currentMinNations(ctx) {
-        const maxN = Math.max(2, ctx.countriesPresent || 2);
+        // An XV has fifteen places, so it can never represent more than
+        // fifteen nations however many are in the pool.
+        const maxN = Math.max(2, Math.min(15, ctx.countriesPresent || 2));
         const dflt = Math.min(maxN, Math.max(2, Math.min(5, Math.floor(maxN / 2))));
         const v = (state.minNations == null) ? dflt : state.minNations;
         return Math.max(2, Math.min(maxN, v));
@@ -1873,7 +1875,12 @@
                 ? "<div class='series-winner'>" + esc(nameOf(r.winner)) + " wins the series</div>"
                 : "<div class='series-winner'>Series level</div>")
             + "<div class='series-note'>Decided on " + esc(r.decidedBy)
-            + ". Aggregate " + r.aggregateA + " to " + r.aggregateB + ".</div>"
+            // The aggregate only matters when the wins did not settle it,
+            // either because it decided the series or because it is level.
+            + (r.decidedBy === "series result"
+                ? "."
+                : ". Aggregate " + r.aggregateA + " to " + r.aggregateB + ".")
+            + "</div>"
             + "</div>";
         return true;
     }

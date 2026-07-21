@@ -79,7 +79,18 @@ window.MPCommit = (function () {
             breaches = MPSim.squadBreaches(state.squad, state.pool || [], state.constraints || []);
         } catch (e) {}
         const penalty = MPSim.breachPenalty(breaches);
-        $("cOverall").textContent = Math.max(0, base - penalty);
+        // Chemistry is shown as a separate addition rather than folded in,
+        // so it is obvious what the links are actually worth.
+        let chemAdd = 0;
+        if (typeof MPChem !== "undefined") {
+            chemAdd = MPChem.bonus(state.squad, base, {
+                mode: state.roomMode || "career",
+                tournamentCount: state.tournamentCount || 99
+            }).applied;
+        }
+        const core = Math.max(0, base - penalty);
+        $("cOverall").innerHTML = core
+            + (chemAdd ? " <span class='chem-add'>+" + chemAdd.toFixed(1) + "</span>" : "");
 
         const pen = $("penaltyNote");
         if (pen) {
@@ -158,8 +169,7 @@ window.MPCommit = (function () {
                 + b.links.map(function (l) {
                     return "<span class='chem-chip " + l.tier + "'>" + l.label + "</span>";
                 }).join("")
-                + "</span><span class='chem-score'>" + b.formed + "/7"
-                + (b.applied ? " <em>+" + b.applied.toFixed(1) + "</em>" : "") + "</span>";
+                + "</span><span class='chem-score'>" + b.formed + "/7</span>";
         }
     }
 

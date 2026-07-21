@@ -867,3 +867,9 @@ input[type=color] {
     display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
     margin: 0 0 12px; font-size: 0.78rem; color: var(--slate);
 }
+
+/* Chemistry shown as an addition to the overall rating */
+.cval .chem-add {
+    font-size: 0.44em; color: var(--teal); font-weight: normal;
+    vertical-align: super; letter-spacing: 0;
+}
