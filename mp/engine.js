@@ -151,6 +151,11 @@
                     name: e.name,
                     country: e.country,
                     year: null,               // tournament identity removed
+                    // Which World Cups this player actually appeared at. The
+                    // single card drops tournament identity, but chemistry
+                    // still needs to know who genuinely played together, so
+                    // the history is kept alongside it.
+                    years: [],
                     positions: [],
                     rating: e.careerRating,   // career peak uses careerRating
                     careerRating: e.careerRating,
@@ -159,6 +164,7 @@
                 byPlayer.set(key, acc);
             }
             for (const p of e.positions) if (acc.positions.indexOf(p) === -1) acc.positions.push(p);
+            if (e.year && acc.years.indexOf(String(e.year)) === -1) acc.years.push(String(e.year));
             if (e.kicker) acc.kicker = true;
             // careerRating is constant per player, but guard anyway
             if (e.careerRating > acc.careerRating) { acc.careerRating = e.careerRating; acc.rating = e.careerRating; }
