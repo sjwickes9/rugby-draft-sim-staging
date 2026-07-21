@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607211228";
+    const VERSION = "v1.2607211306";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -914,6 +914,12 @@
         // must not see the new setup before it exists.
         //   lobby     the host is still deciding: users simply wait
         //   announced the settings are fixed: users see them and enter
+        // Keep the results alive whenever there are results to show. The
+        // room status moves on before the people reading them do.
+        if (room.comp && (room.comp.results || []).length) {
+            try { renderFixtures(room); } catch (e) { console.error("renderFixtures", e); }
+        }
+
         if ((status === "lobby" || status === "announced") && compNo > 1) {
             const amHost = (room.meta || {}).hostUid === MPNet.currentUid();
             const me2 = MPNet.currentUid();
@@ -1811,6 +1817,9 @@
     // Competition winner, season tally, and what happens next.
     function renderSeason(room, comp) {
         const st = room.settings || {};
+        // True once the host has already moved the room on. The results are
+        // still readable, but this screen no longer drives what happens next.
+        const movedOn = ((room.meta || {}).status !== "competing");
         const members = room.members || {};
         const me = MPNet.currentUid();
         const nameOf = function (u) { return (members[u] || {}).name || "User"; };
