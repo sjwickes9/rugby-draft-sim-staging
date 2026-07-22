@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607212139";
+    const VERSION = "v1.2607220819";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -65,6 +65,7 @@
         size: 2,           // human users, 1 to 8
         season: 3,         // competitions in the season, 1 to 15
         aiCount: 0,        // AI sides drafting alongside the humans
+        chemistry: true,   // whether the chemistry bonus applies
         turnMs: 600000,    // time allowed per pick, 0 means no limit
         hostIdleMs: 86400000,  // host handover after this much silence
         path: "create",    // "create" | "join"
@@ -522,6 +523,7 @@
             on(id, "change", saveQuiet);
         });
         on("idleHours", "change", function () { readTurnFields(); refresh(); });
+on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         on("aiUp", "click", function () { setAi(state.aiCount + 1); });
         on("aiDown", "click", function () { setAi(state.aiCount - 1); });
         on("randomise", "click", randomiseSetup);
@@ -669,7 +671,7 @@
 
         setStatus("lobbyStatus", "Creating room and snapshotting the pool...", false);
         $("create").disabled = true;
-        MPNet.createRoom(filters(), profile(), rulesForCreate(), { tableSize: state.size + state.aiCount, aiCount: state.aiCount, seasonLength: state.season, turnMs: state.turnMs, hostIdleMs: state.hostIdleMs })
+        MPNet.createRoom(filters(), profile(), rulesForCreate(), { tableSize: state.size + state.aiCount, aiCount: state.aiCount, seasonLength: state.season, turnMs: state.turnMs, hostIdleMs: state.hostIdleMs, chemistry: state.chemistry })
             .then(function (code) {
                 // Seats are generated from the built pool, so a personality
                 // can only prefer nations that are actually available.
@@ -1205,6 +1207,7 @@
             turnMs: (room.settings || {}).turnMs || 0,
             quiet: room.quiet || {},
             mode: (room.settings || {}).mode || "career",
+            chemistry: (room.settings || {}).chemistry !== false,
             tournamentCount: (function () {
                 const ys = {};
                 (room.pool || []).forEach(function (p) { if (p.year) ys[p.year] = 1; });
@@ -1238,6 +1241,10 @@
         const total = (d.order || []).length * MPPicks.SLOTS.length;
         const done = total > 0 && (d.pickIndex || 0) >= total;
         if (!done) return;
+
+        // Commit for any AI side that has not yet, so the room never waits
+        // on an opponent with no client. The host does this once.
+        commitAiSides(room);
 
         if (!commitWired) {
             commitWired = true;
@@ -1288,7 +1295,14 @@
             commits: room.commit || {},
             myUid: MPNet.currentUid(),
             hostUid: (room.meta || {}).hostUid,
-            code: currentCode
+            code: currentCode,
+            mode: (room.settings || {}).mode || "career",
+            chemistry: (room.settings || {}).chemistry !== false,
+            tournamentCount: (function () {
+                const ys = {};
+                (room.pool || []).forEach(function (p) { if (p.year) ys[p.year] = 1; });
+                return Object.keys(ys).length || 99;
+            })()
         };
         if (!commitShown) {
             commitShown = true;
@@ -1304,12 +1318,17 @@
     }
 
     const ALL_VIEWS = ["lobbyView", "roomView", "setupView", "waitView", "teamsView", "seasonView", "draftView", "commitView", "compView"];
+    let shownView = null;
     function showOnly(id) {
         ALL_VIEWS.forEach(function (v) {
             const el = $(v);
             if (el) el.classList.toggle("hidden", v !== id);
         });
-        scrollTop();
+        // Only scroll when the view actually changes. These screens re-render
+        // on every Firebase snapshot, and scrolling on each one made the page
+        // jump to the top every second or two, so on mobile you could never
+        // reach a button lower down.
+        if (id !== shownView) { shownView = id; scrollTop(); }
     }
 
     function scrollTop() {
@@ -1430,7 +1449,8 @@
 
         return MPNet.finishCompetition(currentCode, {
             fixtures: resolved, results: results, standings: standings,
-            winner: winner, illegal: illegal, breaches: breachInfo
+            winner: winner, illegal: illegal, breaches: breachInfo,
+            kickerNames: kickerName
         }, tally).then(function () {
             // Everyone can start watching now. The host watches the same
             // stored results as everyone else, rather than the room waiting
@@ -1483,6 +1503,8 @@
         state.rules = Object.assign({}, st.rules || {});
         if (st.turnMs === 0 || st.turnMs) state.turnMs = st.turnMs;
         if (st.hostIdleMs) state.hostIdleMs = st.hostIdleMs;
+        state.chemistry = st.chemistry !== false;
+        if ($("chemOn")) $("chemOn").checked = state.chemistry;
         refresh();
 
         showOnly("setupView");
@@ -1532,9 +1554,19 @@
             yearMax: f.yearMax || null,
             rules: rulesForCreate(),
             turnMs: state.turnMs,
-            hostIdleMs: state.hostIdleMs
+            hostIdleMs: state.hostIdleMs,
+            chemistry: state.chemistry
         };
         MPNet.announceNext(currentCode, patch)
+            .then(function () {
+                const mem = (latestRoom || {}).members || {};
+                Object.keys(mem).forEach(function (u) {
+                    if (mem[u].ai) {
+                        MPNet.enterDraft(currentCode, u);
+                        MPNet.setReadyFor && MPNet.setReadyFor(currentCode, u);
+                    }
+                });
+            })
             .then(function () {
                 restoreOptions();
                 setStatus("setupStatus", "", false);
@@ -1635,6 +1667,32 @@
     // An AI has no client, so the host writes its picks. A short pause
     // keeps the draft watchable rather than turning it into a loading bar.
     let aiBusy = false;
+    // An AI picks its kicker by scoring data and its strategy from its pack
+    // lean, so a forwards side plays like one. Done by the host, once.
+    let aiCommitBusy = false;
+    function commitAiSides(room) {
+        if (aiCommitBusy) return;
+        if ((room.meta || {}).hostUid !== MPNet.currentUid()) return;
+        const mem = room.members || {};
+        const com = room.commit || {};
+        const pending = Object.keys(mem).filter(function (u) {
+            return mem[u].ai && !com[u];
+        });
+        if (!pending.length) return;
+
+        aiCommitBusy = true;
+        pending.forEach(function (u) {
+            const sq = squadFor(room, u);
+            const kick = bestKickerSlot(sq);
+            // pack runs minus one (forwards) to plus one (backs); strategy
+            // is zero (forwards) to a hundred (backs).
+            const pack = ((mem[u].ai.traits || {}).pack) || 0;
+            const strat = Math.round(50 + pack * 35);
+            MPNet.forceCommit(currentCode, u, kick, strat);
+        });
+        setTimeout(function () { aiCommitBusy = false; }, 1500);
+    }
+
     function driveAi(room) {
         if (aiBusy) return;
         if ((room.meta || {}).hostUid !== MPNet.currentUid()) return;
@@ -1994,6 +2052,29 @@
     }
 
     // Competition winner, season tally, and what happens next.
+    // Player leaders for a single competition, shown under its result.
+    function renderCompStats(room, comp) {
+        const el = $("compStats");
+        if (!el) return;
+        const results = comp.results || [];
+        if (!results.length) { el.classList.add("hidden"); return; }
+        const stats = MPSim.competitionStats(results, comp.kickerNames || {});
+        const nameOf = function (u) { return ((room.members || {})[u] || {}).name || "User"; };
+        el.classList.remove("hidden");
+        el.innerHTML = "<p class='sum-head'>This competition</p>"
+            + statLine("Top try scorer", stats.topTries
+                ? stats.topTries.name + " (" + stats.topTries.value + ")" : "none")
+            + statLine("Top points", stats.topPoints
+                ? stats.topPoints.name + " (" + stats.topPoints.value + ")" : "none")
+            + statLine("Best defence", stats.bestDefence
+                ? nameOf(stats.bestDefence.uid) + " (" + stats.bestDefence.value + " conceded)" : "none");
+    }
+
+    function statLine(label, value) {
+        return "<div class='stat-line'><span class='stat-lbl'>" + label
+            + "</span><span class='stat-val'>" + esc(value) + "</span></div>";
+    }
+
     function renderSeason(room, comp) {
         const st = room.settings || {};
         // True once the host has already moved the room on. The results are
@@ -2027,15 +2108,11 @@
         const rankedTally = MPSim.tallyOrder(tally);
         const champion = seasonOver && rankedTally.length ? rankedTally[0].uid : null;
 
-        // Winner box: this competition, or the season champion at the end.
+        // The results screen shows only this competition's outcome. The
+        // season champion and the running tally belong on the season screen,
+        // reached by the button, so the two are not muddled together.
         wb.classList.remove("hidden");
-        if (seasonOver && champion) {
-            wb.innerHTML = "<div class='winner-box champion'>"
-                + "<div class='winner-lbl'>Season champion</div>"
-                + "<div class='winner-name'>" + esc(nameOf(champion)) + "</div>"
-                + "<div class='winner-sub'>" + rankedTally[0].titles + " of " + total
-                + " competition" + (total === 1 ? "" : "s") + " won</div></div>";
-        } else if (comp.winner) {
+        if (comp.winner) {
             const illegalMap = comp.illegal || {};
             const anyIllegal = Object.keys(illegalMap).length;
             wb.innerHTML = "<div class='winner-box'>"
@@ -2054,26 +2131,12 @@
             wb.classList.add("hidden");
         }
 
-        // Room tally, once there is more than one competition in play.
-        if (total > 1 && rankedTally.length) {
-            tw.classList.remove("hidden");
-            $("tallySub").textContent = "after " + now + " of " + total;
-            const head = "<tr><th class='pos'></th><th class='team'>Team</th><th>Titles</th>"
-                + "<th>Played</th><th>Pts</th><th>PD</th><th>Illegal</th></tr>";
-            const body = rankedTally.map(function (r, i) {
-                return "<tr" + (r.uid === me ? " class='mine'" : "") + ">"
-                    + "<td class='pos'>" + (i + 1) + "</td>"
-                    + "<td class='team'>" + esc(nameOf(r.uid)) + "</td>"
-                    + "<td class='titles'>" + r.titles + "</td>"
-                    + "<td>" + r.played + "</td><td>" + r.points + "</td>"
-                    + "<td>" + (r.pd > 0 ? "+" : "") + r.pd + "</td>"
-                    + "<td class='" + (r.illegal ? "badcount" : "") + "'>"
-                    + (r.illegal || "") + "</td></tr>";
-            }).join("");
-            $("tallyTable").innerHTML = "<table class='ltable'>" + head + body + "</table>";
-        } else {
-            tw.classList.add("hidden");
-        }
+        // The running tally is on the season screen now, not here.
+        tw.classList.add("hidden");
+
+        // This competition's player leaders, which is a natural thing to
+        // show alongside the result.
+        renderCompStats(room, comp);
 
         // Next competition. Everyone must say they have finished looking at
         // the results before the room moves on, so nobody is dragged off
@@ -2159,22 +2222,52 @@
             }).join("") + "</table>";
 
         const champ = MPSim.tallyOrder(room.tally || {})[0];
-        $("seasonSub").textContent = champ
-            ? ((members[champ.uid] || {}).name || "User") + " takes the season"
-            : "";
+        $("seasonSub").textContent = "";
+
+        // The champion, given its own panel so the season has a clear winner.
+        const wEl = $("seasonWinner");
+        if (wEl && champ) {
+            wEl.innerHTML = "<div class='winner-box champion'>"
+                + "<div class='winner-lbl'>Season champion</div>"
+                + "<div class='winner-name'>" + esc(nameOf(champ.uid)) + "</div>"
+                + "<div class='winner-sub'>" + champ.titles + " of " + total
+                + " competition" + (total === 1 ? "" : "s") + " won</div></div>";
+        } else if (wEl) {
+            wEl.innerHTML = "";
+        }
+
+        // Season-long player and team leaders.
+        const histList = [];
+        for (let n = 1; n <= total; n++) {
+            const h = hist[n] || (n === ((room.settings || {}).competition || 1) ? room.comp : null);
+            if (h && h.results) histList.push(h);
+        }
+        const sEl = $("seasonStats");
+        if (sEl) {
+            const ss = MPSim.seasonStats(histList);
+            sEl.innerHTML = "<p class='sum-head'>Across the season</p>"
+                + statLine("Top try scorer", ss.topTries
+                    ? ss.topTries.name + " (" + ss.topTries.value + ")" : "none")
+                + statLine("Top points", ss.topPoints
+                    ? ss.topPoints.name + " (" + ss.topPoints.value + ")" : "none")
+                + statLine("Best defence", ss.bestDefence
+                    ? nameOf(ss.bestDefence.uid) + " (" + ss.bestDefence.value + " conceded)" : "none");
+        }
+
+        // AI personalities, tucked into a dropdown rather than shown by default.
+        const aiSeats = Object.keys(members).filter(function (u) { return (members[u] || {}).ai; });
+        const aiBlock = (!aiSeats.length || typeof MPAI === "undefined") ? "" :
+            "<details class='ai-reveal'><summary>How the AI sides drafted</summary>"
+            + aiSeats.map(function (u) {
+                return "<div class='sum-row'><span class='sum-win'>"
+                    + esc(nameOf(u)) + "</span><span class='ai-traits'>"
+                    + esc(MPAI.describe((members[u] || {}).ai.traits)) + "</span></div>";
+            }).join("") + "</details>";
+
         el.innerHTML = "<div class='season-sum'>"
             + "<p class='sum-head'>Winner of each competition</p>" + rows.join("")
             + "<p class='sum-head'>Final standings</p>" + table
-            + (function () {
-                const ai = Object.keys(members).filter(function (u) { return (members[u] || {}).ai; });
-                if (!ai.length || typeof MPAI === "undefined") return "";
-                return "<p class='sum-head'>How the AI sides drafted</p>"
-                    + ai.map(function (u) {
-                        return "<div class='sum-row'><span class='sum-win'>"
-                            + esc(nameOf(u)) + "</span><span class='ai-traits'>"
-                            + esc(MPAI.describe((members[u] || {}).ai.traits)) + "</span></div>";
-                    }).join("");
-            })()
+            + aiBlock
             + "</div>";
         return true;
     }

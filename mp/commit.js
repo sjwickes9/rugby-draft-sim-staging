@@ -112,7 +112,47 @@ window.MPCommit = (function () {
     }
 
     // ── Kicker list ─────────────────────────────────────────
-    // Which slots are part of a formed link, and how strong. Used to tint
+    // Draw a dotted line between the two dots of each pair. Overlapping
+    // pairs (10-12, centres, back three sit close together) are nudged to
+    // different horizontal offsets so their lines do not sit on top of one
+    // another.
+    function drawChemLines(link) {
+        const svg = $("chemLines");
+        if (!svg) return;
+        const box = svg.parentNode.getBoundingClientRect();
+        svg.setAttribute("width", box.width);
+        svg.setAttribute("height", box.height);
+        const dots = svg.parentNode.querySelectorAll(".chem-dot:not(.none)");
+        // group dots by pair, via the analyse output
+        const opts = { mode: state.roomMode || "career", tournamentCount: state.tournamentCount || 99 };
+        const a = MPChem.analyse(state.squad, opts);
+        let lines = "", offset = 0;
+        a.links.forEach(function (l) {
+            if (l.tier === "none") return;
+            const ids = l.slots.filter(function (id) {
+                const p = state.squad[id];
+                return p && l.players.indexOf(p.name) !== -1;
+            });
+            if (ids.length < 2) return;
+            const els = ids.map(function (id) {
+                return svg.parentNode.querySelector(".chem-dot[data-slot='" + id + "']");
+            });
+            if (els.some(function (e) { return !e; })) return;
+            const r0 = els[0].getBoundingClientRect(), r1 = els[1].getBoundingClientRect();
+            const x = (r0.left - box.left) + r0.width / 2 + (offset % 3) * 5;
+            const y0 = (r0.top - box.top) + r0.height / 2;
+            const y1 = (r1.top - box.top) + r1.height / 2;
+            const col = l.tier === "full" ? "var(--teal)" : "var(--amber)";
+            lines += "<path d='M " + x + " " + y0 + " C " + (x + 14) + " " + y0
+                + ", " + (x + 14) + " " + y1 + ", " + x + " " + y1
+                + "' fill='none' stroke='" + col + "' stroke-width='1.5' "
+                + "stroke-dasharray='2 3' opacity='0.8'/>";
+            offset++;
+        });
+        svg.innerHTML = lines;
+    }
+
+    // Which slots are part of a formed link, and how strong. Used to mark
     // the kicker list so the partnerships are visible while choosing.
     function chemBySlot() {
         const out = {};
@@ -135,31 +175,37 @@ window.MPCommit = (function () {
     }
 
     function renderKickers() {
-        const link = chemBySlot();
+        const link = state.chemistry === false ? {} : chemBySlot();
         const rows = MPPicks.SLOTS.map(function (s) {
             const p = state.squad[s.id];
             if (!p) return "";
             const chosen = state.kickerSlot === s.id;
             const tier = link[s.id];
-            // No success rate and no kicker mark here on purpose. Knowing who
-            // could kick is part of the skill, so the choice is made on your
-            // own knowledge rather than a number on the screen.
+            // A single dot on the right marks a player who is part of a link.
+            // The dots are joined by a dotted line drawn over the list, which
+            // reads more clearly than tinting whole rows in several colours.
+            const dot = tier
+                ? "<span class='chem-dot " + tier + "' data-slot='" + s.id + "'></span>"
+                : "<span class='chem-dot none'></span>";
             return "<button class='kicker" + (chosen ? " chosen" : "")
-                + (tier === "full" ? " linked" : (tier === "half" ? " linked-half" : ""))
                 + "' data-kicker='" + s.id + "'"
                 + (state.locked ? " disabled" : "") + ">"
                 + "<span class='knum'>" + s.num + "</span>"
                 + "<span class='kinfo'><span class='kname'>" + esc(p.name) + "</span>"
                 + "<span class='kmeta'>" + esc(p.country) + (p.year ? " " + p.year : "")
                 + " | " + esc(s.label) + "</span></span>"
+                + dot
                 + "<span class='ktick'>" + (chosen ? "\u2713" : "") + "</span>"
                 + "</button>";
         }).join("");
-        $("kickerList").innerHTML = rows;
+        $("kickerList").innerHTML = "<div class='kicker-list-inner'>" + rows
+            + "<svg class='chem-lines' id='chemLines'></svg></div>";
+        if (state.chemistry !== false) drawChemLines(link);
 
         // A short summary above the list, so the tinting is explained.
         const el = $("commitChem");
-        if (el && typeof MPChem !== "undefined") {
+        if (el) el.classList.toggle("hidden", state.chemistry === false);
+        if (el && state.chemistry !== false && typeof MPChem !== "undefined") {
             const b = MPChem.bonus(state.squad, 80, {
                 mode: state.roomMode || "career",
                 tournamentCount: state.tournamentCount || 99
@@ -270,6 +316,9 @@ window.MPCommit = (function () {
         state.hostUid = opts.hostUid || null;
         state.pool = opts.pool || [];
         state.constraints = opts.constraints || [];
+        state.roomMode = opts.mode || "career";
+        state.tournamentCount = opts.tournamentCount || 99;
+        state.chemistry = opts.chemistry !== false;
         const mine = state.commits[state.myUid];
         if (mine) {
             state.locked = true;

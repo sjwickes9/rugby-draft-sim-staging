@@ -166,6 +166,7 @@ window.MPNet = (function () {
                         countries: filters.countries || "",
                         tableSize: extra.tableSize || 4,
                         hostIdleMs: extra.hostIdleMs || 86400000,
+                        chemistry: extra.chemistry !== false,
                         turnMs: (extra.turnMs === 0 || extra.turnMs) ? extra.turnMs : 600000,
                         seasonLength: extra.seasonLength || 3,
                         competition: 1,
@@ -465,6 +466,13 @@ window.MPNet = (function () {
     // Nobody is moved off the results screen by someone else's click. Each
     // user says when they have finished looking, and the next draft only
     // begins once everyone has.
+    // The host marks an AI side ready, since it has no client to do so.
+    function setReadyFor(code, forUid) {
+        return whenReady().then(function () {
+            return db.ref("rooms/" + code + "/ready/" + forUid).set(true).catch(function () {});
+        });
+    }
+
     function setReady(code, value) {
         return whenReady().then(function () {
             return db.ref("rooms/" + code + "/ready/" + uid).set(!!value)
@@ -613,6 +621,7 @@ window.MPNet = (function () {
             updates["rooms/" + code + "/comp/standings"] = comp.standings;
             updates["rooms/" + code + "/comp/number"] = comp.number || null;
             updates["rooms/" + code + "/comp/winner"] = comp.winner || null;
+            updates["rooms/" + code + "/comp/kickerNames"] = comp.kickerNames || null;
             updates["rooms/" + code + "/comp/illegal"] = comp.illegal || null;
             updates["rooms/" + code + "/comp/breaches"] = comp.breaches || null;
             updates["rooms/" + code + "/comp/playedAt"] = firebase.database.ServerValue.TIMESTAMP;
@@ -643,7 +652,9 @@ window.MPNet = (function () {
                 updates["rooms/" + code + "/history/" + done] = {
                     name: (room.comp || {}).name || null,
                     standings: (room.comp || {}).standings || null,
-                    winner: (room.comp || {}).winner || null
+                    winner: (room.comp || {}).winner || null,
+                    results: (room.comp || {}).results || null,
+                    kickerNames: (room.comp || {}).kickerNames || null
                 };
                 updates["rooms/" + code + "/commit"] = null;
                 updates["rooms/" + code + "/draft"] = null;
@@ -758,6 +769,7 @@ window.MPNet = (function () {
         touchHost: touchHost,
         claimHost: claimHost,
         setReady: setReady,
+        setReadyFor: setReadyFor,
         enterDraft: enterDraft,
         announceNext: announceNext,
         forceCommit: forceCommit,

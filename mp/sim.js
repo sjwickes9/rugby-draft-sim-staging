@@ -75,7 +75,7 @@
         // around a partnership in the first place.
         var chem = null, chemBonus = 0;
         var C = MPChemRef();
-        if (C) {
+        if (C && !(chemOpts && chemOpts.chemistry === false)) {
             chem = C.bonus(squad, base, chemOpts || {});
             chemBonus = chem.applied;
         }
@@ -323,6 +323,84 @@
         return entries[entries.length - 1];
     }
 
+    // Aggregate one competition's results into player and team leaders.
+    // Tries come from the breakdown scorers; points combine each player's
+    // tries (five each) with their side's conversions and penalties when
+    // that player was the goal kicker.
+    function competitionStats(results, kickerNameByUid) {
+        var tries = {};      // name -> count
+        var points = {};     // name -> points
+        var against = {};    // uid -> points conceded
+        function addTries(bd) {
+            if (!bd || !bd.tries) return;
+            bd.tries.forEach(function (t) {
+                tries[t.name] = (tries[t.name] || 0) + t.count;
+                points[t.name] = (points[t.name] || 0) + t.count * 5;
+            });
+        }
+        function addKicking(bd, kickerName) {
+            if (!bd || !kickerName) return;
+            points[kickerName] = (points[kickerName] || 0)
+                + (bd.conversions || 0) * 2 + (bd.penalties || 0) * 3;
+        }
+        (results || []).forEach(function (r) {
+            addTries(r.bdA); addTries(r.bdB);
+            addKicking(r.bdA, (kickerNameByUid || {})[r.home]);
+            addKicking(r.bdB, (kickerNameByUid || {})[r.away]);
+            against[r.home] = (against[r.home] || 0) + r.b;
+            against[r.away] = (against[r.away] || 0) + r.a;
+        });
+        return {
+            topTries: leader(tries),
+            topPoints: leader(points),
+            bestDefence: leaderLow(against)
+        };
+    }
+
+    function leader(map) {
+        var best = null;
+        Object.keys(map).forEach(function (k) {
+            if (!best || map[k] > best.value) best = { name: k, value: map[k] };
+        });
+        return best;
+    }
+    function leaderLow(map) {
+        var best = null;
+        Object.keys(map).forEach(function (k) {
+            if (!best || map[k] < best.value) best = { uid: k, value: map[k] };
+        });
+        return best;
+    }
+
+    // The same across an entire season, given each competition's stored
+    // results and the kicker mapping that applied at the time.
+    function seasonStats(history) {
+        var tries = {}, points = {}, against = {};
+        (history || []).forEach(function (comp) {
+            var kn = comp.kickerNames || {};
+            (comp.results || []).forEach(function (r) {
+                [r.bdA, r.bdB].forEach(function (bd, idx) {
+                    if (!bd) return;
+                    (bd.tries || []).forEach(function (t) {
+                        tries[t.name] = (tries[t.name] || 0) + t.count;
+                        points[t.name] = (points[t.name] || 0) + t.count * 5;
+                    });
+                    var uid = idx === 0 ? r.home : r.away;
+                    var kName = kn[uid];
+                    if (kName) points[kName] = (points[kName] || 0)
+                        + (bd.conversions || 0) * 2 + (bd.penalties || 0) * 3;
+                });
+                against[r.home] = (against[r.home] || 0) + r.b;
+                against[r.away] = (against[r.away] || 0) + r.a;
+            });
+        });
+        return {
+            topTries: leader(tries),
+            topPoints: leader(points),
+            bestDefence: leaderLow(against)
+        };
+    }
+
     function buildScoreBreakdown(rng, finalScore, squad, kickerName) {
         var remaining = finalScore;
         var tryScorers = {};
@@ -518,6 +596,8 @@
         isLeagueStage: isLeagueStage,
         TRY_WEIGHTS: TRY_WEIGHTS,
         buildScoreBreakdown: buildScoreBreakdown,
+        competitionStats: competitionStats,
+        seasonStats: seasonStats,
         seriesResult: seriesResult,
         resolvePlaceholder: resolvePlaceholder,
         stageStandings: stageStandings,

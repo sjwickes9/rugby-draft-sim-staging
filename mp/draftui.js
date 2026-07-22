@@ -72,6 +72,7 @@ window.MPDraftUI = (function () {
         state.roomTurnMs = opts.turnMs || 0;
         state.quietFor = opts.quiet || {};
         state.roomMode = opts.mode || "career";
+        state.chemistry = opts.chemistry !== false;
         state.tournamentCount = opts.tournamentCount || 99;
         state.onExpire = opts.onExpire || function () {};
         state.starred = loadStars();
@@ -626,6 +627,7 @@ window.MPDraftUI = (function () {
     function renderChem() {
         const el = $("chemPanel");
         if (!el || typeof MPChem === "undefined") return;
+        if (state.chemistry === false) { el.classList.add("hidden"); return; }
 
         const opts = {
             mode: state.roomMode || "career",

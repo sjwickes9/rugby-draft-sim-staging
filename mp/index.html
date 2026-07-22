@@ -24,7 +24,7 @@
     <!-- ══ LOBBY VIEW ══ -->
     <div id="lobbyView">
 
-        <p class="version" id="version">v1.2607212139</p>
+        <p class="version" id="version">v1.2607220819</p>
 
         <div id="notice" class="notice hidden">
             <span id="noticeText"></span>
@@ -153,6 +153,10 @@
                 <button id="modeTournament" aria-pressed="false">Tournament
                     <span class="hint">Every World Cup version is a pick</span></button>
             </div>
+            <label class="switch-row" id="chemRow">
+                <input type="checkbox" id="chemOn" checked>
+                <span>Chemistry <small>bonus for players who played together</small></span>
+            </label>
         </section>
 
         <section class="block" id="yearsBlock">
@@ -316,6 +320,8 @@
     <!-- ══ SEASON OUTCOME VIEW ══ -->
     <div id="seasonView" class="hidden">
         <p class="eyebrow">Season outcome <small id="seasonSub"></small></p>
+        <div id="seasonWinner"></div>
+        <div id="seasonStats" class="stats-panel"></div>
         <div id="seasonSummary"></div>
         <button class="cta" id="newTournament"><span>Create a new tournament</span></button>
         <button class="cta ghost" id="goHome"><span>Return to the home page</span></button>
@@ -368,6 +374,7 @@
         <div id="winnerBox" class="hidden"></div>
 
 
+        <div id="compStats" class="stats-panel hidden"></div>
         <div id="tallyWrap" class="hidden">
             <p class="eyebrow">Room tally <small id="tallySub"></small></p>
             <div id="tallyTable"></div>
