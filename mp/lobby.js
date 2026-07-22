@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607221329";
+    const VERSION = "v1.2607221406";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -2463,7 +2463,7 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         const members = room.members || {};
         const me = MPNet.currentUid();
         const head = "<tr><th class='pos'></th><th class='team'>Team</th><th>P</th><th>W</th>"
-            + "<th>D</th><th>L</th><th>PF</th><th>PA</th><th>PD</th><th>Pts</th></tr>";
+            + "<th>D</th><th>L</th><th>PF</th><th>PA</th><th>PD</th><th>BP</th><th>Pts</th></tr>";
         const illegal = comp.illegal || {};
         const body = standings.map(function (r, i) {
             const m = members[r.uid] || {};
@@ -2474,7 +2474,8 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
                 + (bad ? "<span class='ineligible'>ineligible</span>" : "") + "</td>"
                 + "<td>" + r.played + "</td><td>" + r.won + "</td><td>" + r.drawn + "</td><td>" + r.lost + "</td>"
                 + "<td>" + r.pf + "</td><td>" + r.pa + "</td>"
-                + "<td>" + (r.pd > 0 ? "+" : "") + r.pd + "</td><td>" + r.points + "</td></tr>";
+                + "<td>" + (r.pd > 0 ? "+" : "") + r.pd + "</td>"
+                + "<td>" + (r.bonus || 0) + "</td><td>" + r.points + "</td></tr>";
         }).join("");
         $("leagueTable").innerHTML = "<table class='ltable'>" + head + body + "</table>";
     }

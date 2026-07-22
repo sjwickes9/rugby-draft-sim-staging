@@ -82,7 +82,7 @@ window.MPCommit = (function () {
         // Chemistry is shown as a separate addition rather than folded in,
         // so it is obvious what the links are actually worth.
         let chemAdd = 0;
-        if (typeof MPChem !== "undefined") {
+        if (state.chemistry !== false && typeof MPChem !== "undefined") {
             chemAdd = MPChem.bonus(state.squad, base, {
                 mode: state.roomMode || "career",
                 tournamentCount: state.tournamentCount || 99

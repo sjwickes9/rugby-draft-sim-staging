@@ -601,6 +601,13 @@
             else if (r.winner === "a") { A.won++; B.lost++; }
             else { B.won++; A.lost++; }
             A.points += r.aPts; B.points += r.bPts;
+            // Bonus points are whatever was earned beyond the base result:
+            // 4 for a win, 2 for a draw, 0 for a loss. A try bonus or a
+            // losing bonus lifts the total above that base.
+            var baseA = r.drawn ? 2 : (r.winner === "a" ? 4 : 0);
+            var baseB = r.drawn ? 2 : (r.winner === "b" ? 4 : 0);
+            A.bonus += Math.max(0, r.aPts - baseA);
+            B.bonus += Math.max(0, r.bPts - baseB);
         });
         return Object.keys(rows).map(function (u) {
             var row = rows[u];
