@@ -132,7 +132,7 @@
         "ready": {
           ".write": "auth != null && root.child('rooms/' + $code + '/meta/hostUid').val() === auth.uid",
           "$uid": {
-            ".write": "auth != null && $uid === auth.uid",
+            ".write": "auth != null && ($uid === auth.uid || root.child('rooms/' + $code + '/meta/hostUid').val() === auth.uid)",
             ".validate": "newData.isBoolean()"
           }
         },
