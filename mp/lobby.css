@@ -916,3 +916,14 @@ input[type=color] {
 .stepper-row { align-items: start; }
 .stepper { display: flex; flex-direction: column; }
 .stepper .field { min-height: 2.2em; display: flex; align-items: flex-end; }
+
+
+/* Share buttons */
+.share-row { display: flex; gap: 8px; margin: 10px 0 4px; }
+.share-btn {
+    flex: 1; background: var(--panel-2); color: var(--pitch); border: 1px solid var(--line);
+    border-radius: 8px; padding: 8px 10px; cursor: pointer; font-size: 0.8rem;
+    font-family: var(--display); text-transform: uppercase; letter-spacing: 0.06em;
+}
+.share-btn:hover { border-color: var(--teal); color: var(--teal); }
+.share-btn.done { border-color: var(--teal); color: var(--teal); }

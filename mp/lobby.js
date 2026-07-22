@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607221310";
+    const VERSION = "v1.2607221329";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -470,6 +470,8 @@
 
         on("create", "click", onCreate);
         on("joinBtn", "click", onJoin);
+on("shareLink", "click", function () { share("link", "shareLink"); });
+        on("shareCode", "click", function () { share("code", "shareCode"); });
         on("leave", "click", onLeave);
         on("closeRoom", "click", onCloseRoom);
         on("noticeClose", "click", function () { showNotice(""); });
@@ -792,6 +794,39 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         const cb = $("compBack");
         if (cb) cb.classList.remove("hidden");
         setStatus("nextHint", "This room has been closed by the host.", false);
+    }
+
+    // Share the room, by link or by the raw code. The link lands on the join
+    // screen with the code filled in but not submitted, since the newcomer
+    // still needs a name and colours. Reading the code aloud stays an option.
+    function roomLink() {
+        const base = location.origin + location.pathname.replace(/[^/]*$/, "");
+        return base + (base.indexOf("/mp/") === -1 ? "" : "") + "?room=" + currentCode;
+    }
+
+    function share(kind, btnId) {
+        const isLink = kind === "link";
+        const text = isLink ? roomLink() : currentCode;
+        const title = "Rugby XV Draft";
+        const done = function () {
+            const b = $(btnId);
+            if (!b) return;
+            const label = b.textContent;
+            b.textContent = "Copied";
+            b.classList.add("done");
+            setTimeout(function () { b.textContent = label; b.classList.remove("done"); }, 1800);
+        };
+        // The native share sheet on mobile, falling back to the clipboard.
+        if (navigator.share && isLink) {
+            navigator.share({ title: title, text: "Join my draft", url: text })
+                .then(done).catch(function () {});
+            return;
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(done).catch(function () { prompt("Copy this:", text); });
+        } else {
+            prompt("Copy this:", text);
+        }
     }
 
     function backToLobby(msg) {
@@ -1379,9 +1414,10 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
             activeRules = MPRules.activeConstraints(MPRules.buildContext(ff, an), st.rules || {});
         } catch (e) {}
 
+        const stset = room.settings || {};
         const chemOpts = {
-            mode: st.mode || "career",
-            chemistry: st.chemistry !== false,
+            mode: stset.mode || "career",
+            chemistry: stset.chemistry !== false,
             tournamentCount: (function () {
                 const ys = {};
                 (pool || []).forEach(function (p) { if (p.year) ys[p.year] = 1; });
@@ -2514,6 +2550,15 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         buildChips();
         wire();
         renderYou();
+        // A shared link carries the room code. Land on the join screen with
+        // it filled in, but do not submit, since the newcomer still needs a
+        // name and colours.
+        const params = new URLSearchParams(location.search || "");
+        const shared = (params.get("room") || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4);
+        if (shared) {
+            state.path = "join";
+            if ($("join")) $("join").value = shared;
+        }
         refresh();
         setStatus("lobbyStatus", "Connecting...", false);
         MPNet.init().then(function () { setStatus("lobbyStatus", "", false); })
