@@ -535,6 +535,6 @@
         isForbidden, oopPenalty, effectiveRating, placementNote, naturalSlots,
         emptySquad, filledSlots, emptySlots, squadPlayers, isComplete, frontRowStillNeeded,
         playerKey, personKey, evaluate, candidatesForSlot, autoPick,
-        anyLegalPick, relaxFor, coverageContext, wouldStrand
+        anyLegalPick, relaxFor, coverageContext, wouldStrand, nationsStillForced
     };
 });

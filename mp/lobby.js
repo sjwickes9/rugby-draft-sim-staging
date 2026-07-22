@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607220819";
+    const VERSION = "v1.2607221310";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -184,6 +184,8 @@
     function randomiseSetup() {
         const pick = function (arr) { return arr[Math.floor(Math.random() * arr.length)]; };
         state.mode = pick(["tournament", "tournament", "career"]);
+        state.chemistry = Math.random() < 0.7;
+        if ($("chemOn")) $("chemOn").checked = state.chemistry;
 
         const geoNames = Object.keys(GEO);
         state.geo = Math.random() < 0.4 ? "" : pick(geoNames);
@@ -262,9 +264,11 @@
         $("sizeUp").disabled = state.size >= 8;
         $("seasonDown").disabled = state.season <= 1;
         $("seasonUp").disabled = state.season >= 15;
-        const fmt = MPDraft.formatFor(state.size).name;
+        const totalSides = state.size + state.aiCount;
+        const fmt = MPDraft.formatFor(totalSides).name;
         $("formatLine").innerHTML = fmt
-            + "<br><span class='split'>" + state.size + " user" + (state.size === 1 ? "" : "s")
+            + "<br><span class='split'>" + totalSides + " side" + (totalSides === 1 ? "" : "s")
+            + (state.aiCount ? " (" + state.aiCount + " AI)" : "")
             + ", " + state.season + " competition" + (state.season === 1 ? "" : "s")
             + " (locked once the first draft begins)</span>";
     }
@@ -1375,10 +1379,19 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
             activeRules = MPRules.activeConstraints(MPRules.buildContext(ff, an), st.rules || {});
         } catch (e) {}
 
+        const chemOpts = {
+            mode: st.mode || "career",
+            chemistry: st.chemistry !== false,
+            tournamentCount: (function () {
+                const ys = {};
+                (pool || []).forEach(function (p) { if (p.year) ys[p.year] = 1; });
+                return Object.keys(ys).length || 99;
+            })()
+        };
         const rating = {}, kicker = {}, kickerName = {};
         order.forEach(function (u) {
             const c = commits[u] || {};
-            rating[u] = MPSim.teamRating(squads[u], c.strategy, pool, activeRules).overall;
+            rating[u] = MPSim.teamRating(squads[u], c.strategy, pool, activeRules, chemOpts).overall;
             const kp = c.kickerSlot ? squads[u][c.kickerSlot] : null;
             kicker[u] = MPCommit.kickerRate(kp);
             kickerName[u] = kp ? kp.name : null;
@@ -1400,10 +1413,17 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
             }
             const bdA = MPSim.buildScoreBreakdown(rng, final.a, squads[f.home], kickerName[f.home]);
             const bdB = MPSim.buildScoreBreakdown(rng, final.b, squads[f.away], kickerName[f.away]);
+            // League and pool games carry try and losing bonuses, taken from
+            // the actual tries scored. Knockouts keep their win-or-lose points.
+            let aPts = final.aPts, bPts = final.bPts;
+            if (!isKO) {
+                const lp = MPSim.leaguePoints(final.a, final.b, bdA.tryCount, bdB.tryCount);
+                aPts = lp.aPts; bPts = lp.bPts;
+            }
             results.push({
                 i: i, home: f.home, away: f.away, stage: f.stage,
                 a: final.a, b: final.b, drawn: final.drawn, winner: final.winner,
-                aPts: final.aPts, bPts: final.bPts,
+                aPts: aPts, bPts: bPts,
                 note: note, bdA: bdA, bdB: bdB
             });
         };
@@ -1815,9 +1835,9 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
                 + nations + " nation" + (nations === 1 ? "" : "s") + "</span>");
         }
 
-        const users = st.tableSize || Object.keys(room.members || {}).length || 2;
-        add("Format", esc(MPDraft.formatFor(users).name)
-            + "<span class='sub'>" + users + " users, snake draft, 15 rounds each</span>");
+        const sides = st.tableSize || Object.keys(room.members || {}).length || 2;
+        add("Format", esc(MPDraft.formatFor(sides).name)
+            + "<span class='sub'>" + sides + " sides, snake draft, 15 rounds each</span>");
 
         const turn = st.turnMs || 0;
         const turnTxt = turn ? turnText(turn) : "No limit";
@@ -2095,6 +2115,7 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
 
         if (!played) {
             $("viewSeason").classList.add("hidden");
+            $("compStats").classList.add("hidden");
             $("compBack").classList.remove("hidden");
             wb.classList.add("hidden");
             tw.classList.add("hidden");
@@ -2208,14 +2229,22 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
                 + (w ? esc(nameOf(w)) : "no champion") + "</span></div>");
         }
 
+        const histList = [];
+        for (let n = 1; n <= total; n++) {
+            const h = hist[n] || (n === ((room.settings || {}).competition || 1) ? room.comp : null);
+            if (h && h.results) histList.push(h);
+        }
         const tally = MPSim.tallyOrder(room.tally || {});
+        const rec = MPSim.seasonRecord(histList);
         const table = "<table class='ltable'><tr><th class='pos'></th><th class='team'>Team</th>"
-            + "<th>Titles</th><th>Pts</th><th>PD</th><th>Illegal</th></tr>"
+            + "<th>Titles</th><th>W</th><th>D</th><th>L</th><th>Pts</th><th>PD</th><th>Ill</th></tr>"
             + tally.map(function (r, i) {
+                const rc = rec[r.uid] || { won: 0, drawn: 0, lost: 0 };
                 return "<tr" + (r.uid === MPNet.currentUid() ? " class='mine'" : "") + ">"
                     + "<td class='pos'>" + (i + 1) + "</td>"
                     + "<td class='team'>" + esc(nameOf(r.uid)) + "</td>"
                     + "<td class='titles'>" + r.titles + "</td>"
+                    + "<td>" + rc.won + "</td><td>" + rc.drawn + "</td><td>" + rc.lost + "</td>"
                     + "<td>" + r.points + "</td>"
                     + "<td>" + (r.pd > 0 ? "+" : "") + r.pd + "</td>"
                     + "<td class='" + (r.illegal ? "badcount" : "") + "'>" + (r.illegal || "") + "</td></tr>";
@@ -2237,19 +2266,14 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         }
 
         // Season-long player and team leaders.
-        const histList = [];
-        for (let n = 1; n <= total; n++) {
-            const h = hist[n] || (n === ((room.settings || {}).competition || 1) ? room.comp : null);
-            if (h && h.results) histList.push(h);
-        }
         const sEl = $("seasonStats");
         if (sEl) {
             const ss = MPSim.seasonStats(histList);
             sEl.innerHTML = "<p class='sum-head'>Across the season</p>"
-                + statLine("Top try scorer", ss.topTries
-                    ? ss.topTries.name + " (" + ss.topTries.value + ")" : "none")
-                + statLine("Top points", ss.topPoints
-                    ? ss.topPoints.name + " (" + ss.topPoints.value + ")" : "none")
+                + statLine("Most tries", ss.topTries
+                    ? nameOf(ss.topTries.uid) + " (" + ss.topTries.value + ")" : "none")
+                + statLine("Most points", ss.topPoints
+                    ? nameOf(ss.topPoints.uid) + " (" + ss.topPoints.value + ")" : "none")
                 + statLine("Best defence", ss.bestDefence
                     ? nameOf(ss.bestDefence.uid) + " (" + ss.bestDefence.value + " conceded)" : "none");
         }
@@ -2348,8 +2372,10 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
             const sq = squadFor(room, u);
             const c = commits[u] || {};
             const kickSlot = c.kickerSlot || null;
+            const chemOn = (room.settings || {}).chemistry !== false;
             const r = MPSim.teamRating(sq, c.strategy, null, null, {
                 mode: (room.settings || {}).mode || "career",
+                chemistry: chemOn,
                 tournamentCount: (function () {
                     const ys = {};
                     (room.pool || []).forEach(function (p) { if (p.year) ys[p.year] = 1; });
@@ -2380,7 +2406,7 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
                 + "<div class='squad-meta'>Forwards " + fw + "% of the weight"
                 + (bad ? " | <span class='illegal-tag'>illegal: " + esc(bl) + "</span>" : "")
                 + "</div>"
-                + (r.chem
+                + (r.chem && chemOn
                     ? "<div class='squad-chem'>Chemistry <strong>" + r.chem.formed + "/7</strong>"
                       + (r.chemBonus ? " worth <strong>+" + r.chemBonus.toFixed(1) + "</strong>" : "")
                       + (r.chem.formed

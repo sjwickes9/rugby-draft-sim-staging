@@ -910,3 +910,9 @@ input[type=color] {
 }
 .ai-reveal summary:hover { color: var(--teal); }
 .ai-reveal[open] summary { margin-bottom: 8px; }
+
+
+/* Keep the three steppers aligned even when a label is short */
+.stepper-row { align-items: start; }
+.stepper { display: flex; flex-direction: column; }
+.stepper .field { min-height: 2.2em; display: flex; align-items: flex-end; }

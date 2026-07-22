@@ -224,6 +224,19 @@
         return finish(aS, bS);
     }
 
+    // League points from the real match once its tries are known. Four-try
+    // bonus and a losing bonus within seven, the standard scheme. Applies
+    // to league and pool games; knockouts do not carry bonus points.
+    function leaguePoints(aS, bS, aTries, bTries) {
+        var out = { aPts: 0, bPts: 0 };
+        if (aS === bS) { out.aPts = 2; out.bPts = 2; }
+        else if (aS > bS) { out.aPts = 4; out.bPts = (bS >= aS - 7) ? 1 : 0; }
+        else { out.bPts = 4; out.aPts = (aS >= bS - 7) ? 1 : 0; }
+        if (aTries >= 4) out.aPts += 1;
+        if (bTries >= 4) out.bPts += 1;
+        return out;
+    }
+
     function finish(aS, bS) {
         var margin = Math.abs(aS - bS);
         var drawn = aS === bS;
@@ -372,22 +385,20 @@
         return best;
     }
 
-    // The same across an entire season, given each competition's stored
-    // results and the kicker mapping that applied at the time.
+    // Across a whole season the players change between competitions, so the
+    // interesting question is which user's side scored most, not which
+    // individual. Everything is credited to the side, keyed by uid.
     function seasonStats(history) {
         var tries = {}, points = {}, against = {};
         (history || []).forEach(function (comp) {
-            var kn = comp.kickerNames || {};
             (comp.results || []).forEach(function (r) {
                 [r.bdA, r.bdB].forEach(function (bd, idx) {
                     if (!bd) return;
-                    (bd.tries || []).forEach(function (t) {
-                        tries[t.name] = (tries[t.name] || 0) + t.count;
-                        points[t.name] = (points[t.name] || 0) + t.count * 5;
-                    });
                     var uid = idx === 0 ? r.home : r.away;
-                    var kName = kn[uid];
-                    if (kName) points[kName] = (points[kName] || 0)
+                    var t = 0;
+                    (bd.tries || []).forEach(function (x) { t += x.count; });
+                    tries[uid] = (tries[uid] || 0) + t;
+                    points[uid] = (points[uid] || 0) + t * 5
                         + (bd.conversions || 0) * 2 + (bd.penalties || 0) * 3;
                 });
                 against[r.home] = (against[r.home] || 0) + r.b;
@@ -395,10 +406,33 @@
             });
         });
         return {
-            topTries: leader(tries),
-            topPoints: leader(points),
+            topTries: leaderUid(tries),
+            topPoints: leaderUid(points),
             bestDefence: leaderLow(against)
         };
+    }
+
+    // W/D/L across the season, per side, for the final standings.
+    function seasonRecord(history) {
+        var rec = {};
+        function ensure(u) { if (!rec[u]) rec[u] = { won: 0, drawn: 0, lost: 0 }; return rec[u]; }
+        (history || []).forEach(function (comp) {
+            (comp.results || []).forEach(function (r) {
+                var h = ensure(r.home), a = ensure(r.away);
+                if (r.a === r.b) { h.drawn++; a.drawn++; }
+                else if (r.a > r.b) { h.won++; a.lost++; }
+                else { a.won++; h.lost++; }
+            });
+        });
+        return rec;
+    }
+
+    function leaderUid(map) {
+        var best = null;
+        Object.keys(map).forEach(function (k) {
+            if (!best || map[k] > best.value) best = { uid: k, value: map[k] };
+        });
+        return best;
     }
 
     function buildScoreBreakdown(rng, finalScore, squad, kickerName) {
@@ -596,8 +630,10 @@
         isLeagueStage: isLeagueStage,
         TRY_WEIGHTS: TRY_WEIGHTS,
         buildScoreBreakdown: buildScoreBreakdown,
+        leaguePoints: leaguePoints,
         competitionStats: competitionStats,
         seasonStats: seasonStats,
+        seasonRecord: seasonRecord,
         seriesResult: seriesResult,
         resolvePlaceholder: resolvePlaceholder,
         stageStandings: stageStandings,

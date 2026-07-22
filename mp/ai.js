@@ -25,20 +25,59 @@
     }
 })(typeof self !== "undefined" ? self : this, function () {
 
-    // Club sides from around the world. Deliberately decoupled from
-    // personality, so nobody learns that a given name drafts a given way.
-    // Nation names are avoided to prevent confusion with the squad data.
-    const NAMES = [
-        "Leinster", "Munster", "Ulster", "Connacht", "Glasgow", "Edinburgh",
-        "Cardiff", "Ospreys", "Scarlets", "Dragons", "Saracens", "Harlequins",
-        "Leicester", "Northampton", "Bath", "Bristol", "Exeter", "Gloucester",
-        "Sale", "Newcastle", "Toulouse", "Toulon", "Clermont", "Racing",
-        "Bordeaux", "Montpellier", "La Rochelle", "Castres", "Lyon", "Perpignan",
-        "Crusaders", "Blues", "Chiefs", "Hurricanes", "Highlanders",
-        "Brumbies", "Waratahs", "Reds", "Force", "Rebels",
-        "Stormers", "Bulls", "Sharks", "Lions", "Cheetahs",
-        "Benetton", "Zebre", "Jaguares", "Sunwolves", "Moana"
-    ];
+    // Club sides grouped by the nation they belong to, each with kit
+    // colours. A personality that favours a nation or hemisphere is named
+    // for a club that fits, so the name and colours reflect the bias.
+    const CLUBS = {
+        "Ireland":      [["Leinster","#0C3D2E","#8AB8E6"],["Munster","#7B0000","#FFFFFF"],["Ulster","#D20000","#FFFFFF"],["Connacht","#12724C","#FFFFFF"]],
+        "Scotland":     [["Glasgow","#003865","#E8A200"],["Edinburgh","#8C1D40","#111111"]],
+        "Wales":        [["Cardiff","#0033A0","#111111"],["Ospreys","#111111","#E8A200"],["Scarlets","#D0103A","#111111"],["Dragons","#C8102E","#111111"]],
+        "England":      [["Saracens","#111111","#D0103A"],["Harlequins","#0B1E3B","#7BC143"],["Leicester","#00573F","#FFFFFF"],["Northampton","#5C0F2E","#111111"],["Bath","#0033A0","#111111"],["Bristol","#C8102E","#111111"],["Exeter","#111111","#E8A200"],["Sale","#0033A0","#FFFFFF"]],
+        "France":       [["Toulouse","#C8102E","#111111"],["Toulon","#C8102E","#111111"],["Clermont","#0B1E3B","#E8A200"],["Racing","#87CEEB","#FFFFFF"],["Bordeaux","#7B0000","#111111"],["Montpellier","#004B87","#E8820A"],["La Rochelle","#111111","#E8A200"],["Lyon","#C8102E","#0033A0"]],
+        "New Zealand":  [["Crusaders","#C8102E","#111111"],["Blues","#0033A0","#FFFFFF"],["Chiefs","#111111","#E8A200"],["Hurricanes","#E8A200","#111111"],["Highlanders","#0B1E3B","#E8A200"]],
+        "Australia":    [["Brumbies","#111111","#E8A200"],["Waratahs","#0033A0","#FFFFFF"],["Reds","#7B0000","#111111"],["Force","#0B1E3B","#E8A200"],["Rebels","#C8102E","#111111"]],
+        "South Africa": [["Stormers","#004B87","#FFFFFF"],["Bulls","#7B0000","#111111"],["Sharks","#111111","#000000"],["Lions","#C8102E","#111111"],["Cheetahs","#E8820A","#FFFFFF"]],
+        "Italy":        [["Benetton","#12724C","#FFFFFF"],["Zebre","#FFFFFF","#111111"]],
+        "Argentina":    [["Jaguares","#6CACE4","#FFFFFF"]],
+        "Japan":        [["Sunwolves","#C8102E","#111111"]]
+    };
+    const SOUTH_NAMES = ["New Zealand", "Australia", "South Africa", "Argentina"];
+
+    // A flat fallback list, used when a bias has no clubs to draw from.
+    const NAMES = Object.keys(CLUBS).reduce(function (a, k) {
+        return a.concat(CLUBS[k].map(function (c) { return c[0]; }));
+    }, []);
+
+    // Choose a club that suits a personality, returning name and kit. A
+    // nation bias picks from that nation; a hemisphere bias picks from that
+    // hemisphere; otherwise anywhere. Falls back to random when a bias has
+    // no clubs.
+    function clubFor(traits, rng, taken) {
+        let nations = Object.keys(CLUBS);
+        if (traits && traits.nation && CLUBS[traits.nation]) {
+            nations = [traits.nation];
+        } else if (traits && traits.hemisphere) {
+            const south = traits.hemisphere === "south";
+            nations = nations.filter(function (n) {
+                return (SOUTH_NAMES.indexOf(n) !== -1) === south;
+            });
+            if (!nations.length) nations = Object.keys(CLUBS);
+        }
+        // gather candidate clubs not already used
+        let clubs = [];
+        nations.forEach(function (n) {
+            CLUBS[n].forEach(function (c) { if (!taken[c[0]]) clubs.push(c); });
+        });
+        if (!clubs.length) {
+            // every fitting club taken: fall back to any free club
+            Object.keys(CLUBS).forEach(function (n) {
+                CLUBS[n].forEach(function (c) { if (!taken[c[0]]) clubs.push(c); });
+            });
+        }
+        if (!clubs.length) return { name: "Invitational", kit: "#8899AA", kit2: "#FFFFFF" };
+        const c = clubs[Math.floor(rng() * clubs.length)];
+        return { name: c[0], kit: c[1], kit2: c[2] };
+    }
 
     // ── Seeded randomness ───────────────────────────────────
     function mulberry32(a) {
@@ -93,15 +132,13 @@
             const clash = seats.some(function (s) { return similar(s.traits, traits); });
             if (clash && seats.length < NAMES.length) continue;
 
-            let name = NAMES[Math.floor(rng() * NAMES.length)];
-            let n = 0;
-            while (taken[name] && n++ < NAMES.length) {
-                name = NAMES[Math.floor(rng() * NAMES.length)];
-            }
-            taken[name] = 1;
+            const club = clubFor(traits, rng, taken);
+            taken[club.name] = 1;
             seats.push({
                 uid: "ai_" + Math.floor(rng() * 1e9).toString(36) + "_" + seats.length,
-                name: name,
+                name: club.name,
+                kit: club.kit,
+                kit2: club.kit2,
                 traits: traits,
                 seed: Math.floor(rng() * 1e9)
             });
@@ -198,13 +235,24 @@
         const empties = MPPicks.emptySlots(squad);
         if (!empties.length) return null;
 
+        // The same forced-nations guard the ordinary auto-pick uses. Without
+        // it an AI chasing its traits will happily finish a nation short of
+        // a minimum-nations rule, since traits reorder but do not enforce.
+        const needNations = MPPicks.nationsStillForced
+            ? MPPicks.nationsStillForced(squad, active, empties.length)
+            : null;
+        function nationOk(player) {
+            if (!needNations) return true;
+            return !!(player.country && !needNations[player.country]);
+        }
+
         const cands = [];
         for (let s = 0; s < empties.length; s++) {
             const slotId = empties[s];
             const slot = MPPicks.slotById(slotId);
             for (let i = 0; i < pool.length; i++) {
                 const p = pool[i];
-                if (taken[MPPicks.personKey(p)]) continue;
+                if (taken[MPPicks.personKey(p)] || !nationOk(p)) continue;
                 const v = MPPicks.evaluate(p, slotId, squad, taken, active, ruleCtx,
                     MPRules.isPickLegal);
                 if (!v.eligible) continue;
@@ -242,12 +290,12 @@
         if (traits.chemistry > 0.6) bits.push("chases partnerships");
         if (traits.pack < -0.4) bits.push("builds around the pack");
         if (traits.pack > 0.4) bits.push("builds around the backs");
-        if (traits.discipline < 0.7) bits.push("unpredictable");
+        if (traits.discipline < 0.7) bits.push("drafts erratically");
         return bits.length ? bits.join(", ") : "no strong preferences";
     }
 
     return {
-        NAMES, NORTH, mulberry32, makeTraits, makeSeats, similar,
+        NAMES, CLUBS, NORTH, mulberry32, makeTraits, makeSeats, similar, clubFor,
         score, chemGain, pick, describe
     };
 });
