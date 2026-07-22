@@ -220,7 +220,13 @@ window.MPNet = (function () {
                     return db.ref("rooms/" + code + "/settings").get().then(function (setSnap) {
                         const s = setSnap.val() || {};
                         const humanSeats = s.tableSize ? (s.tableSize - (s.aiCount || 0)) : MAX_MEMBERS;
-                        if (!already && Object.keys(members).length >= humanSeats) {
+                        // Count humans only. AI seats live in members too, so
+                        // counting every member wrongly reported the room full
+                        // as soon as the AI sides were added.
+                        const humansIn = Object.keys(members).filter(function (u) {
+                            return !(members[u] && members[u].ai);
+                        }).length;
+                        if (!already && humansIn >= humanSeats) {
                             throw new Error("That room is full (" + humanSeats + " human seats).");
                         }
                         const now = firebase.database.ServerValue.TIMESTAMP;

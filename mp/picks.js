@@ -317,8 +317,16 @@
     // The taken check uses this: you pick a version, but once any version
     // of a man is drafted, every version of him leaves the pool. Nobody
     // appears in two squads, and nobody appears twice in one squad.
+    //
+    // Name and country alone are not always unique: Wales have had two
+    // Gareth Thomas, one a fullback/wing and one a prop, who are different
+    // men. Whether the player is a forward or a back separates them without
+    // relying on ratings, and no real player crosses that line.
     function personKey(p) {
-        return p.country + "|" + p.name;
+        const groups = playerGroups(p);
+        const forwards = ["front-row", "lock", "back-row"];
+        const isForward = groups.some(function (g) { return forwards.indexOf(g) !== -1; });
+        return p.country + "|" + p.name + "|" + (isForward ? "fwd" : "back");
     }
 
     // ── Candidates for a slot ───────────────────────────────
