@@ -937,3 +937,90 @@ input[type=color] {
 }
 .cover-btn small { font-size: 0.58rem; opacity: 0.8; }
 .cover-btn:hover { background: var(--amber); color: var(--navy); }
+
+/* ── Walkthrough, information circles and the guide ──────── */
+
+.help-toggle {
+    background: transparent; border: 1px solid var(--line); color: var(--slate);
+    border-radius: 999px; padding: 5px 12px; cursor: pointer; font-size: 0.72rem;
+    font-family: var(--display); text-transform: uppercase; letter-spacing: 0.08em;
+    margin-right: 8px;
+}
+.help-toggle:hover { border-color: var(--teal); color: var(--teal); }
+
+/* Information circles sit inline with the label they explain */
+.info-i {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 16px; height: 16px; margin-left: 7px; padding: 0;
+    border-radius: 50%; border: 1px solid var(--slate); background: transparent;
+    color: var(--slate); font-size: 0.62rem; font-style: italic; font-weight: 700;
+    cursor: pointer; vertical-align: middle; line-height: 1; flex: 0 0 auto;
+}
+.info-i:hover { border-color: var(--teal); color: var(--teal); background: rgba(22,224,205,0.1); }
+.draft-help { display: flex; gap: 6px; margin: 0 0 8px; }
+.draft-help .info-i { margin-left: 0; width: 18px; height: 18px; }
+
+/* Tip overlay */
+.tip-overlay {
+    position: fixed; inset: 0; z-index: 60; display: flex;
+    align-items: center; justify-content: center; padding: 18px;
+    background: rgba(6, 12, 20, 0.72);
+}
+.tip-card {
+    position: relative; width: 100%; max-width: 460px; max-height: 86vh; overflow-y: auto;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+    padding: 22px 20px 18px;
+}
+.tip-close {
+    position: absolute; top: 8px; right: 10px; background: transparent; border: 0;
+    color: var(--slate); font-size: 1.4rem; cursor: pointer; line-height: 1;
+}
+.tip-close:hover { color: var(--teal); }
+.tip-icon { font-size: 1.9rem; line-height: 1; margin-bottom: 6px; }
+.tip-card h3 {
+    margin: 0 0 10px; font-family: var(--display); font-size: 1.15rem;
+    color: var(--pitch); letter-spacing: 0.01em;
+}
+.tip-body { font-size: 0.88rem; color: var(--slate); line-height: 1.55; }
+.tip-body p { margin: 0 0 10px; }
+.tip-body ul { margin: 0 0 10px; padding-left: 18px; }
+.tip-body li { margin-bottom: 5px; }
+.tip-body strong { color: var(--pitch); }
+.tip-step {
+    margin: 10px 0 0; font-family: var(--display); font-size: 0.68rem;
+    text-transform: uppercase; letter-spacing: 0.1em; color: var(--slate); opacity: 0.75;
+}
+.tip-optout {
+    display: flex; align-items: center; gap: 8px; margin: 12px 0 0;
+    font-size: 0.76rem; color: var(--slate); cursor: pointer;
+}
+.tip-actions { display: flex; gap: 8px; margin-top: 14px; }
+.tip-actions .cta { flex: 1; margin: 0; }
+
+/* Instructions page */
+.guide { margin-bottom: 14px; }
+.guide-sec { margin-bottom: 18px; }
+.guide-sec h2 {
+    margin: 0 0 8px; font-family: var(--display); font-size: 0.78rem;
+    text-transform: uppercase; letter-spacing: 0.12em; color: var(--teal);
+}
+.guide-item {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    margin-bottom: 6px; overflow: hidden;
+}
+.guide-item summary {
+    cursor: pointer; padding: 11px 14px; font-size: 0.9rem; color: var(--pitch);
+    display: flex; align-items: center; gap: 9px; list-style: none;
+}
+.guide-item summary::-webkit-details-marker { display: none; }
+.guide-item summary:hover { color: var(--teal); }
+.guide-item[open] summary { border-bottom: 1px solid var(--line); }
+.gicon { font-size: 1rem; }
+.guide-body {
+    padding: 12px 14px; font-size: 0.85rem; color: var(--slate); line-height: 1.55;
+}
+.guide-body p { margin: 0 0 10px; }
+.guide-body p:last-child { margin-bottom: 0; }
+.guide-body ul { margin: 0 0 10px; padding-left: 18px; }
+.guide-body li { margin-bottom: 5px; }
+.guide-body strong { color: var(--pitch); }

@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607222139";
+    const VERSION = "v1.2607230919";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -470,7 +470,22 @@
 
         on("create", "click", onCreate);
         on("joinBtn", "click", onJoin);
-on("shareLink", "click", function () { share("link", "shareLink"); });
+on("helpOpen", "click", function () { openGuide(null); });
+        on("helpBack", "click", function () { showOnly(lastViewBeforeHelp || "lobbyView"); });
+        on("helpTour", "click", function () { startTour(true); });
+        on("tipNext", "click", nextTip);
+        on("tipSkip", "click", function () { closeTip(true); });
+        on("tipClose", "click", function () { closeTip(tourQueue.length > 0); });
+        on("tipOverlay", "click", function (e) {
+            if (e.target === $("tipOverlay")) closeTip(tourQueue.length > 0);
+        });
+        // Any information circle, wherever it sits, opens its own topic.
+        document.addEventListener("click", function (e) {
+            const b = (e.target && e.target.closest) ? e.target.closest("[data-help]") : null;
+            if (!b) return;
+            openTip(b.getAttribute("data-help"), false);
+        });
+        on("shareLink", "click", function () { share("link", "shareLink"); });
         on("shareCode", "click", function () { share("code", "shareCode"); });
         on("leave", "click", onLeave);
         on("closeRoom", "click", onCloseRoom);
@@ -829,6 +844,75 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         }
     }
 
+    // ── Walkthrough, information circles and the guide ──────
+    // All three read from MPHelp, so the tour and the reference can never
+    // drift apart. The opt out is namespaced, so switching the tour off
+    // here does not switch off the single player app's tips.
+    let tourQueue = [];
+    let tourIndex = 0;
+    let tipSingle = null;      // set when showing one topic rather than the tour
+
+    function openTip(key, isTour) {
+        const t = MPHelp.topic(key);
+        if (!t) return;
+        tipSingle = isTour ? null : key;
+        $("tipIcon").textContent = t.icon || "";
+        $("tipTitle").textContent = t.title;
+        $("tipBody").innerHTML = MPHelp.bodyOf(key);
+        $("tipDontShow").checked = false;
+
+        const inTour = !!isTour;
+        $("tipStep").textContent = inTour
+            ? ("Step " + (tourIndex + 1) + " of " + tourQueue.length) : "";
+        $("tipStep").classList.toggle("hidden", !inTour);
+        $("tipOptOutRow").classList.toggle("hidden", !inTour);
+        $("tipSkip").classList.toggle("hidden", !inTour);
+        $("tipNext").querySelector("span").textContent = inTour
+            ? (tourIndex + 1 >= tourQueue.length ? "Finish" : "Next")
+            : "Close";
+        $("tipOverlay").classList.remove("hidden");
+        MPHelp.markSeen(key);
+    }
+
+    function closeTip(finishedTour) {
+        if ($("tipDontShow") && $("tipDontShow").checked) MPHelp.setOptedOut(true);
+        if (finishedTour) MPHelp.setTourDone();
+        $("tipOverlay").classList.add("hidden");
+        tourQueue = [];
+        tipSingle = null;
+    }
+
+    function nextTip() {
+        if (!tourQueue.length) { closeTip(false); return; }
+        if ($("tipDontShow") && $("tipDontShow").checked) {
+            MPHelp.setOptedOut(true);
+            closeTip(true);
+            return;
+        }
+        tourIndex++;
+        if (tourIndex >= tourQueue.length) { closeTip(true); return; }
+        openTip(tourQueue[tourIndex], true);
+    }
+
+    function startTour(force) {
+        if (!force && (MPHelp.optedOut() || MPHelp.tourDone())) return;
+        tourQueue = MPHelp.TOUR.slice();
+        tourIndex = 0;
+        if (!tourQueue.length) return;
+        openTip(tourQueue[0], true);
+    }
+
+    let lastViewBeforeHelp = null;
+    function openGuide(key) {
+        lastViewBeforeHelp = shownView;
+        $("guideBody").innerHTML = MPHelp.guideHtml();
+        showOnly("helpView");
+        if (key) {
+            const el = $("guide_" + key);
+            if (el) { el.open = true; el.scrollIntoView({ block: "center" }); }
+        }
+    }
+
     function backToLobby(msg) {
         if (unwatch) { unwatch(); unwatch = null; }
         currentCode = null;
@@ -1037,7 +1121,13 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
             + " of " + (s.seasonLength || 1);
 
         const amHostNow = hostUid === MPNet.currentUid();
-        const COVER_HINT_MS = 300000;   // 5 minutes offline before offering cover
+        // Offer cover once someone has been away long enough to have missed
+        // a turn, since that is the point at which their absence actually
+        // costs the room something. A fixed period made no sense against a
+        // clock that ranges from minutes to days. Floored so a very short
+        // clock does not offer cover almost immediately.
+        const turnMs = (room.settings || {}).turnMs || 0;
+        const COVER_HINT_MS = turnMs > 0 ? Math.max(turnMs, 300000) : 1800000;
         $("members").innerHTML = Object.keys(members).map(function (k) {
             const m = members[k];
             const you = (k === MPNet.currentUid());
@@ -1057,8 +1147,9 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
             if (amHostNow && !you && !isAi && !covered && !m.connected
                 && offlineMs > COVER_HINT_MS) {
                 const mins = Math.floor(offlineMs / 60000);
+                const away = mins >= 120 ? (Math.floor(mins / 60) + "h") : (mins + "m");
                 action = "<button class='cover-btn' data-cover='" + k + "'>Assign AI"
-                    + "<small>away " + mins + "m</small></button>";
+                    + "<small>away " + away + "</small></button>";
             }
 
             return "<li style='--mk1:" + (m.kit || "#6E8CA6") + ";--mk2:" + (m.kit2 || "transparent") + "'>"
@@ -1419,7 +1510,7 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         showOnly("commitView");
     }
 
-    const ALL_VIEWS = ["lobbyView", "roomView", "setupView", "waitView", "teamsView", "seasonView", "draftView", "commitView", "compView"];
+    const ALL_VIEWS = ["lobbyView", "roomView", "setupView", "waitView", "teamsView", "seasonView", "helpView", "draftView", "commitView", "compView"];
     let shownView = null;
     function showOnly(id) {
         ALL_VIEWS.forEach(function (v) {
@@ -2640,6 +2731,9 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
             if ($("join")) $("join").value = shared;
         }
         refresh();
+        // First run gets the walkthrough. Namespaced opt out, so the single
+        // player app's tips are unaffected either way.
+        setTimeout(function () { startTour(false); }, 400);
         setStatus("lobbyStatus", "Connecting...", false);
         MPNet.init().then(function () { setStatus("lobbyStatus", "", false); })
             .catch(function (err) { setStatus("lobbyStatus", err.message, true); });
