@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607231701";
+    const VERSION = "v1.2607231721";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -66,6 +66,10 @@
         season: 3,         // competitions in the season, 1 to 15
         aiCount: 0,        // AI sides drafting alongside the humans
         chemistry: true,   // whether the chemistry bonus applies
+        gameType: "custom",     // "custom" or "worldcup"
+        rwcTournament: "2023",  // which World Cup, or MPRWC.ALL_TIME
+        rwcAssign: "draw",      // "draw" or "pick"
+        rwcChosen: {},          // seat index -> nation, when picking
         turnMs: 600000,    // time allowed per pick, 0 means no limit
         hostIdleMs: 86400000,  // host handover after this much silence
         path: "create",    // "create" | "join"
@@ -234,6 +238,58 @@
         refresh();
     }
 
+    // Switching between a custom competition and a whole World Cup. The two
+    // paths do not share option screens, so each can be exactly what it
+    // needs rather than a compromise.
+    function setGameType(t) {
+        state.gameType = t;
+        $("typeCustom").setAttribute("aria-pressed", String(t === "custom"));
+        $("typeWorldCup").setAttribute("aria-pressed", String(t === "worldcup"));
+        $("rwcBlock").classList.toggle("hidden", t !== "worldcup");
+        // A World Cup is one tournament, and has no room for AI sides.
+        ["seasonStepper", "aiStepper"].forEach(function (id) {
+            const el = $(id);
+            if (el) el.classList.toggle("hidden", t === "worldcup");
+        });
+        if (t === "worldcup") { state.season = 1; state.aiCount = 0; }
+        refresh();
+    }
+
+    function renderRwc() {
+        if (typeof MPRWC === "undefined") return;
+        const list = MPRWC.tournaments();
+        $("rwcYears").innerHTML = list.map(function (t) {
+            const label = t === MPRWC.ALL_TIME ? "All time" : t;
+            return "<button class='chip" + (state.rwcTournament === t ? " on" : "")
+                + "' data-rwc='" + t + "'>" + label + "</button>";
+        }).join("");
+        $("rwcDraw").setAttribute("aria-pressed", String(state.rwcAssign === "draw"));
+        $("rwcPick").setAttribute("aria-pressed", String(state.rwcAssign === "pick"));
+        $("rwcPickList").classList.toggle("hidden", state.rwcAssign !== "pick");
+
+        const meta = MPRWC.metaFor(state.rwcTournament);
+        const nations = MPRWC.nationsIn(state.rwcTournament);
+        $("rwcSummary").textContent = (state.rwcTournament === MPRWC.ALL_TIME
+                ? "All time squads, 2023 structure. "
+                : "")
+            + meta.teams + " teams, pools of " + meta.poolsOf + ", "
+            + (meta.bonusPoints ? "bonus points" : "two points for a win") + ". "
+            + state.size + " of the " + nations.length + " nations replaced by users.";
+
+        if (state.rwcAssign === "pick") {
+            $("rwcPickList").innerHTML = Array.from({ length: state.size }, function (_, i) {
+                const chosen = state.rwcChosen[i] || "";
+                return "<label class='pick-row'><span>User " + (i + 1) + "</span>"
+                    + "<select data-rwcseat='" + i + "'>"
+                    + "<option value=''>Choose a nation</option>"
+                    + nations.map(function (n) {
+                        return "<option value='" + n + "'" + (chosen === n ? " selected" : "")
+                            + ">" + n + "</option>";
+                    }).join("") + "</select></label>";
+            }).join("");
+        }
+    }
+
     function renderPath() {
         const creating = state.path === "create";
         $("pathCreate").setAttribute("aria-pressed", String(creating));
@@ -258,6 +314,7 @@
         if (state.season > 15) state.season = 15;
         $("sizeNum").textContent = state.size;
         $("aiNum").textContent = state.aiCount;
+        if (state.gameType === "worldcup") renderRwc();
         if (state.aiCount > 8 - state.size) state.aiCount = Math.max(0, 8 - state.size);
         $("seasonNum").textContent = state.season;
         $("sizeDown").disabled = state.size <= 1;
@@ -470,7 +527,23 @@
 
         on("create", "click", onCreate);
         on("joinBtn", "click", onJoin);
-on("helpOpen", "click", function () { openGuide(null); });
+on("typeCustom", "click", function () { setGameType("custom"); });
+        on("typeWorldCup", "click", function () { setGameType("worldcup"); });
+        on("rwcDraw", "click", function () { state.rwcAssign = "draw"; refresh(); });
+        on("rwcPick", "click", function () { state.rwcAssign = "pick"; refresh(); });
+        on("rwcYears", "click", function (e) {
+            const b = e.target.closest("[data-rwc]");
+            if (!b) return;
+            state.rwcTournament = b.getAttribute("data-rwc");
+            state.rwcChosen = {};
+            refresh();
+        });
+        on("rwcPickList", "change", function (e) {
+            const sel = e.target.closest("[data-rwcseat]");
+            if (!sel) return;
+            state.rwcChosen[sel.getAttribute("data-rwcseat")] = sel.value;
+        });
+        on("helpOpen", "click", function () { openGuide(null); });
         on("helpBack", "click", function () { showOnly(lastViewBeforeHelp || "lobbyView"); });
         on("helpTour", "click", restartTour);
         on("tipNext", "click", nextTip);
@@ -692,7 +765,11 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
 
         setStatus("lobbyStatus", "Creating room and snapshotting the pool...", false);
         $("create").disabled = true;
-        MPNet.createRoom(filters(), profile(), rulesForCreate(), { tableSize: state.size + state.aiCount, aiCount: state.aiCount, seasonLength: state.season, turnMs: state.turnMs, hostIdleMs: state.hostIdleMs, chemistry: state.chemistry })
+        MPNet.createRoom(filters(), profile(), rulesForCreate(), { tableSize: state.size + state.aiCount, aiCount: state.aiCount, seasonLength: state.gameType === "worldcup" ? 1 : state.season,
+              turnMs: state.turnMs, hostIdleMs: state.hostIdleMs, chemistry: state.chemistry,
+              gameType: state.gameType,
+              rwcTournament: state.gameType === "worldcup" ? state.rwcTournament : null,
+              rwcAssign: state.gameType === "worldcup" ? state.rwcAssign : null })
             .then(function (code) {
                 // Seats are generated from the built pool, so a personality
                 // can only prefer nations that are actually available.

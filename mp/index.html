@@ -25,7 +25,7 @@
     <!-- ══ LOBBY VIEW ══ -->
     <div id="lobbyView">
 
-        <p class="version" id="version">v1.2607231701</p>
+        <p class="version" id="version">v1.2607231721</p>
 
         <div id="notice" class="notice hidden">
             <span id="noticeText"></span>
@@ -74,6 +74,30 @@
 
         <div id="createPane">
 
+        <section class="block" id="gameTypeBlock">
+            <div class="seg" role="group" aria-label="What to play">
+                <button id="typeCustom" aria-pressed="true">Configure a tournament
+                    <span class="hint">Your own competition, your own rules</span></button>
+                <button id="typeWorldCup" aria-pressed="false">Play a whole World Cup
+                    <span class="hint">Replace a nation and win the thing</span></button>
+            </div>
+        </section>
+
+        <!-- World Cup options, shown only for that type -->
+        <section class="block hidden" id="rwcBlock">
+            <p class="eyebrow">Tournament<button class="info-i" data-help="rwcMode" aria-label="What is this?">i</button></p>
+            <div class="chips" id="rwcYears"></div>
+            <p class="eyebrow">Nations to replace</p>
+            <div class="seg small" role="group" aria-label="How nations are chosen">
+                <button id="rwcDraw" aria-pressed="true">Draw them
+                    <span class="hint">Spread across the pools</span></button>
+                <button id="rwcPick" aria-pressed="false">Choose them
+                    <span class="hint">The host names each one</span></button>
+            </div>
+            <div id="rwcPickList" class="hidden"></div>
+            <p class="list-hint" id="rwcSummary"></p>
+        </section>
+
         <div id="optionsBlock">
 
 
@@ -88,7 +112,7 @@
                         <button id="sizeUp" aria-label="More users">+</button>
                     </div>
                 </div>
-                <div class="stepper">
+                <div class="stepper" id="aiStepper">
                     <label class="field">AI sides</label>
                     <div class="cap">
                         <button id="aiDown" aria-label="Fewer AI sides">&minus;</button>
@@ -96,7 +120,7 @@
                         <button id="aiUp" aria-label="More AI sides">+</button>
                     </div>
                 </div>
-                <div class="stepper">
+                <div class="stepper" id="seasonStepper">
                     <label class="field">Competitions</label>
                     <div class="cap">
                         <button id="seasonDown" aria-label="Shorter season">&minus;</button>
@@ -178,7 +202,7 @@
             <div class="chips" id="geoChips"></div>
         </section>
 
-        <section class="block">
+        <section class="block" id="rulesBlock">
             <p class="eyebrow">Rules<button class="info-i" data-help="rules" aria-label="What is this?">i</button></p>
             <div class="rules" id="ruleList"></div>
         </section>

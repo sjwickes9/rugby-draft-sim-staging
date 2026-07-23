@@ -52,6 +52,27 @@
                 + "at the end.</p>"
         },
 
+        rwcMode: {
+            title: "Playing a whole World Cup",
+            icon: "\u{1F30F}",
+            section: "Getting started",
+            short: "Each user's XV replaces a real nation in an actual World "
+                + "Cup, and the whole tournament is played out around them.",
+            body: "<p>Instead of inventing a competition, every user takes the place of "
+                + "a real nation in a real World Cup. The pools, the format and the other "
+                + "nations are all as they were.</p>"
+                + "<p>Choose any of the ten World Cups, or the all time tournament, where "
+                + "every nation fields the best side it has ever been able to pick.</p>"
+                + "<p>Drafting a player means his country cannot pick him. In a real World "
+                + "Cup that nation is as strong as it ever was, but the man himself turns "
+                + "out for you instead of them. In the all time tournament, where sides are "
+                + "built rather than fixed, taking a great player genuinely weakens his "
+                + "country.</p>"
+                + "<p>The more users there are, the more of the field is user controlled, "
+                + "and the more likely it is that the knockout stages come down to you "
+                + "against each other rather than you against the tournament.</p>"
+        },
+
         rooms: {
             title: "Rooms, codes and invitations",
             icon: "\u{1F517}",
