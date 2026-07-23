@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607230919";
+    const VERSION = "v1.2607231243";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -472,7 +472,7 @@
         on("joinBtn", "click", onJoin);
 on("helpOpen", "click", function () { openGuide(null); });
         on("helpBack", "click", function () { showOnly(lastViewBeforeHelp || "lobbyView"); });
-        on("helpTour", "click", function () { startTour(true); });
+        on("helpTour", "click", restartTour);
         on("tipNext", "click", nextTip);
         on("tipSkip", "click", function () { closeTip(true); });
         on("tipClose", "click", function () { closeTip(tourQueue.length > 0); });
@@ -850,6 +850,7 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
     // here does not switch off the single player app's tips.
     let tourQueue = [];
     let tourIndex = 0;
+    let tourView = null;       // which screen this run is introducing
     let tipSingle = null;      // set when showing one topic rather than the tour
 
     function openTip(key, isTour) {
@@ -876,9 +877,12 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
 
     function closeTip(finishedTour) {
         if ($("tipDontShow") && $("tipDontShow").checked) MPHelp.setOptedOut(true);
-        if (finishedTour) MPHelp.setTourDone();
+        // A screen only counts as introduced once its cards have been seen
+        // or skipped, so a reload part way through picks up where it left.
+        if (finishedTour && tourView) MPHelp.setScreenDone(tourView);
         $("tipOverlay").classList.add("hidden");
         tourQueue = [];
+        tourView = null;
         tipSingle = null;
     }
 
@@ -894,12 +898,29 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         openTip(tourQueue[tourIndex], true);
     }
 
-    function startTour(force) {
-        if (!force && (MPHelp.optedOut() || MPHelp.tourDone())) return;
-        tourQueue = MPHelp.TOUR.slice();
+    // Introduce a screen the first time it is reached. Called on a real
+    // view change, never on a re-render, so it cannot interrupt twice.
+    function screenTour(view, force) {
+        if (!view) return;
+        if (!force && (MPHelp.optedOut() || MPHelp.screenDone(view))) return;
+        const q = MPHelp.tourFor(view);
+        if (!q.length) return;
+        // Never talk over an open dialogue.
+        if (!$("modal").classList.contains("hidden")) return;
+        if (!$("tipOverlay").classList.contains("hidden")) return;
+        tourQueue = q;
         tourIndex = 0;
-        if (!tourQueue.length) return;
+        tourView = view;
         openTip(tourQueue[0], true);
+    }
+
+    // "Run the walkthrough again": clear every screen flag so each screen
+    // introduces itself as it is reached, and start with this one.
+    function restartTour() {
+        MPHelp.resetTours();
+        const back = lastViewBeforeHelp || "lobbyView";
+        showOnly(back);
+        setTimeout(function () { screenTour(back, true); }, 250);
     }
 
     let lastViewBeforeHelp = null;
@@ -1521,7 +1542,14 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         // on every Firebase snapshot, and scrolling on each one made the page
         // jump to the top every second or two, so on mobile you could never
         // reach a button lower down.
-        if (id !== shownView) { shownView = id; scrollTop(); }
+        if (id !== shownView) {
+            shownView = id;
+            scrollTop();
+            // Each screen introduces itself the first time it is reached.
+            // A short delay lets the screen paint first, so the tip sits
+            // over something recognisable rather than a blank panel.
+            setTimeout(function () { screenTour(id, false); }, 450);
+        }
     }
 
     function scrollTop() {
@@ -2721,6 +2749,10 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         buildChips();
         wire();
         renderYou();
+        // The home screen is visible by default, so nothing has routed
+        // through showOnly yet. Do it explicitly so it introduces itself
+        // like every other screen.
+        showOnly("lobbyView");
         // A shared link carries the room code. Land on the join screen with
         // it filled in, but do not submit, since the newcomer still needs a
         // name and colours.
@@ -2731,9 +2763,6 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
             if ($("join")) $("join").value = shared;
         }
         refresh();
-        // First run gets the walkthrough. Namespaced opt out, so the single
-        // player app's tips are unaffected either way.
-        setTimeout(function () { startTour(false); }, 400);
         setStatus("lobbyStatus", "Connecting...", false);
         MPNet.init().then(function () { setStatus("lobbyStatus", "", false); })
             .catch(function (err) { setStatus("lobbyStatus", err.message, true); });

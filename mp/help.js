@@ -340,9 +340,24 @@
         }
     };
 
-    // The walkthrough, in the order a new player meets these ideas. Kept
-    // short on purpose: the reference page is there for the rest.
-    const TOUR = ["welcome", "rooms", "mode", "rules", "draft", "board", "chemistry", "kicker"];
+    // The walkthrough is split by screen rather than fired all at once on
+    // the home page. Explaining the draft to somebody who is still naming
+    // themselves teaches nothing, so each screen introduces itself the
+    // first time you reach it, and only the parts that screen is about.
+    const SCREEN_TOURS = {
+        lobbyView:  ["welcome", "rooms"],
+        setupView:  ["mode", "pool", "rules", "ai"],
+        roomView:   ["host", "quiet", "cover"],
+        draftView:  ["draft", "board", "clock", "positions", "chemistry"],
+        commitView: ["kicker"],
+        compView:   ["simulation", "formats"],
+        seasonView: ["season"]
+    };
+
+    // Everything, in reading order, for replaying the whole tour on demand.
+    const TOUR = Object.keys(SCREEN_TOURS).reduce(function (a, k) {
+        return a.concat(SCREEN_TOURS[k]);
+    }, []).concat(["illegal"]);
 
     // ── Opt out state ───────────────────────────────────────
     function optedOut() {
@@ -366,14 +381,28 @@
         try { sessionStorage.setItem(SEEN_PREFIX + key, "1"); } catch (e) {}
     }
 
-    // Has the tour ever been completed or dismissed on this device?
-    function tourDone() {
-        try { return localStorage.getItem(OPT_OUT_KEY + "Tour") === "1"; }
+    // Each screen remembers whether it has introduced itself, so the tour
+    // arrives in pieces as you actually reach each part of the app.
+    function screenDone(view) {
+        try { return localStorage.getItem(OPT_OUT_KEY + "Screen_" + view) === "1"; }
         catch (e) { return false; }
     }
-    function setTourDone() {
-        try { localStorage.setItem(OPT_OUT_KEY + "Tour", "1"); } catch (e) {}
+    function setScreenDone(view) {
+        try { localStorage.setItem(OPT_OUT_KEY + "Screen_" + view, "1"); } catch (e) {}
     }
+
+    // Clear every screen flag, so the tour introduces each screen again as
+    // it is reached. Used by "run the walkthrough again".
+    function resetTours() {
+        try {
+            Object.keys(SCREEN_TOURS).forEach(function (v) {
+                localStorage.removeItem(OPT_OUT_KEY + "Screen_" + v);
+            });
+            localStorage.removeItem(OPT_OUT_KEY);
+        } catch (e) {}
+    }
+
+    function tourFor(view) { return (SCREEN_TOURS[view] || []).slice(); }
 
     // ── Rendering ───────────────────────────────────────────
     function topic(key) { return TOPICS[key] || null; }
@@ -422,7 +451,8 @@
 
     return {
         TOPICS, TOUR, OPT_OUT_KEY, SEEN_PREFIX,
-        optedOut, setOptedOut, seen, markSeen, tourDone, setTourDone,
+        SCREEN_TOURS, optedOut, setOptedOut, seen, markSeen,
+        screenDone, setScreenDone, resetTours, tourFor,
         topic, bodyOf, shortOf, guideHtml
     };
 });
