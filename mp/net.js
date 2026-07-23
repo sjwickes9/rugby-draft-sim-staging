@@ -256,10 +256,13 @@ window.MPNet = (function () {
     function trackPresence(code) {
         const meRef = db.ref("rooms/" + code + "/members/" + uid + "/connected");
         const connectedRef = db.ref(".info/connected");
+        const seenRef = db.ref("rooms/" + code + "/members/" + uid + "/lastSeen");
         connectedRef.on("value", function (snap) {
             if (snap.val() === true) {
                 meRef.onDisconnect().set(false);
+                seenRef.onDisconnect().set(firebase.database.ServerValue.TIMESTAMP);
                 meRef.set(true);
+                seenRef.set(firebase.database.ServerValue.TIMESTAMP);
             }
         });
     }
@@ -377,6 +380,36 @@ window.MPNet = (function () {
                 throw new Error("Could not add the AI sides ("
                     + (err.code || err.message) + ").");
             });
+        });
+    }
+
+    // Cover a human's seat with an AI stand-in. The seat still belongs to
+    // the person: their name and kit stay, and a marker shows an AI is
+    // playing it. Reversible, so they reclaim it on return.
+    function coverWithAi(code, forUid, traits, seed) {
+        return whenReady().then(function () {
+            const updates = {};
+            updates["rooms/" + code + "/members/" + forUid + "/cover"] = {
+                by: "ai", traits: traits, seed: seed,
+                at: firebase.database.ServerValue.TIMESTAMP
+            };
+            // A covered seat is treated as entered and ready, so it never
+            // holds the room up the way an absent human would.
+            updates["rooms/" + code + "/entered/" + forUid] = true;
+            updates["rooms/" + code + "/ready/" + forUid] = true;
+            return db.ref().update(updates).catch(function (err) {
+                throw new Error("Could not assign an AI (" + (err.code || err.message) + ").");
+            });
+        });
+    }
+
+    // The human reclaims their own seat between competitions.
+    function reclaimSeat(code) {
+        return whenReady().then(function () {
+            return db.ref("rooms/" + code + "/members/" + uid + "/cover").remove()
+                .catch(function (err) {
+                    throw new Error("Could not resume (" + (err.code || err.message) + ").");
+                });
         });
     }
 
@@ -740,15 +773,21 @@ window.MPNet = (function () {
                 updates["rooms/" + code + "/members/" + uid] = null;
 
                 if (leavingIsHost) {
-                    const others = Object.keys(members).filter(function (k) { return k !== uid; });
-                    if (others.length === 0) {
-                        // Last person out closes the room.
+                    // The host role can only pass to a human. AI seats live in
+                    // members too, but they cannot make host decisions, so
+                    // they are never candidates.
+                    const humans = Object.keys(members).filter(function (k) {
+                        return k !== uid && !(members[k] && members[k].ai);
+                    });
+                    if (humans.length === 0) {
+                        // No humans left, so the room closes rather than being
+                        // handed to an AI that could never run it.
                         return db.ref("rooms/" + code).remove();
                     }
-                    others.sort(function (a, b) {
+                    humans.sort(function (a, b) {
                         return (members[a].joinedAt || 0) - (members[b].joinedAt || 0);
                     });
-                    updates["rooms/" + code + "/meta/hostUid"] = others[0];
+                    updates["rooms/" + code + "/meta/hostUid"] = humans[0];
                 }
                 return db.ref().update(updates);
             });
@@ -770,6 +809,8 @@ window.MPNet = (function () {
         startDraft: startDraft,
         makePick: makePick,
         addAiSeats: addAiSeats,
+        coverWithAi: coverWithAi,
+        reclaimSeat: reclaimSeat,
         removeAiSeats: removeAiSeats,
         saveQuiet: saveQuiet,
         touchHost: touchHost,

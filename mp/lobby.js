@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607222126";
+    const VERSION = "v1.2607222139";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -902,6 +902,39 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         }
     }
 
+    // Offer a returning human their seat back from the AI stand-in.
+    let resumeOffered = false;
+    function maybeResume(room) {
+        const me = MPNet.currentUid();
+        const mine = (room.members || {})[me];
+        if (!mine || !(mine.cover && mine.cover.by === "ai")) { resumeOffered = false; return; }
+        const status = (room.meta || {}).status;
+        // Between competitions only. Mid-draft the AI keeps the seat.
+        if (status !== "lobby" && status !== "announced") return;
+        if (resumeOffered) return;
+        resumeOffered = true;
+
+        // A brief note on how the stand-in did, so their squad from last
+        // time does not look mysteriously unfamiliar.
+        let howItDid = "";
+        try {
+            const tally = MPSim.tallyOrder(room.tally || {}).find(function (r) { return r.uid === me; });
+            if (tally) howItDid = " While you were away it won " + tally.titles
+                + " competition" + (tally.titles === 1 ? "" : "s") + ".";
+        } catch (e) {}
+
+        modal({
+            title: "Welcome back",
+            body: "An AI has been playing your seat." + howItDid
+                + " <strong>Take it back over?</strong>"
+                + "<span class='warn'>You will draft the next competition yourself.</span>",
+            ok: "Resume control", cancel: "Let the AI carry on"
+        }).then(function (yes) {
+            if (!yes) return;
+            MPNet.reclaimSeat(currentCode).catch(function (err) { showNotice(err.message); });
+        });
+    }
+
     function renderRoomInner(room) {
         // The room has been closed, or this user removed from it. Firebase
         // reports that as an empty snapshot. Nobody is thrown out: they may
@@ -924,6 +957,12 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         }
         roomClosed = false;
         latestRoom = room;
+
+        // If an AI has been covering my seat while I was away, offer to take
+        // it back. Only between competitions, where handover is clean: no
+        // one is on the clock and no pick is half written.
+        maybeResume(room);
+
         const finished = ((room.settings || {}).competition || 1) >= ((room.settings || {}).seasonLength || 1)
             && ((room.comp || {}).results || []).length > 0;
         const cr = $("closeRoom");
@@ -997,13 +1036,37 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         $("seasonLine").textContent = "Competition " + (s.competition || 1)
             + " of " + (s.seasonLength || 1);
 
+        const amHostNow = hostUid === MPNet.currentUid();
+        const COVER_HINT_MS = 300000;   // 5 minutes offline before offering cover
         $("members").innerHTML = Object.keys(members).map(function (k) {
             const m = members[k];
             const you = (k === MPNet.currentUid());
+            const isAi = !!m.ai;
+            const covered = m.cover && m.cover.by === "ai";
+            const offlineMs = (!m.connected && m.lastSeen)
+                ? MPNet.serverNow() - m.lastSeen : 0;
+
+            let tag = "";
+            if (isAi) tag = "<span class='ai-tag'>AI</span>";
+            else if (covered) tag = "<span class='ai-tag cover'>AI cover</span>";
+
+            // The host is offered a cover for a human who has been offline a
+            // while and is not already covered. This is a judgement call, so
+            // it is a suggestion, never automatic.
+            let action = "";
+            if (amHostNow && !you && !isAi && !covered && !m.connected
+                && offlineMs > COVER_HINT_MS) {
+                const mins = Math.floor(offlineMs / 60000);
+                action = "<button class='cover-btn' data-cover='" + k + "'>Assign AI"
+                    + "<small>away " + mins + "m</small></button>";
+            }
+
             return "<li style='--mk1:" + (m.kit || "#6E8CA6") + ";--mk2:" + (m.kit2 || "transparent") + "'>"
                 + "<span class='dot " + (m.connected ? "on" : "") + "'></span>"
                 + "<span class='mname'>" + esc(m.name || "Player") + (you ? " (you)" : "") + "</span>"
+                + tag
                 + (k === hostUid ? "<span class='htag'>Host</span>" : "")
+                + action
                 + "</li>";
         }).join("");
 
@@ -1617,7 +1680,10 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
             .then(function () {
                 const mem = (latestRoom || {}).members || {};
                 Object.keys(mem).forEach(function (u) {
-                    if (mem[u].ai) {
+                    // AI seats and human seats still under AI cover both
+                    // re-enter automatically, so neither stalls the room.
+                    const covered = mem[u].ai || (mem[u].cover && mem[u].cover.by === "ai");
+                    if (covered) {
                         MPNet.enterDraft(currentCode, u);
                         MPNet.setReadyFor && MPNet.setReadyFor(currentCode, u);
                     }
@@ -1732,7 +1798,8 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         const mem = room.members || {};
         const com = room.commit || {};
         const pending = Object.keys(mem).filter(function (u) {
-            return mem[u].ai && !com[u];
+            const covered = mem[u].ai || (mem[u].cover && mem[u].cover.by === "ai");
+            return covered && !com[u];
         });
         if (!pending.length) return;
 
@@ -1742,7 +1809,8 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
             const kick = bestKickerSlot(sq);
             // pack runs minus one (forwards) to plus one (backs); strategy
             // is zero (forwards) to a hundred (backs).
-            const pack = ((mem[u].ai.traits || {}).pack) || 0;
+            const brain = mem[u].ai || mem[u].cover;
+            const pack = ((brain.traits || {}).pack) || 0;
             const strat = Math.round(50 + pack * 35);
             MPNet.forceCommit(currentCode, u, kick, strat);
         });
@@ -1755,7 +1823,9 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         const draft = room.draft || {};
         const picker = draft.currentPicker;
         const seat = (room.members || {})[picker];
-        if (!seat || !seat.ai) return;
+        // Drive both AI seats and human seats an AI is covering.
+        const brain = seat && (seat.ai || (seat.cover && seat.cover.by === "ai" ? seat.cover : null));
+        if (!seat || !brain) return;
 
         aiBusy = true;
         setTimeout(function () {
@@ -1791,7 +1861,7 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
                 };
 
                 let res = MPAI.pick(MPPicks, MPRules, pool, squad, taken, active, ctx,
-                    { traits: seat.ai.traits, seed: seat.ai.seed }, opts);
+                    { traits: brain.traits, seed: brain.seed }, opts);
                 // Fall back to the ordinary engine rather than stalling the room.
                 if (!res) {
                     res = MPPicks.autoPick(pool, squad, taken, [], active, ctx, MPRules.isPickLegal);
@@ -2315,13 +2385,22 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         }
 
         // AI personalities, tucked into a dropdown rather than shown by default.
-        const aiSeats = Object.keys(members).filter(function (u) { return (members[u] || {}).ai; });
+        // Reveal traits for AI sides, and for human seats an AI is still
+        // covering now: a seat reclaimed before the end shows nothing, since
+        // it belongs to the human again.
+        const aiSeats = Object.keys(members).filter(function (u) {
+            const m = members[u] || {};
+            return m.ai || (m.cover && m.cover.by === "ai");
+        });
         const aiBlock = (!aiSeats.length || typeof MPAI === "undefined") ? "" :
             "<details class='ai-reveal'><summary>How the AI sides drafted</summary>"
             + aiSeats.map(function (u) {
+                const m = members[u] || {};
+                const brain = m.ai || m.cover;
+                const label = m.ai ? nameOf(u) : (nameOf(u) + " (AI cover)");
                 return "<div class='sum-row'><span class='sum-win'>"
-                    + esc(nameOf(u)) + "</span><span class='ai-traits'>"
-                    + esc(MPAI.describe((members[u] || {}).ai.traits)) + "</span></div>";
+                    + esc(label) + "</span><span class='ai-traits'>"
+                    + esc(MPAI.describe(brain.traits)) + "</span></div>";
             }).join("") + "</details>";
 
         el.innerHTML = "<div class='season-sum'>"

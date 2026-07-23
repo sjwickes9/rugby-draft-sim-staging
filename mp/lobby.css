@@ -927,3 +927,13 @@ input[type=color] {
 }
 .share-btn:hover { border-color: var(--teal); color: var(--teal); }
 .share-btn.done { border-color: var(--teal); color: var(--teal); }
+
+/* AI cover marker and assign button */
+.ai-tag.cover { background: var(--amber); color: var(--navy); }
+.cover-btn {
+    margin-left: auto; background: transparent; border: 1px solid var(--amber);
+    color: var(--amber); border-radius: 6px; padding: 3px 8px; cursor: pointer;
+    font-size: 0.68rem; display: flex; flex-direction: column; align-items: center; line-height: 1.1;
+}
+.cover-btn small { font-size: 0.58rem; opacity: 0.8; }
+.cover-btn:hover { background: var(--amber); color: var(--navy); }
