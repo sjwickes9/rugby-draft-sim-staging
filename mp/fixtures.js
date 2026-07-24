@@ -100,7 +100,7 @@
             decidedBy: "Final",
             stages: ["pool", "final"],
             fixtures: pool.concat([
-                { home: "@pool:1", away: "@pool:2", round: 99, stage: "final", label: "Final" }
+                { home: "@pool:1", away: "@pool:2", round: 99, stage: "final", label: "Final", places: [1, 2] }
             ])
         };
     }
@@ -126,10 +126,14 @@
         const fixtures = flatten(roundRobin(A), "poolA")
             .concat(flatten(roundRobin(B), "poolB"));
         const playoffs = [
-            { home: "@poolA:1", away: "@poolB:1", round: 90, stage: "playoff", label: "Final" },
-            { home: "@poolA:2", away: "@poolB:2", round: 90, stage: "playoff", label: "Third place" },
-            { home: "@poolA:3", away: "@poolB:3", round: 90, stage: "playoff", label: "Fifth place" },
-            { home: "@poolA:4", away: "@poolB:4", round: 90, stage: "playoff", label: "Seventh place" }
+            { home: "@poolA:4", away: "@poolB:4", round: 90, stage: "playoff",
+              label: "Seventh place", places: [7, 8] },
+            { home: "@poolA:3", away: "@poolB:3", round: 91, stage: "playoff",
+              label: "Fifth place", places: [5, 6] },
+            { home: "@poolA:2", away: "@poolB:2", round: 92, stage: "playoff",
+              label: "Third place", places: [3, 4] },
+            { home: "@poolA:1", away: "@poolB:1", round: 93, stage: "playoff",
+              label: "Final", places: [1, 2] }
         ];
         return {
             name: "Two pools of four, then playoffs",

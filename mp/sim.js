@@ -588,6 +588,44 @@
         return stage !== "final" && stage !== "playoff";
     }
 
+    // Where everyone actually finished. Pool standings decide who reaches
+    // which playoff, but the playoff result decides the placing, so a side
+    // that topped its pool and then lost the final finishes second.
+    // Anyone not in a placement match keeps their pool order beneath those
+    // who were.
+    function finalPlacings(uids, fixtures, results, poolTables) {
+        var placed = {}, out = [];
+        (fixtures || []).forEach(function (f) {
+            if (!f.places || f.places.length !== 2) return;
+            var r = (results || []).filter(function (x) {
+                return x.home === f.home && x.away === f.away;
+            })[0];
+            if (!r) return;
+            var winner = r.winner === "a" ? r.home : r.away;
+            var loser = winner === r.home ? r.away : r.home;
+            placed[winner] = f.places[0];
+            placed[loser] = f.places[1];
+        });
+        if (!Object.keys(placed).length) return null;
+
+        // Everyone who played for a place, in that order.
+        Object.keys(placed).forEach(function (u) {
+            out.push({ uid: u, place: placed[u] });
+        });
+        // Then anyone left, ordered by their pool finish.
+        var rest = (uids || []).filter(function (u) { return placed[u] == null; });
+        var rank = {};
+        Object.keys(poolTables || {}).forEach(function (k) {
+            (poolTables[k] || []).forEach(function (row, i) { rank[row.uid] = i; });
+        });
+        rest.sort(function (a, b) { return (rank[a] || 0) - (rank[b] || 0); });
+        var next = out.length + 1;
+        rest.forEach(function (u) { out.push({ uid: u, place: next++ }); });
+
+        out.sort(function (a, b) { return a.place - b.place; });
+        return out;
+    }
+
     function buildTable(uids, results) {
         var rows = {};
         uids.forEach(function (u) { rows[u] = emptyRow(u); });
@@ -634,6 +672,7 @@
         resolveKnockout: resolveKnockout,
         kickingCompetition: kickingCompetition,
         buildTable: buildTable,
+        finalPlacings: finalPlacings,
         isLeagueStage: isLeagueStage,
         TRY_WEIGHTS: TRY_WEIGHTS,
         buildScoreBreakdown: buildScoreBreakdown,
