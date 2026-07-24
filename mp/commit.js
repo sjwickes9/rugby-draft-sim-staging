@@ -250,7 +250,10 @@ window.MPCommit = (function () {
             const uids = Object.keys(state.members || {});
             const out = uids.filter(function (u) { return !state.commits[u]; });
             const amHost = state.hostUid === (window.MPNet && MPNet.currentUid());
-            fc.classList.toggle("hidden", !(amHost && state.locked && out.length));
+            // Deliberately not conditional on the host having locked in.
+            // Requiring that hid the only way out of a room stalled by
+            // somebody who had left, with nothing on screen to explain why.
+            fc.classList.toggle("hidden", !(amHost && out.length));
         }
         renderRatings();
         renderKickers();

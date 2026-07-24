@@ -75,7 +75,10 @@
     function analyse(squad, opts) {
         opts = opts || {};
         const narrow = (opts.tournamentCount || 99) <= NARROW_WINDOW;
-        const scale = narrow ? 0.5 : 1;
+        // Previously this halved every link when the pool was down to two
+        // tournaments or fewer. That was never agreed, and if a pool has
+        // been narrowed that far, easy chemistry is arguably the point.
+        const scale = 1;
 
         const rows = LINKS.map(function (link) {
             let best = 0, who = null;

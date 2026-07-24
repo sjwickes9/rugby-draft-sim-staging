@@ -481,7 +481,8 @@ window.MPDraftUI = (function () {
             ? Math.floor(state.pickIndex / state.order.length) + 1 : 1;
         el.className = "turn-bar" + (state.isMyTurn ? " mine" : "");
         el.innerHTML = "<span class='turn-who'>"
-            + (state.isMyTurn ? "Your pick" : esc(cur.name || "Waiting") + " is picking")
+            + (state.isMyTurn ? "Your pick"
+                : (cur.name ? esc(cur.name) + " is picking" : "Waiting for the next pick"))
             + "</span><span class='turn-meta'>Round " + round + " of 15, pick "
             + (state.pickIndex + 1) + "</span>";
     }
@@ -647,7 +648,7 @@ window.MPDraftUI = (function () {
             + "<span class='chem-chips'>" + chips + "</span>"
             + "<span class='chem-score'>" + b.formed + "/7</span>"
             + "</div>"
-            + (b.narrow ? "<p class='chem-note'>Short window, so links count half.</p>" : "");
+            ;
     }
 
     // ── Rules progress (spec 7) ─────────────────────────────

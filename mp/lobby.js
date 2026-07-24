@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607231721";
+    const VERSION = "v1.2607241527";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -576,8 +576,9 @@ on("typeCustom", "click", function () { setGameType("custom"); });
             if ((comp.results || []).length) {
                 // Results already exist, so replay them locally.
                 $("playBtn").disabled = true;
+                const keyWatched = compKey(latestRoom || {});
                 playBack(comp.results, comp.fixtures).then(function () {
-                    watchedComp[compKey(latestRoom || {})] = true;
+                    watchedComp[keyWatched] = true;
                     renderRoom(latestRoom);
                 });
                 return;
@@ -1231,8 +1232,17 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
             const you = (k === MPNet.currentUid());
             const isAi = !!m.ai;
             const covered = m.cover && m.cover.by === "ai";
+            // Presence is not a reliable signal of absence. A backgrounded
+            // tab or a sleeping phone often keeps the socket alive, so a
+            // plainly absent player still reads as connected. What we do
+            // know is whether they let a turn expire, so that counts too.
             const offlineMs = (!m.connected && m.lastSeen)
                 ? MPNet.serverNow() - m.lastSeen : 0;
+            const draftNow = room.draft || {};
+            const missedTurn = (room.meta || {}).status === "drafting"
+                && draftNow.currentPicker === k
+                && draftNow.turnDeadline > 0
+                && MPNet.serverNow() > draftNow.turnDeadline;
 
             let tag = "";
             if (isAi) tag = "<span class='ai-tag'>AI</span>";
@@ -1242,12 +1252,17 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
             // while and is not already covered. This is a judgement call, so
             // it is a suggestion, never automatic.
             let action = "";
-            if (amHostNow && !you && !isAi && !covered && !m.connected
-                && offlineMs > COVER_HINT_MS) {
-                const mins = Math.floor(offlineMs / 60000);
-                const away = mins >= 120 ? (Math.floor(mins / 60) + "h") : (mins + "m");
+            if (amHostNow && !you && !isAi && !covered
+                && (missedTurn || (!m.connected && offlineMs > COVER_HINT_MS))) {
+                let why;
+                if (missedTurn) {
+                    why = "missed a pick";
+                } else {
+                    const mins = Math.floor(offlineMs / 60000);
+                    why = "away " + (mins >= 120 ? (Math.floor(mins / 60) + "h") : (mins + "m"));
+                }
                 action = "<button class='cover-btn' data-cover='" + k + "'>Assign AI"
-                    + "<small>away " + away + "</small></button>";
+                    + "<small>" + why + "</small></button>";
             }
 
             return "<li style='--mk1:" + (m.kit || "#6E8CA6") + ";--mk2:" + (m.kit2 || "transparent") + "'>"
@@ -1770,8 +1785,9 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
             // Everyone can start watching now. The host watches the same
             // stored results as everyone else, rather than the room waiting
             // on the host's playback to finish before publishing.
+            const keyWatched = compKey(latestRoom || {});
             return playBack(results, resolved).then(function () {
-                watchedComp[compKey(latestRoom || {})] = true;
+                watchedComp[keyWatched] = true;
                 renderRoom(latestRoom);
             });
         });
@@ -2740,7 +2756,23 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         const head = "<tr><th class='pos'></th><th class='team'>Team</th><th>P</th><th>W</th>"
             + "<th>D</th><th>L</th><th>PF</th><th>PA</th><th>PD</th><th>BP</th><th>Pts</th></tr>";
         const illegal = comp.illegal || {};
-        const body = standings.map(function (r, i) {
+
+        // Where a competition ends in placement matches, those decide the
+        // finishing order. Pool standings only decide who reaches which
+        // playoff, so a side that topped its pool and lost the final
+        // finishes second, not first.
+        let rows = standings;
+        const placings = MPSim.finalPlacings(
+            standings.map(function (r) { return r.uid; }),
+            comp.fixtures || [], comp.results || [], comp.poolTables || {});
+        if (placings) {
+            const byUid = {};
+            standings.forEach(function (r) { byUid[r.uid] = r; });
+            rows = placings.map(function (p) { return byUid[p.uid]; })
+                .filter(Boolean);
+        }
+
+        const body = rows.map(function (r, i) {
             const m = members[r.uid] || {};
             const bad = !!illegal[r.uid];
             return "<tr class='" + (r.uid === me ? "mine " : "") + (bad ? "illegal" : "") + "'>"
