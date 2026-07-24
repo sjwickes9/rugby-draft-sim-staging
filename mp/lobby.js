@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607241545";
+    const VERSION = "v1.2607242011";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -1425,6 +1425,7 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
 
         if (status === "drafting") {
             driveAi(room);
+            renderDraftCover(room);
             // A new competition writes a fresh draft node, so rebuild the
             // draft UI rather than reusing the finished one.
             ensureDraftInit(room);
@@ -2046,6 +2047,58 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         setTimeout(function () { aiCommitBusy = false; }, 1500);
     }
 
+    // Given a proposed pick, guarantee it does not doom a minimum-nations
+    // rule. If the squad still owes new nations and the proposed player does
+    // not bring one while the remaining slots make that mandatory, swap in a
+    // player from a nation not yet used. Purely defensive: in the common
+    // case it returns the pick untouched.
+    function ensureNationLegal(res, pool, squad, taken, active, ctx) {
+        if (!res || !res.player) return res;
+        const forced = MPPicks.nationsStillForced
+            ? MPPicks.nationsStillForced(squad, active, MPPicks.emptySlots(squad).length)
+            : null;
+        if (!forced) return res;                 // no rule pressure
+        if (res.player.country && !forced[res.player.country]) return res;  // already brings a new nation
+
+        // The proposed player repeats a nation while every remaining slot
+        // must bring a new one. Find a legal player from an unused nation.
+        const slots = MPPicks.emptySlots(squad);
+        for (let s = 0; s < slots.length; s++) {
+            const slotId = slots[s];
+            let best = null;
+            for (let i = 0; i < pool.length; i++) {
+                const p = pool[i];
+                if (taken[MPPicks.personKey(p)]) continue;
+                if (!p.country || forced[p.country]) continue;   // must be a new nation
+                const v = MPPicks.evaluate(p, slotId, squad, taken, active, ctx, MPRules.isPickLegal);
+                if (!v.eligible) continue;
+                if (!best || v.effective > best.effective) best = { player: p, slotId: slotId, effective: v.effective };
+            }
+            if (best) return { player: best.player, slotId: best.slotId, from: "nation-backstop" };
+        }
+        return res;   // nothing better available; let it through rather than stall
+    }
+
+    // A missed turn during the draft, surfaced where the host is actually
+    // looking. The room-screen roster carries the same option, but nobody
+    // is on the room screen mid draft, so the host never saw it.
+    function renderDraftCover(room) {
+        const el = $("draftCover");
+        if (!el) return;
+        const amHost = (room.meta || {}).hostUid === MPNet.currentUid();
+        const draft = room.draft || {};
+        const picker = draft.currentPicker;
+        const seat = (room.members || {})[picker] || {};
+        const expired = draft.turnDeadline > 0 && MPNet.serverNow() > draft.turnDeadline;
+        const coverable = amHost && picker && !seat.ai
+            && !(seat.cover && seat.cover.by === "ai") && expired;
+        if (!coverable) { el.classList.add("hidden"); return; }
+        el.classList.remove("hidden");
+        el.innerHTML = "<span>" + esc(seat.name || "This player")
+            + " has run out of time.</span>"
+            + "<button class='cover-btn' data-cover='" + picker + "'>Assign an AI</button>";
+    }
+
     function driveAi(room) {
         if (aiBusy) return;
         if ((room.meta || {}).hostUid !== MPNet.currentUid()) return;
@@ -2095,6 +2148,14 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
                 if (!res) {
                     res = MPPicks.autoPick(pool, squad, taken, [], active, ctx, MPRules.isPickLegal);
                 }
+                if (!res || res.stuck) { aiBusy = false; return; }
+
+                // Backstop. Whatever the AI or the auto pick chose, if taking
+                // it would leave a forced-nations rule unsatisfiable from what
+                // remains, override with a pick that keeps the squad legal.
+                // This cannot depend on how the choice was reached, so it
+                // holds even if the state it reasoned about was a little stale.
+                res = ensureNationLegal(res, pool, squad, taken, active, ctx);
                 if (!res || res.stuck) { aiBusy = false; return; }
 
                 let idx = -1;

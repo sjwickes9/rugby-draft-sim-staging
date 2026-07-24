@@ -1036,3 +1036,11 @@ input[type=color] {
     flex: 0 1 60%; background: var(--panel-2); color: var(--pitch);
     border: 1px solid var(--line); border-radius: 7px; padding: 6px 8px; font-size: 0.82rem;
 }
+
+/* Cover prompt on the draft screen */
+.draft-cover {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    background: rgba(255,176,32,0.12); border: 1px solid var(--amber);
+    border-radius: 8px; padding: 8px 12px; margin: 0 0 10px; font-size: 0.82rem;
+    color: var(--pitch);
+}
