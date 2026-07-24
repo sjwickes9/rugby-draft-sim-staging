@@ -67,6 +67,9 @@
             "cover": {
               ".write": "auth != null && ($uid === auth.uid || root.child('rooms/' + $code + '/meta/hostUid').val() === auth.uid)",
               ".validate": "newData.hasChildren(['by']) || !newData.exists()"
+            },
+            "missed": {
+              ".write": "auth != null && root.child('rooms/' + $code + '/members/' + auth.uid).exists()"
             }
           }
         },
