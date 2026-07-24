@@ -664,6 +664,7 @@ window.MPNet = (function () {
             updates["rooms/" + code + "/comp/number"] = comp.number || null;
             updates["rooms/" + code + "/comp/winner"] = comp.winner || null;
             updates["rooms/" + code + "/comp/kickerNames"] = comp.kickerNames || null;
+            updates["rooms/" + code + "/comp/squads"] = comp.squads || null;
             updates["rooms/" + code + "/comp/illegal"] = comp.illegal || null;
             updates["rooms/" + code + "/comp/breaches"] = comp.breaches || null;
             updates["rooms/" + code + "/comp/playedAt"] = firebase.database.ServerValue.TIMESTAMP;
@@ -696,7 +697,8 @@ window.MPNet = (function () {
                     standings: (room.comp || {}).standings || null,
                     winner: (room.comp || {}).winner || null,
                     results: (room.comp || {}).results || null,
-                    kickerNames: (room.comp || {}).kickerNames || null
+                    kickerNames: (room.comp || {}).kickerNames || null,
+                    squads: (room.comp || {}).squads || null
                 };
                 updates["rooms/" + code + "/commit"] = null;
                 updates["rooms/" + code + "/draft"] = null;

@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607241527";
+    const VERSION = "v1.2607241545";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -1780,7 +1780,24 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         return MPNet.finishCompetition(currentCode, {
             fixtures: resolved, results: results, standings: standings,
             winner: winner, illegal: illegal, breaches: breachInfo,
-            kickerNames: kickerName
+            kickerNames: kickerName,
+            squads: (function () {
+                // Compact: just enough to render a team sheet later, since
+                // the pool this indexes into is replaced next competition.
+                const out = {};
+                order.forEach(function (u) {
+                    const sq = squads[u] || {};
+                    const one = {};
+                    MPPicks.SLOTS.forEach(function (s) {
+                        const p = sq[s.id];
+                        if (!p) return;
+                        one[s.id] = { n: p.name, c: p.country, y: p.year || null,
+                            r: p.rating, ps: p.positions || [] };
+                    });
+                    out[u] = one;
+                });
+                return out;
+            })()
         }, tally).then(function () {
             // Everyone can start watching now. The host watches the same
             // stored results as everyone else, rather than the room waiting
@@ -2659,6 +2676,21 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
     // Rebuild one user's squad from the shared pick list.
     function squadFor(room, uid) {
         const sq = MPPicks.emptySquad();
+
+        // A finished competition carries its own team sheets. Prefer those,
+        // because the live draft is reset for the next competition and
+        // rebuilding from it would show an empty side.
+        const stored = ((room.comp || {}).squads || {})[uid];
+        if (stored) {
+            Object.keys(stored).forEach(function (slotId) {
+                const p = stored[slotId];
+                if (!p) return;
+                sq[slotId] = { name: p.n, country: p.c, year: p.y,
+                    rating: p.r, positions: p.ps || [] };
+            });
+            return sq;
+        }
+
         const picks = ((room.draft || {}).picks) || {};
         const pool = room.pool || [];
         Object.keys(picks).forEach(function (k) {
