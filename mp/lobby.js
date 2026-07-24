@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607242011";
+    const VERSION = "v1.2607242048";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -569,6 +569,7 @@ on("typeCustom", "click", function () { setGameType("custom"); });
         on("spSlow", "click", function () { setSpeed(1.8); });
         on("spMed", "click", function () { setSpeed(1); });
         on("spFast", "click", function () { setSpeed(0.4); });
+on("watchFinals", "click", resumeFromPools);
         on("playBtn", "click", function () {
             const room = latestRoom || {};
             const comp = room.comp || {};
@@ -1064,6 +1065,7 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
     let forceTicker = null;
     let simSpeed = 1;          // 1.8 slow, 1 medium, 0.4 fast, as in app.js
     let playingBack = false;
+    let poolPaused = false;
     let revealed = {};         // fixture index -> true, during playback
     let liveFixtures = null;   // resolved fixtures while playing back
     let watchedComp = {};      // competition number -> already watched here
@@ -1520,6 +1522,22 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
                 (room.pool || []).forEach(function (p) { if (p.year) ys[p.year] = 1; });
                 return Object.keys(ys).length || 99;
             })(),
+            onMissed: function (forUid) {
+                MPNet.markMissed(currentCode, forUid);
+            },
+            onTick: function () {
+                if (latestRoom && (latestRoom.meta || {}).status === "drafting") {
+                    renderDraftCover(latestRoom);
+                    // If I am present on my own turn, I am plainly back, so
+                    // clear any earlier miss against my seat.
+                    const me = MPNet.currentUid();
+                    const mine = (latestRoom.members || {})[me];
+                    if (mine && mine.missed
+                        && (latestRoom.draft || {}).currentPicker === me) {
+                        MPNet.clearMissed(currentCode);
+                    }
+                }
+            },
             onExpire: function (slotId, poolIndex, forUid, done) {
                 const d = latestRoom && latestRoom.draft;
                 if (!d) { done(); return; }
@@ -2089,14 +2107,22 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         const draft = room.draft || {};
         const picker = draft.currentPicker;
         const seat = (room.members || {})[picker] || {};
-        const expired = draft.turnDeadline > 0 && MPNet.serverNow() > draft.turnDeadline;
-        const coverable = amHost && picker && !seat.ai
-            && !(seat.cover && seat.cover.by === "ai") && expired;
-        if (!coverable) { el.classList.add("hidden"); return; }
+        // Offer cover for anyone who has missed a pick and is not already
+        // managed. This persists across turns rather than being tied to the
+        // live clock, so the room keeps moving while the host decides.
+        const members = room.members || {};
+        const missed = Object.keys(members).filter(function (u) {
+            const m = members[u];
+            return m && m.missed && !m.ai && !(m.cover && m.cover.by === "ai");
+        });
+        if (!amHost || !missed.length) { el.classList.add("hidden"); el.innerHTML = ""; return; }
         el.classList.remove("hidden");
-        el.innerHTML = "<span>" + esc(seat.name || "This player")
-            + " has run out of time.</span>"
-            + "<button class='cover-btn' data-cover='" + picker + "'>Assign an AI</button>";
+        el.innerHTML = missed.map(function (u) {
+            const m = members[u] || {};
+            return "<div class='cover-line'><span>" + esc(m.name || "A player")
+                + " missed a pick.</span>"
+                + "<button class='cover-btn' data-cover='" + u + "'>Assign an AI</button></div>";
+        }).join("");
     }
 
     function driveAi(room) {
@@ -2278,23 +2304,66 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
     // the pacing of the single-player app (900ms base).
     function delay(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
 
+    let poolPauseResolve = null;   // set while paused between pools and knockouts
+
+    function isPoolFixture(f) {
+        return f && (f.stage === "pool" || f.stage === "poolA" || f.stage === "poolB");
+    }
+
     function playBack(results, resolvedFixtures) {
         playingBack = true;
         revealed = {};
         liveFixtures = resolvedFixtures || null;
         renderFixtures(latestRoom, results, revealed);
-        let chain = Promise.resolve();
+
+        const fixtures = resolvedFixtures || (latestRoom && latestRoom.comp && latestRoom.comp.fixtures) || [];
+        const hasPools = fixtures.some(isPoolFixture)
+            && fixtures.some(function (f) { return !isPoolFixture(f); });
+
+        // Reveal in the order the games are watched: pool games first,
+        // interleaved across pools, then the placement matches.
+        const poolIdx = [], koIdx = [];
         results.forEach(function (r) {
+            (isPoolFixture(fixtures[r.i]) ? poolIdx : koIdx).push(r);
+        });
+
+        const revealOne = function (r) {
+            return delay(900 * simSpeed).then(function () {
+                revealed[r.i] = true;
+                renderFixtures(latestRoom, results, revealed, r.i);
+            });
+        };
+
+        let chain = Promise.resolve();
+        poolIdx.forEach(function (r) { chain = chain.then(function () { return revealOne(r); }); });
+
+        if (hasPools && koIdx.length) {
+            // Pause on the pool tables. The other matches are already
+            // decided; the user chooses when to see the knockouts.
             chain = chain.then(function () {
-                return delay(900 * simSpeed).then(function () {
-                    revealed[r.i] = true;
-                    renderFixtures(latestRoom, results, revealed, r.i);
+                return new Promise(function (resolve) {
+                    poolPauseResolve = resolve;
+                    poolPaused = true;
+                    renderFixtures(latestRoom, results, revealed);
                 });
             });
-        });
+        }
+
+        koIdx.forEach(function (r) { chain = chain.then(function () { return revealOne(r); }); });
+
         return chain.then(function () {
-            return delay(500 * simSpeed).then(function () { playingBack = false; liveFixtures = null; });
+            return delay(500 * simSpeed).then(function () {
+                playingBack = false; liveFixtures = null; poolPaused = false;
+            });
         });
+    }
+
+    function resumeFromPools() {
+        if (!poolPauseResolve) return;
+        poolPaused = false;
+        const r = poolPauseResolve;
+        poolPauseResolve = null;
+        r();
     }
 
     function setSpeed(v) {
@@ -2309,6 +2378,52 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         let v = 1;
         try { v = parseFloat(localStorage.getItem("mp-sim-speed")) || 1; } catch (e) {}
         setSpeed(v);
+    }
+
+    // The two pool tables, shown at the pause before the knockouts. Built
+    // from the pool results only, since the placement matches have not been
+    // watched yet.
+    function renderPoolTables(room, comp, results) {
+        const el = $("poolTables");
+        if (!el) return;
+        const members = room.members || {};
+        const nameOf = function (u) { return (members[u] || {}).name || "User"; };
+        const fixtures = comp.fixtures || [];
+
+        const pools = {};
+        fixtures.forEach(function (f, i) {
+            if (!isPoolFixture(f)) return;
+            const key = f.stage === "poolA" ? "A" : f.stage === "poolB" ? "B" : (f.pool || "A");
+            (pools[key] = pools[key] || []).push({ f: f, r: results[i] });
+        });
+
+        el.innerHTML = "<p class='sum-head'>Upcoming: the placement matches</p>"
+            + Object.keys(pools).sort().map(function (key) {
+                const rows = {};
+                pools[key].forEach(function (x) {
+                    if (!x.r) return;
+                    [x.f.home, x.f.away].forEach(function (u) {
+                        rows[u] = rows[u] || { uid: u, w: 0, d: 0, l: 0, pf: 0, pa: 0, pts: 0 };
+                    });
+                    const a = rows[x.f.home], b = rows[x.f.away];
+                    a.pf += x.r.a; a.pa += x.r.b; b.pf += x.r.b; b.pa += x.r.a;
+                    a.pts += x.r.aPts || 0; b.pts += x.r.bPts || 0;
+                    if (x.r.drawn) { a.d++; b.d++; }
+                    else if (x.r.winner === "a") { a.w++; b.l++; }
+                    else { b.w++; a.l++; }
+                });
+                const table = Object.keys(rows).map(function (u) { return rows[u]; })
+                    .sort(function (x, y) { return (y.pts - x.pts) || ((y.pf - y.pa) - (x.pf - x.pa)); });
+                return "<div class='pool-block'><p class='pool-title'>Pool " + key + "</p>"
+                    + "<table class='ltable'><tr><th class='team'>Team</th><th>W</th><th>D</th>"
+                    + "<th>L</th><th>PD</th><th>Pts</th></tr>"
+                    + table.map(function (r) {
+                        return "<tr><td class='team'>" + esc(nameOf(r.uid)) + "</td>"
+                            + "<td>" + r.w + "</td><td>" + r.d + "</td><td>" + r.l + "</td>"
+                            + "<td>" + (r.pf - r.pa > 0 ? "+" : "") + (r.pf - r.pa) + "</td>"
+                            + "<td>" + r.pts + "</td></tr>";
+                    }).join("") + "</table></div>";
+            }).join("");
     }
 
     // ── Fixtures ────────────────────────────────────────────
@@ -2368,6 +2483,19 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
                 + (((room.members || {})[(room.meta || {}).hostUid] || {}).name || "the host")
                 + " to play the fixtures."));
 
+        // While paused between the pools and the knockouts, show the pool
+        // standings and a button to continue. The other games are already
+        // decided behind the scenes; the user chooses when to see them.
+        const pp = $("poolPause");
+        if (pp) {
+            if (poolPaused) {
+                pp.classList.remove("hidden");
+                renderPoolTables(room, comp, results);
+            } else {
+                pp.classList.add("hidden");
+            }
+        }
+
         renderSeason(room, comp);
         const unwatched = (comp.results || []).length > 0 && !watchedComp[compKey(room)];
         const twoUp = (((room.draft || {}).order) || []).length === 2;
@@ -2382,14 +2510,23 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
             $("tableWrap").classList.add("hidden");
         }
 
-        let lastRound = null;
-        const rows = (comp.fixtures || []).map(function (f) {
+        // Pool games are grouped by round across both pools, so round one
+        // shows all pools together, each fixture tagged with its pool.
+        const fixturesInOrder = (comp.fixtures || []).slice();
+
+        let lastRound = null, lastPhase = null;
+        const rows = fixturesInOrder.map(function (f) {
             let head = "";
+            const phase = isPoolFixture(f) ? "pool" : "ko";
             if (f.label) head = "<div class='fx-label'>" + esc(f.label) + "</div>";
-            else if (f.round !== lastRound) {
-                lastRound = f.round;
+            else if (f.round !== lastRound || phase !== lastPhase) {
+                lastRound = f.round; lastPhase = phase;
                 head = "<div class='fx-round'>Round " + f.round + "</div>";
             }
+            const poolTag = (f.stage === "poolA") ? "<span class='fx-pool'>Pool A</span>"
+                : (f.stage === "poolB") ? "<span class='fx-pool'>Pool B</span>"
+                : (f.pool ? "<span class='fx-pool'>Pool " + esc(f.pool) + "</span>" : "");
+            head = head + poolTag;
             const hn = name(f.home), an = name(f.away);
             const mine = (f.home === me || f.away === me);
             const res = results[comp.fixtures.indexOf(f)];

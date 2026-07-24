@@ -389,6 +389,24 @@ window.MPNet = (function () {
     // Cover a human's seat with an AI stand-in. The seat still belongs to
     // the person: their name and kit stay, and a marker shows an AI is
     // playing it. Reversible, so they reclaim it on return.
+    // Flag that a seat missed a pick. Any client may set this when it
+    // resolves an expired turn, so the host can later offer AI cover. The
+    // flag is harmless if set more than once.
+    function markMissed(code, forUid) {
+        return whenReady().then(function () {
+            return db.ref("rooms/" + code + "/members/" + forUid + "/missed")
+                .set(firebase.database.ServerValue.TIMESTAMP).catch(function () {});
+        });
+    }
+
+    // Clear my own missed flag, on returning to take a turn.
+    function clearMissed(code) {
+        return whenReady().then(function () {
+            return db.ref("rooms/" + code + "/members/" + uid + "/missed")
+                .remove().catch(function () {});
+        });
+    }
+
     function coverWithAi(code, forUid, traits, seed) {
         return whenReady().then(function () {
             const updates = {};
@@ -396,6 +414,8 @@ window.MPNet = (function () {
                 by: "ai", traits: traits, seed: seed,
                 at: firebase.database.ServerValue.TIMESTAMP
             };
+            // The miss has been dealt with, so clear the flag.
+            updates["rooms/" + code + "/members/" + forUid + "/missed"] = null;
             // A covered seat is treated as entered and ready, so it never
             // holds the room up the way an absent human would.
             updates["rooms/" + code + "/entered/" + forUid] = true;
@@ -814,6 +834,8 @@ window.MPNet = (function () {
         startDraft: startDraft,
         makePick: makePick,
         addAiSeats: addAiSeats,
+        markMissed: markMissed,
+        clearMissed: clearMissed,
         coverWithAi: coverWithAi,
         reclaimSeat: reclaimSeat,
         removeAiSeats: removeAiSeats,

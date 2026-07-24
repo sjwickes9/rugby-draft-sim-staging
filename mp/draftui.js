@@ -75,6 +75,8 @@ window.MPDraftUI = (function () {
         state.chemistry = opts.chemistry !== false;
         state.tournamentCount = opts.tournamentCount || 99;
         state.onExpire = opts.onExpire || function () {};
+        state.onMissed = opts.onMissed || null;
+        state.onTick = opts.onTick || null;
         state.starred = loadStars();
         pruneStars();
         buildIndex();
@@ -400,6 +402,10 @@ window.MPDraftUI = (function () {
             if (!state.live || state.complete) return;
             paintClock();
             checkExpiry();
+            // Let the host's cover prompt re-evaluate each tick, so it can
+            // appear during the silent grace window when no Firebase write
+            // is happening to trigger a render.
+            if (typeof state.onTick === "function") state.onTick();
         }, 1000);
     }
 
@@ -431,6 +437,34 @@ window.MPDraftUI = (function () {
 
     // Any client may resolve an expired turn. The server rules enforce pick
     // uniqueness, so if several try at once only one succeeds.
+    // Guarantee an expiry pick does not doom a minimum-nations rule. Mirrors
+    // the backstop on the host's AI writer, so a turn resolved here by any
+    // client is held to the same standard.
+    function nationBackstop(res, squad) {
+        if (!res || !res.player) return res;
+        const forced = MPPicks.nationsStillForced
+            ? MPPicks.nationsStillForced(squad, state.constraints, MPPicks.emptySlots(squad).length)
+            : null;
+        if (!forced) return res;
+        if (res.player.country && !forced[res.player.country]) return res;
+        const slots = MPPicks.emptySlots(squad);
+        for (let s = 0; s < slots.length; s++) {
+            const slotId = slots[s];
+            let best = null;
+            for (let i = 0; i < state.pool.length; i++) {
+                const p = state.pool[i];
+                if (state.taken[MPPicks.personKey(p)]) continue;
+                if (!p.country || forced[p.country]) continue;
+                const v = MPPicks.evaluate(p, slotId, squad, state.taken, state.constraints,
+                    state.ruleCtx, (window.MPRules && MPRules.isPickLegal));
+                if (!v.eligible) continue;
+                if (!best || v.effective > best.effective) best = { player: p, slotId: slotId, effective: v.effective };
+            }
+            if (best) return { player: best.player, slotId: best.slotId, from: "nation-backstop" };
+        }
+        return res;
+    }
+
     function checkExpiry() {
         if (state.expiryBusy || !state.live || state.complete) return;
         const left = msLeft();
@@ -444,14 +478,19 @@ window.MPDraftUI = (function () {
         state.expiryBusy = true;
 
         const finish = function (board) {
-            const res = MPPicks.autoPick(state.pool, theirSquad, state.taken, board,
+            let res = MPPicks.autoPick(state.pool, theirSquad, state.taken, board,
                 state.constraints, state.ruleCtx, (window.MPRules && MPRules.isPickLegal));
+            res = nationBackstop(res, theirSquad);
             if (!res || res.stuck) { state.expiryBusy = false; return; }
             let idx = -1;
             for (let i = 0; i < state.pool.length; i++) {
                 if (state.pool[i] === res.player) { idx = i; break; }
             }
             if (idx === -1) { state.expiryBusy = false; return; }
+            // Note the miss so the host can offer cover from here on. This
+            // is separate from resolving the pick, which happens the normal
+            // way regardless.
+            if (who !== state.myUid && state.onMissed) state.onMissed(who);
             state.onExpire(res.slotId, idx, who, function () { state.expiryBusy = false; });
         };
 

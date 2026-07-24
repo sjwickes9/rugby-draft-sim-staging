@@ -123,8 +123,18 @@
     function twoPools(uids) {
         const A = [uids[0], uids[2], uids[4], uids[6]];
         const B = [uids[1], uids[3], uids[5], uids[7]];
-        const fixtures = flatten(roundRobin(A), "poolA")
-            .concat(flatten(roundRobin(B), "poolB"));
+        // Interleave by round so round one shows both pools together, not
+        // all of pool A and then all of pool B.
+        const fa = flatten(roundRobin(A), "poolA");
+        const fb = flatten(roundRobin(B), "poolB");
+        const fixtures = [];
+        const maxRound = Math.max(
+            fa.reduce(function (m, x) { return Math.max(m, x.round); }, 0),
+            fb.reduce(function (m, x) { return Math.max(m, x.round); }, 0));
+        for (let r = 1; r <= maxRound; r++) {
+            fa.filter(function (x) { return x.round === r; }).forEach(function (x) { fixtures.push(x); });
+            fb.filter(function (x) { return x.round === r; }).forEach(function (x) { fixtures.push(x); });
+        }
         const playoffs = [
             { home: "@poolA:4", away: "@poolB:4", round: 90, stage: "playoff",
               label: "Seventh place", places: [7, 8] },
