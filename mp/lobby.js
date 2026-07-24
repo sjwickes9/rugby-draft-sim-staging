@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607242048";
+    const VERSION = "v1.2607242214";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -1787,11 +1787,36 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
 
         // Legality is decided once, here, and stored with the competition so
         // every client shows the same verdict.
-        const illegal = {}, breachInfo = {};
+        const illegal = {}, breachInfo = {}, diag = {};
+        const minRule = (activeRules || []).find(function (c) { return c.id === "minPerCountry"; });
         order.forEach(function (u) {
             const b = MPSim.squadBreaches(squads[u], pool, activeRules);
             if (b.length) { illegal[u] = true; breachInfo[u] = b; }
+            // Diagnostic snapshot: what did this squad actually contain, and
+            // what was it judged against? Only kept for illegal squads.
+            if (b.length) {
+                const players = MPPicks.squadPlayers(squads[u]);
+                const nats = {};
+                players.forEach(function (p) { if (p.country) nats[p.country] = (nats[p.country] || 0) + 1; });
+                const pickCount = Object.keys(draft.picks || {}).filter(function (k) {
+                    return (draft.picks[k] || {}).by === u;
+                }).length;
+                const mem = (room.members || {})[u] || {};
+                diag[u] = {
+                    isAi: !!mem.ai,
+                    minRequired: minRule ? minRule.value : null,
+                    nationsUsed: Object.keys(nats).length,
+                    picks: pickCount,
+                    filledSlots: players.length,
+                    nations: Object.keys(nats).sort().join(",")
+                };
+            }
         });
+        // Surface it in the console for the host, and store a compact copy.
+        if (Object.keys(diag).length) {
+            try { console.warn("ILLEGAL SQUAD DIAGNOSTIC (competition "
+                + ((room.settings || {}).competition || "?") + ")", JSON.stringify(diag, null, 2)); } catch (e) {}
+        }
 
         const winner = MPSim.competitionWinner(order, { fixtures: resolved }, results, illegal);
         const tally = MPSim.updateTally(room.tally, order, winner, standings, illegal);
