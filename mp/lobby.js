@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607251217";
+    const VERSION = "v1.2607251338";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -558,6 +558,58 @@ on("typeCustom", "click", function () { setGameType("custom"); });
             if (!b) return;
             openTip(b.getAttribute("data-help"), false);
         });
+        // Assign AI cover to a seat, offered wherever a cover button appears
+        // (the members list and the mid-draft cover panel). Only the host
+        // sees these, but the click is guarded again here.
+        document.addEventListener("click", function (e) {
+            const b = (e.target && e.target.closest) ? e.target.closest("[data-cover]") : null;
+            if (!b) return;
+            const forUid = b.getAttribute("data-cover");
+            const room = latestRoom || {};
+            if ((room.meta || {}).hostUid !== MPNet.currentUid()) return;
+            const m = (room.members || {})[forUid] || {};
+            modal({
+                title: "Assign an AI to this seat?",
+                body: "An AI will take over " + esc(m.name || "this seat")
+                    + " from here. <strong>Their name and colours stay, marked as AI cover.</strong>"
+                    + "<span class='warn'>They will reclaim the seat if they return "
+                    + "between competitions.</span>",
+                ok: "Assign an AI", cancel: "Not yet"
+            }).then(function (yes) {
+                if (!yes) return;
+                b.disabled = true;
+                // A fresh personality for the stand-in, drawn from the same
+                // pool the room drafts from, so it can only prefer nations
+                // that are actually available.
+                let pool = [];
+                try {
+                    const s = room.settings || {};
+                    pool = MPEngine.buildPool(allSquads, {
+                        mode: s.mode || "tournament",
+                        yearMin: s.yearMin || undefined,
+                        yearMax: s.yearMax || undefined,
+                        countries: s.countries || null,
+                        geoLabel: s.geoLabel || "All nations"
+                    }, positionFamilyMap);
+                } catch (err) {}
+                const used = Object.keys(room.members || {}).map(function (u) {
+                    return ((room.members || {})[u] || {}).name || "";
+                });
+                const seat = MPAI.makeSeats(1, pool, Math.floor(Math.random() * 1e9), used)[0]
+                    || { traits: {}, seed: Math.floor(Math.random() * 1e9) };
+                MPNet.coverWithAi(currentCode, forUid, seat.traits, seat.seed)
+                    .then(function () {
+                        // Nudge the AI driver so a covered seat on the clock
+                        // picks straight away rather than waiting on the next
+                        // snapshot or its own expiry.
+                        if (latestRoom) driveAi(latestRoom);
+                    })
+                    .catch(function (err) {
+                        showNotice("Could not assign an AI: " + err.message);
+                        b.disabled = false;
+                    });
+            });
+        });
         on("shareLink", "click", function () { share("link", "shareLink"); });
         on("shareCode", "click", function () { share("code", "shareCode"); });
         on("leave", "click", onLeave);
@@ -654,6 +706,50 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
             });
         });
         on("goHome", "click", function () { backToLobby(); });
+        on("gotoNext", "click", function () {
+            // The user has finished with the results and wants to move on to
+            // the announced competition. Flag it and re-route.
+            moveOnNext = true;
+            $("gotoNext").classList.add("hidden");
+            if (latestRoom) renderRoom(latestRoom);
+        });
+        on("fillAi", "click", function () {
+            const room = latestRoom || {};
+            const s = room.settings || {};
+            const mem = room.members || {};
+            const count = Object.keys(mem).length;
+            const seats = s.tableSize || count;
+            const open = seats - count;
+            if (open <= 0) return;
+            modal({
+                title: open === 1 ? "Fill the empty seat?" : "Fill the empty seats?",
+                body: (open === 1
+                        ? "One seat will be filled with an AI side. "
+                        : open + " seats will be filled with AI sides. ")
+                    + "<strong>They draft, commit and play like any other side.</strong>"
+                    + "<span class='warn'>You can start the draft once the room is full.</span>",
+                ok: open === 1 ? "Add an AI side" : "Add AI sides", cancel: "Not yet"
+            }).then(function (yes) {
+                if (!yes) return;
+                $("fillAi").disabled = true;
+                let pool = [];
+                try { pool = MPEngine.buildPool(allSquads, {
+                    mode: s.mode || "tournament",
+                    yearMin: s.yearMin || undefined,
+                    yearMax: s.yearMax || undefined,
+                    countries: s.countries || null,
+                    geoLabel: s.geoLabel || "All nations"
+                }, positionFamilyMap); } catch (e) {}
+                const used = Object.keys(mem).map(function (u) { return (mem[u] || {}).name || ""; });
+                const seats2 = MPAI.makeSeats(open, pool, Math.floor(Math.random() * 1e9), used);
+                MPNet.addAiSeats(currentCode, seats2)
+                    .then(function () { $("fillAi").disabled = false; })
+                    .catch(function (err) {
+                        showNotice("Could not add the AI sides: " + err.message);
+                        $("fillAi").disabled = false;
+                    });
+            });
+        });
         on("forceStart", "click", function () {
             const room = latestRoom || {};
             const mem = room.members || {};
@@ -862,22 +958,43 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
                 if (MPDraftUI.stopAuto) MPDraftUI.stopAuto();
                 if (MPDraftUI.setLive) MPDraftUI.setLive(false);
             }
-            if (drafting) {
-                showNotice("The host has closed this room, so this draft has ended. "
-                    + "Nothing more can be picked here.");
-            } else {
-                showNotice("The host has closed this room. You can still look through "
-                    + "the results, but nothing further will happen here.");
-            }
+            markRoomClosed();
+            // A modal rather than a notice: the room has ended underneath
+            // this user, and they need a way out they cannot miss.
+            const results = ((latestRoom || {}).comp || {}).results || [];
+            const canStillLook = !drafting && results.length > 0;
+            modal({
+                title: "Room closed by the host",
+                body: drafting
+                    ? "The host has closed this room, so this draft has ended. "
+                      + "Nothing more can be picked here."
+                    : (canStillLook
+                        ? "The host has closed this room. You can stay and look through "
+                          + "the results, but nothing further will happen here."
+                        : "The host has closed this room. Nothing further will happen here."),
+                ok: "Back to the home page",
+                cancel: canStillLook ? "Stay and look around" : ""
+            }).then(function (goHome) {
+                if (goHome) { roomClosed = false; roomClosedByMe = false; backToLobby(""); }
+            });
+            return;
         }
         markRoomClosed();
     }
 
     function markRoomClosed() {
+        // Playback runs entirely from the stored results already in hand,
+        // so someone who has not yet watched this competition still can,
+        // even though the room itself is gone.
+        const results = ((latestRoom || {}).comp || {}).results || [];
+        const unwatched = results.length > 0 && !watchedComp[compKey(latestRoom || {})];
         ["readyBtn", "nextComp", "playBtn", "enterDraft", "forceStart",
-         "startDraft", "preBoard", "closeRoom", "showTeams"].forEach(function (id) {
+         "startDraft", "preBoard", "closeRoom", "showTeams",
+         "gotoNext", "fillAi"].forEach(function (id) {
             const el = $(id);
-            if (el && id !== "showTeams") el.classList.add("hidden");
+            if (!el || id === "showTeams") return;
+            if (id === "playBtn" && unwatched) return;
+            el.classList.add("hidden");
         });
         const lv = $("leave");
         if (lv) {
@@ -1015,8 +1132,13 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
 
     function backToLobby(msg) {
         if (unwatch) { unwatch(); unwatch = null; }
+        // A notice about the room must not follow the user onto the home
+        // page, where it would describe results they can no longer see.
+        showNotice("");
         currentCode = null;
         latestRoom = null;
+        lastHostUid = null;
+        moveOnNext = false;
         seenDrafting = false;
         compShown = false;
         commitShown = false;
@@ -1037,6 +1159,8 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         compShown = false;
         seenDrafting = false;
         draftReady = false;
+        lastHostUid = null;
+        moveOnNext = false;
         if (window.MPCommit && MPCommit.reset) MPCommit.reset();
         showOnly("roomView");
         $("roomCode").innerHTML = code + "<small>share this code</small>";
@@ -1054,6 +1178,13 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
     let compShown = false;
     let viewCompNo = 1;
     let setupShown = false;
+    // The host seen on the previous snapshot, so a handover can be spotted
+    // and announced to whoever inherits the role.
+    let lastHostUid = null;
+    // Set when this user chooses to move on to an announced competition
+    // while their ready flag has not yet landed, so routing does not pull
+    // them back to the results in the meantime.
+    let moveOnNext = false;
     let settingsConfirmed = false;
     let roomClosedByMe = false;
     let roomClosed = false;
@@ -1069,6 +1200,8 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
     let revealed = {};         // fixture index -> true, during playback
     let liveFixtures = null;   // resolved fixtures while playing back
     let watchedComp = {};      // competition number -> already watched here
+    let wonShown = {};         // competition key -> personal win message shown
+    let seasonWonShown = false;// season champion message shown to the champion
     // The results on screen may belong to the previous competition while the
     // next one is being set up, so the watch flag follows the results, not
     // the room's current competition counter.
@@ -1172,6 +1305,9 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
             setupShown = false;
             settingsConfirmed = false;
             announceSeen = false;
+            moveOnNext = false;
+            const gnr = $("gotoNext");
+            if (gnr) gnr.classList.add("hidden");
             // Clear any disabled state left over from the last competition.
             ["playBtn", "nextComp", "readyBtn", "enterDraft", "forceStart",
              "startDraft", "setupConfirm", "preBoard", "waitBoard"].forEach(function (id) {
@@ -1209,6 +1345,27 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
 
         $("closeRoom").classList.toggle("hidden", !isHost);
 
+        // A host handover happens silently in the database, so the person
+        // inheriting the role is told out loud, once, what it now means.
+        if (lastHostUid && hostUid && lastHostUid !== hostUid && isHost) {
+            const openSeats = seats - count;
+            modal({
+                title: "You are now the host",
+                body: "The previous host has left, and the room has passed to you. "
+                    + "<strong>You now start the drafts, play the fixtures and set up "
+                    + "each competition.</strong>"
+                    + (status === "lobby" && openSeats > 0
+                        ? "<span class='warn'>" + (openSeats === 1
+                            ? "One seat still needs filling. "
+                            : openSeats + " seats still need filling. ")
+                          + "Share the room code for someone to join, or use the button "
+                          + "below to fill with an AI side.</span>"
+                        : ""),
+                ok: "Understood", cancel: ""
+            });
+        }
+        lastHostUid = hostUid;
+
         // Season position
         renderBrief(room);
         renderHostIdle(room);
@@ -1234,6 +1391,7 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
             const you = (k === MPNet.currentUid());
             const isAi = !!m.ai;
             const covered = m.cover && m.cover.by === "ai";
+            const hasLeft = !!m.left && !isAi && !covered;
             // Presence is not a reliable signal of absence. A backgrounded
             // tab or a sleeping phone often keeps the socket alive, so a
             // plainly absent player still reads as connected. What we do
@@ -1249,15 +1407,20 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
             let tag = "";
             if (isAi) tag = "<span class='ai-tag'>AI</span>";
             else if (covered) tag = "<span class='ai-tag cover'>AI cover</span>";
+            else if (hasLeft) tag = "<span class='ai-tag left'>Left</span>";
 
             // The host is offered a cover for a human who has been offline a
             // while and is not already covered. This is a judgement call, so
-            // it is a suggestion, never automatic.
+            // it is a suggestion, never automatic. A seat whose user has
+            // gracefully left is always offered, since it will not fill
+            // itself and, mid-draft, would otherwise strand the room.
             let action = "";
             if (amHostNow && !you && !isAi && !covered
-                && (missedTurn || (!m.connected && offlineMs > COVER_HINT_MS))) {
+                && (hasLeft || missedTurn || (!m.connected && offlineMs > COVER_HINT_MS))) {
                 let why;
-                if (missedTurn) {
+                if (hasLeft) {
+                    why = "left the room";
+                } else if (missedTurn) {
                     why = "missed a pick";
                 } else {
                     const mins = Math.floor(offlineMs / 60000);
@@ -1300,6 +1463,31 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
             if (count < 2) setStatus("startHint", "Waiting for at least one more user to join.", false);
             else if (count < seats) setStatus("startHint", "Waiting for " + (seats - count) + " more of " + seats + " users.", false);
             else setStatus("startHint", MPDraft.formatFor(count).name + ". Everyone is here.", false);
+        } else if (!isHost && status === "lobby" && compNo === 1) {
+            // Before the first draft, everyone else deserves the same
+            // clarity the host gets: what the room is waiting on.
+            setStatus("startHint", count < seats
+                ? "Waiting for " + (seats - count) + " more of " + seats
+                  + " seats to be filled."
+                : "All " + seats + " seats are filled. Waiting for "
+                  + hostName(room) + " to start the draft.", false);
+        }
+        // An inherited or shrunken room can be left a seat short. The host
+        // can fill it with an AI side rather than waiting on a joiner who
+        // may never come.
+        const fa = $("fillAi");
+        if (fa) {
+            const openSeats = seats - count;
+            const showFill = isHost && status === "lobby" && compNo === 1
+                && openSeats > 0 && (room.pool || []).length > 0
+                && typeof MPAI !== "undefined";
+            fa.classList.toggle("hidden", !showFill);
+            if (showFill) {
+                const fs = fa.querySelector("span");
+                if (fs) fs.textContent = openSeats === 1
+                    ? "Fill the empty seat with an AI"
+                    : "Fill the " + openSeats + " empty seats with AI sides";
+            }
         }
 
         // Between competitions the room returns to lobby status so the host
@@ -1374,9 +1562,33 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
                         + "<strong>The pool and the rules are below.</strong>"
                         + "<span class='warn'>Press Enter the draft when you are ready. "
                         + "It begins once everyone has.</span>",
-                    ok: "Show me", cancel: ""
+                    ok: "Show me", cancel: "Haven't finished yet"
+                }).then(function (goNow) {
+                    moveOnNext = !!goNow;
+                    // A live snapshot is not guaranteed to arrive straight
+                    // away, so route immediately on the choice made.
+                    if (latestRoom) renderRoom(latestRoom);
                 });
+                // Until the choice is made, leave them wherever they are,
+                // which is with the results they may still be reading.
+                if (!moveOnNext) {
+                    if ($("teamsView").classList.contains("hidden")) showOnly("compView");
+                    const gn = $("gotoNext");
+                    if (gn) gn.classList.remove("hidden");
+                    return;
+                }
             }
+            // A user who has not chosen to move on stays with their results,
+            // with a button to come through when they are ready. The host
+            // and anyone already entered skip this and see the wait view.
+            if (!iAmIn && !amHost && !moveOnNext) {
+                if ($("teamsView").classList.contains("hidden")) showOnly("compView");
+                const gn = $("gotoNext");
+                if (gn) gn.classList.remove("hidden");
+                return;
+            }
+            const gnHide = $("gotoNext");
+            if (gnHide) gnHide.classList.add("hidden");
             $("waitBrief").classList.remove("hidden");
             $("waitBrief").innerHTML = (function () {
                 try { return buildBrief(room); } catch (e) { return ""; }
@@ -2653,8 +2865,8 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
                 ? nameOf(stats.bestDefence.uid) + " (" + stats.bestDefence.value + " conceded)" : "none");
     }
 
-    function statLine(label, value) {
-        return "<div class='stat-line'><span class='stat-lbl'>" + label
+    function statLine(label, value, mine) {
+        return "<div class='stat-line" + (mine ? " mine" : "") + "'><span class='stat-lbl'>" + label
             + "</span><span class='stat-val'>" + esc(value) + "</span></div>";
     }
 
@@ -2699,13 +2911,29 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         if (comp.winner) {
             const illegalMap = comp.illegal || {};
             const anyIllegal = Object.keys(illegalMap).length;
-            wb.innerHTML = "<div class='winner-box'>"
+            const iWon = comp.winner === me;
+            wb.innerHTML = "<div class='winner-box" + (iWon ? " mine" : "") + "'>"
                 + "<div class='winner-lbl'>Competition " + now + " of " + total + "</div>"
                 + "<div class='winner-name'>" + esc(nameOf(comp.winner)) + "</div>"
                 + "<div class='winner-sub'>takes the title"
                 + (anyIllegal ? ", with " + anyIllegal + " side"
                     + (anyIllegal === 1 ? "" : "s") + " ruled ineligible" : "")
                 + "</div></div>";
+            // A private word for the winner, once, after they have watched.
+            const wonKey = compKey(room);
+            if (iWon && !wonShown[wonKey]) {
+                wonShown[wonKey] = true;
+                modal({
+                    title: "You won. Congratulations.",
+                    body: seasonOver
+                        ? "You have taken competition " + now + " of " + total
+                          + ". <strong>See the season outcome for the final word.</strong>"
+                        : "You have taken competition " + now + " of " + total + ". "
+                          + "<strong>The draft order reverses, so you will pick last "
+                          + "in the next competition.</strong>",
+                    ok: "Thank you", cancel: ""
+                });
+            }
         } else if ((comp.results || []).length) {
             wb.innerHTML = "<div class='winner-box vacant'>"
                 + "<div class='winner-lbl'>Competition " + now + " of " + total + "</div>"
@@ -2783,11 +3011,13 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         const total = (room.settings || {}).seasonLength || 1;
         const nameOf = function (u) { return (members[u] || {}).name || "User"; };
 
+        const me = MPNet.currentUid();
         const rows = [];
         for (let n = 1; n <= total; n++) {
             const h = hist[n] || (n === ((room.settings || {}).competition || 1) ? room.comp : null);
             const w = h && h.winner;
-            rows.push("<div class='sum-row'><span class='sum-no'>" + n + "</span>"
+            rows.push("<div class='sum-row" + (w && w === me ? " mine" : "") + "'>"
+                + "<span class='sum-no'>" + n + "</span>"
                 + "<span class='sum-win" + (w ? "" : " sum-vacant") + "'>"
                 + (w ? esc(nameOf(w)) : "no champion") + "</span></div>");
         }
@@ -2817,9 +3047,10 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         $("seasonSub").textContent = "";
 
         // The champion, given its own panel so the season has a clear winner.
+        const iAmChamp = champ && champ.uid === me;
         const wEl = $("seasonWinner");
         if (wEl && champ) {
-            wEl.innerHTML = "<div class='winner-box champion'>"
+            wEl.innerHTML = "<div class='winner-box champion" + (iAmChamp ? " mine" : "") + "'>"
                 + "<div class='winner-lbl'>Season champion</div>"
                 + "<div class='winner-name'>" + esc(nameOf(champ.uid)) + "</div>"
                 + "<div class='winner-sub'>" + champ.titles + " of " + total
@@ -2827,18 +3058,31 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         } else if (wEl) {
             wEl.innerHTML = "";
         }
+        // A private word for the season champion, once.
+        if (iAmChamp && !seasonWonShown) {
+            seasonWonShown = true;
+            modal({
+                title: "You won. Congratulations.",
+                body: "You are the season champion, with " + champ.titles + " of "
+                    + total + " competition" + (total === 1 ? "" : "s") + " won.",
+                ok: "Thank you", cancel: ""
+            });
+        }
 
         // Season-long player and team leaders.
         const sEl = $("seasonStats");
         if (sEl) {
             const ss = MPSim.seasonStats(histList);
+            const mineTry = ss.topTries && ss.topTries.uid === me;
+            const minePts = ss.topPoints && ss.topPoints.uid === me;
+            const mineDef = ss.bestDefence && ss.bestDefence.uid === me;
             sEl.innerHTML = "<p class='sum-head'>Across the season</p>"
                 + statLine("Most tries", ss.topTries
-                    ? nameOf(ss.topTries.uid) + " (" + ss.topTries.value + ")" : "none")
+                    ? nameOf(ss.topTries.uid) + " (" + ss.topTries.value + ")" : "none", mineTry)
                 + statLine("Most points", ss.topPoints
-                    ? nameOf(ss.topPoints.uid) + " (" + ss.topPoints.value + ")" : "none")
+                    ? nameOf(ss.topPoints.uid) + " (" + ss.topPoints.value + ")" : "none", minePts)
                 + statLine("Best defence", ss.bestDefence
-                    ? nameOf(ss.bestDefence.uid) + " (" + ss.bestDefence.value + " conceded)" : "none");
+                    ? nameOf(ss.bestDefence.uid) + " (" + ss.bestDefence.value + " conceded)" : "none", mineDef);
         }
 
         // AI personalities, tucked into a dropdown rather than shown by default.

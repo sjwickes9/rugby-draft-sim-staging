@@ -681,6 +681,12 @@ input[type=color] {
 .winner-box.vacant { border-left-color: var(--bad); background: var(--panel); }
 .winner-box.vacant .winner-name { color: var(--bad); font-size: 1.5rem; }
 
+/* The user's own team, highlighted in teal wherever it is theirs */
+.winner-box.mine { border-left-color: var(--teal); box-shadow: 0 0 0 1px var(--teal) inset; }
+.sum-row.mine { background: var(--panel-2); border-radius: 6px; }
+.sum-row.mine .sum-win { color: var(--teal); }
+.stat-line.mine .stat-val { color: var(--teal); font-weight: 700; }
+
 
 /* Turn countdown */
 .turn-clock {
@@ -930,6 +936,7 @@ input[type=color] {
 
 /* AI cover marker and assign button */
 .ai-tag.cover { background: var(--amber); color: var(--navy); }
+.ai-tag.left { background: var(--bad); color: #fff; }
 .cover-btn {
     margin-left: auto; background: transparent; border: 1px solid var(--amber);
     color: var(--amber); border-radius: 6px; padding: 3px 8px; cursor: pointer;

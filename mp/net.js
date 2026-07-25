@@ -241,6 +241,10 @@ window.MPNet = (function () {
                             kit: prev ? prev.kit : ((profile && profile.kit) || "#FFC24D"),
                             kit2: prev ? (prev.kit2 || "#16E0CD") : ((profile && profile.kit2) || "#16E0CD"),
                             connected: true,
+                            // Coming back through the door plainly undoes a
+                            // graceful leave. The missed flag is left alone:
+                            // it clears when they actually take a turn.
+                            left: null,
                             joinedAt: prev ? prev.joinedAt : now
                         }).then(function () {
                             trackPresence(code);
@@ -795,7 +799,6 @@ window.MPNet = (function () {
                 const meta = room.meta || {};
                 const leavingIsHost = meta.hostUid === uid;
                 const updates = {};
-                updates["rooms/" + code + "/members/" + uid] = null;
 
                 if (leavingIsHost) {
                     // The host role can only pass to a human. AI seats live in
@@ -813,6 +816,29 @@ window.MPNet = (function () {
                         return (members[a].joinedAt || 0) - (members[b].joinedAt || 0);
                     });
                     updates["rooms/" + code + "/meta/hostUid"] = humans[0];
+                }
+
+                // A seat with a draft position against it cannot simply be
+                // deleted: its picks, fixtures and results all point at it,
+                // and every piece of cover machinery reads room.members. So
+                // once the leaver appears in the draft order, the seat stays
+                // and is marked as departed. That is what lets the host
+                // assign AI cover, keeps the name on every table it already
+                // sits in, and stops the room deadlocking at the commit
+                // stage on someone who can never lock in.
+                const order = ((room.draft || {}).order) || [];
+                const inDraft = order.indexOf(uid) !== -1;
+                if (inDraft) {
+                    updates["rooms/" + code + "/members/" + uid + "/left"] = true;
+                    updates["rooms/" + code + "/members/" + uid + "/connected"] = false;
+                    updates["rooms/" + code + "/members/" + uid + "/missed"] = true;
+                    // A departed seat must never hold the room up between
+                    // competitions, so it reads as ready and entered. Cover,
+                    // once assigned, keeps these flags true itself.
+                    updates["rooms/" + code + "/ready/" + uid] = true;
+                    updates["rooms/" + code + "/entered/" + uid] = true;
+                } else {
+                    updates["rooms/" + code + "/members/" + uid] = null;
                 }
                 return db.ref().update(updates);
             });
