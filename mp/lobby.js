@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607251158";
+    const VERSION = "v1.2607251209";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -2189,14 +2189,19 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
                     return st.rules[k] === true;
                 });
                 if (rulesConfigured && active.length === 0) {
+                    // The snapshot is incomplete: rules were chosen but none
+                    // resolved, so settings.rules has not landed yet. Keep
+                    // waiting for it rather than drafting unconstrained, which
+                    // was the cause of the single-nation AI squads. In
+                    // practice the settings arrive within a second.
+                    try { console.warn("AI waiting: rules not yet in snapshot for " + picker
+                        + " (st.rules keys: " + Object.keys(st.rules || {}).join(",") + ")"); } catch (e) {}
                     aiBusy = false;
-                    // Nudge a retry shortly, in case no other snapshot is
-                    // imminent to re-trigger the driver on its own.
                     setTimeout(function () {
                         if (latestRoom && (latestRoom.meta || {}).status === "drafting") {
                             driveAi(latestRoom);
                         }
-                    }, 400);
+                    }, 250);
                     return;
                 }
 
