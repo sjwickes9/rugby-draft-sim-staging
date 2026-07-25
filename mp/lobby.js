@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607251209";
+    const VERSION = "v1.2607251217";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -1787,36 +1787,11 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
 
         // Legality is decided once, here, and stored with the competition so
         // every client shows the same verdict.
-        const illegal = {}, breachInfo = {}, diag = {};
-        const minRule = (activeRules || []).find(function (c) { return c.id === "minPerCountry"; });
+        const illegal = {}, breachInfo = {};
         order.forEach(function (u) {
             const b = MPSim.squadBreaches(squads[u], pool, activeRules);
             if (b.length) { illegal[u] = true; breachInfo[u] = b; }
-            // Diagnostic snapshot: what did this squad actually contain, and
-            // what was it judged against? Only kept for illegal squads.
-            if (b.length) {
-                const players = MPPicks.squadPlayers(squads[u]);
-                const nats = {};
-                players.forEach(function (p) { if (p.country) nats[p.country] = (nats[p.country] || 0) + 1; });
-                const pickCount = Object.keys(draft.picks || {}).filter(function (k) {
-                    return (draft.picks[k] || {}).by === u;
-                }).length;
-                const mem = (room.members || {})[u] || {};
-                diag[u] = {
-                    isAi: !!mem.ai,
-                    minRequired: minRule ? minRule.value : null,
-                    nationsUsed: Object.keys(nats).length,
-                    picks: pickCount,
-                    filledSlots: players.length,
-                    nations: Object.keys(nats).sort().join(",")
-                };
-            }
         });
-        // Surface it in the console for the host, and store a compact copy.
-        if (Object.keys(diag).length) {
-            try { console.warn("ILLEGAL SQUAD DIAGNOSTIC (competition "
-                + ((room.settings || {}).competition || "?") + ")", JSON.stringify(diag, null, 2)); } catch (e) {}
-        }
 
         const winner = MPSim.competitionWinner(order, { fixtures: resolved }, results, illegal);
         const tally = MPSim.updateTally(room.tally, order, winner, standings, illegal);
@@ -2172,8 +2147,9 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
                 const st = liveRoom.settings || room.settings || {};
                 const ff = {
                     mode: st.mode || "career",
-                    yearMin: st.yearMin, yearMax: st.yearMax,
-                    countries: st.countries || null
+                    yearMin: st.yearMin || undefined,
+                    yearMax: st.yearMax || undefined,
+                    countries: (st.countries && st.countries.length) ? st.countries : null
                 };
                 const pool = (liveRoom.pool && liveRoom.pool.length) ? liveRoom.pool : (room.pool || []);
                 const an = MPEngine.feasibility(allSquads, ff, positionFamilyMap);
@@ -2194,8 +2170,6 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
                     // waiting for it rather than drafting unconstrained, which
                     // was the cause of the single-nation AI squads. In
                     // practice the settings arrive within a second.
-                    try { console.warn("AI waiting: rules not yet in snapshot for " + picker
-                        + " (st.rules keys: " + Object.keys(st.rules || {}).join(",") + ")"); } catch (e) {}
                     aiBusy = false;
                     setTimeout(function () {
                         if (latestRoom && (latestRoom.meta || {}).status === "drafting") {
