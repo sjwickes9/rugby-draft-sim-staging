@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607250834";
+    const VERSION = "v1.2607251158";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -2163,16 +2163,42 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         aiBusy = true;
         setTimeout(function () {
             try {
-                const st = room.settings || {};
+                // Always take settings from the freshest snapshot. The driver
+                // can be invoked from the startDraft write callback, whose
+                // room object may carry the new draft node but not yet the
+                // settings, and drafting off that produced squads with no
+                // nation rule applied.
+                const liveRoom = latestRoom || room;
+                const st = liveRoom.settings || room.settings || {};
                 const ff = {
                     mode: st.mode || "career",
                     yearMin: st.yearMin, yearMax: st.yearMax,
                     countries: st.countries || null
                 };
-                const pool = room.pool || [];
+                const pool = (liveRoom.pool && liveRoom.pool.length) ? liveRoom.pool : (room.pool || []);
                 const an = MPEngine.feasibility(allSquads, ff, positionFamilyMap);
                 const ctx = MPRules.buildContext(ff, an);
                 const active = MPRules.activeConstraints(ctx, st.rules || {});
+
+                // Guard against an incomplete snapshot. If rules were chosen
+                // but none resolved, settings.rules has not arrived yet.
+                // Wait for the next snapshot rather than drafting a whole
+                // squad with no constraints, which is what produced the
+                // single-nation AI teams on the first competition.
+                const rulesConfigured = st.rules && Object.keys(st.rules).some(function (k) {
+                    return st.rules[k] === true;
+                });
+                if (rulesConfigured && active.length === 0) {
+                    aiBusy = false;
+                    // Nudge a retry shortly, in case no other snapshot is
+                    // imminent to re-trigger the driver on its own.
+                    setTimeout(function () {
+                        if (latestRoom && (latestRoom.meta || {}).status === "drafting") {
+                            driveAi(latestRoom);
+                        }
+                    }, 400);
+                    return;
+                }
 
                 // Rebuild this seat's squad and everything already taken.
                 const squad = MPPicks.emptySquad();
@@ -2192,20 +2218,6 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
                     tournamentCount: Object.keys(years).length || 99,
                     years: Object.keys(years).sort()
                 };
-
-                // Diagnostic: on an AI's first pick, record what it is being
-                // steered by. Remove once the nation bug is understood.
-                if (MPPicks.squadPlayers(squad).length === 0) {
-                    const mr = (active || []).find(function (c) { return c.id === "minPerCountry"; });
-                    const forced = MPPicks.nationsStillForced
-                        ? MPPicks.nationsStillForced(squad, active, MPPicks.emptySlots(squad).length)
-                        : "no-fn";
-                    try { console.warn("AI FIRST PICK for " + picker
-                        + " | minRule=" + (mr ? mr.value : "MISSING")
-                        + " | activeCount=" + (active || []).length
-                        + " | poolSize=" + pool.length
-                        + " | forced=" + JSON.stringify(forced)); } catch (e) {}
-                }
 
                 let res = MPAI.pick(MPPicks, MPRules, pool, squad, taken, active, ctx,
                     { traits: brain.traits, seed: brain.seed }, opts);
