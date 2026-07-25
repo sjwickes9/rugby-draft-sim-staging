@@ -426,10 +426,18 @@
         const have = Object.keys(used).length;
         const short = rule.value - have;
         if (short <= 0) return null;
-        // Steer one slot before it becomes arithmetically forced. Waiting
-        // until short equals slotsLeft leaves no room for the case where the
-        // only remaining slots cannot be filled from an unused nation.
-        if (short < slotsLeft - 1) return null;
+
+        // Remaining slots computed from the squad itself, never trusted from
+        // the caller. If a caller ever passed this wrong, nation steering
+        // silently switched off for the whole draft, which is exactly the
+        // kind of hard-to-see failure worth designing out.
+        const remaining = emptySlots(squad).length;
+
+        // Once every remaining slot must bring a new nation, steer. Using a
+        // strict arithmetic test (short >= remaining) rather than the old
+        // early-relaxation means the guard engages the moment it has to and
+        // never a pick too late.
+        if (short < remaining) return null;
         return used;
     }
 

@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607242214";
+    const VERSION = "v1.2607250834";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -2192,6 +2192,20 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
                     tournamentCount: Object.keys(years).length || 99,
                     years: Object.keys(years).sort()
                 };
+
+                // Diagnostic: on an AI's first pick, record what it is being
+                // steered by. Remove once the nation bug is understood.
+                if (MPPicks.squadPlayers(squad).length === 0) {
+                    const mr = (active || []).find(function (c) { return c.id === "minPerCountry"; });
+                    const forced = MPPicks.nationsStillForced
+                        ? MPPicks.nationsStillForced(squad, active, MPPicks.emptySlots(squad).length)
+                        : "no-fn";
+                    try { console.warn("AI FIRST PICK for " + picker
+                        + " | minRule=" + (mr ? mr.value : "MISSING")
+                        + " | activeCount=" + (active || []).length
+                        + " | poolSize=" + pool.length
+                        + " | forced=" + JSON.stringify(forced)); } catch (e) {}
+                }
 
                 let res = MPAI.pick(MPPicks, MPRules, pool, squad, taken, active, ctx,
                     { traits: brain.traits, seed: brain.seed }, opts);
