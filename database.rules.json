@@ -70,6 +70,9 @@
             },
             "missed": {
               ".write": "auth != null && root.child('rooms/' + $code + '/members/' + auth.uid).exists()"
+            },
+            "left": {
+              ".validate": "newData.isBoolean() || !newData.exists()"
             }
           }
         },
