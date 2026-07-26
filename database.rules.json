@@ -158,6 +158,9 @@
             ".write": "auth != null && $uid === auth.uid",
             ".validate": "newData.hasChildren(['on'])"
           }
+        },
+        "rwc": {
+          ".write": "auth != null && root.child('rooms/' + $code + '/meta/hostUid').val() === auth.uid"
         }
       }
     }
