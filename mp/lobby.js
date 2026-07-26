@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607262002";
+    const VERSION = "v1.2607262121";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -286,21 +286,25 @@
             const labelFor = function (t) { return t === MPRWC.ALL_TIME ? "All time" : t; };
             const pct = function (i) { return (n === 1) ? 0 : (i / (n - 1)) * 100; };
 
-            const scale = $("rwcScale");
-            if (scale) {
-                scale.innerHTML = list.map(function (t, i) {
-                    // Alternate labels between an upper and lower row so full
-                    // four-digit years have room and never overlap.
-                    const row = (i % 2 === 0) ? "up" : "down";
-                    return "<span class='rwc-tick " + row + (i === idx ? " on" : "") + "'"
-                        + " style='left:" + pct(i) + "%'>" + labelFor(t) + "</span>";
-                }).join("");
+            // The selected year floats above the thumb and moves with it.
+            const val = $("rwcValue");
+            if (val) {
+                val.textContent = labelFor(list[idx]);
+                // Keep the floating label within the track, easing off the
+                // hard left and right so it never spills past the edges.
+                const p = pct(idx);
+                val.style.left = p + "%";
+                val.style.transform = "translateX(" + (-p) + "%)";
             }
+            const endA = $("rwcEndA"), endB = $("rwcEndB");
+            if (endA) endA.textContent = labelFor(list[0]);
+            if (endB) endB.textContent = labelFor(list[n - 1]);
+
             const dots = $("rwcDots");
             if (dots) {
-                dots.innerHTML = list.map(function (_, i) {
+                dots.innerHTML = list.map(function (t, i) {
                     return "<span class='rwc-dot" + (i === idx ? " on" : "") + "'"
-                        + " style='left:" + pct(i) + "%'></span>";
+                        + " style='left:" + pct(i) + "%' title='" + labelFor(t) + "'></span>";
                 }).join("");
             }
         }
@@ -1452,8 +1456,10 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
             const tourn = (room.rwc && room.rwc.tournament) || s.rwcTournament || "2023";
             const tournLabel = (tourn === (typeof MPRWC !== "undefined" ? MPRWC.ALL_TIME : "alltime"))
                 ? "All time" : tourn;
+            const assignTxt = (s.rwcAssign === "userdraft")
+                ? "Nations drafted" : "Nations randomly assigned";
             $("roomStrapText").textContent = seatTxt + tournLabel + " World Cup | "
-                + modeTxt + " | " + (s.geoLabel || "All nations")
+                + assignTxt + " | " + modeTxt + " | " + (s.geoLabel || "All nations")
                 + " | " + (room.pool ? room.pool.length : 0) + " players";
         } else {
             $("roomStrapText").textContent = seatTxt + modeTxt + " | " + (s.geoLabel || "All nations")
@@ -2980,10 +2986,46 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
             }).join("");
     }
 
-    // The World Cup competition view. This is the interim version: it shows
-    // the pools before play and the champion with pool tables and bracket
-    // after. The full staged playback (round or pool views, knockouts, final
-    // summary) is built on top of this.
+    // ── World Cup playback ──────────────────────────────────
+    // Per-user viewing preference, chosen on the readiness screen. It only
+    // changes how this client plays the stored tournament back; the stored
+    // result is identical for everyone. "all" plays every pool round by
+    // round; "mine" plays pool by pool with the other pools collapsed.
+    let rwcView = "all";
+    let rwcPlayState = null; // live playback cursor, see playRwc
+
+    // A circle-method round-robin: each team plays once per round. Used to
+    // order the pool matches into rounds for playback, since the engine
+    // stores them in a flat nested-loop order.
+    function roundRobin(teams) {
+        const t = teams.slice();
+        const bye = (t.length % 2) === 1;
+        if (bye) t.push(null);
+        const n = t.length, rounds = [];
+        for (let r = 0; r < n - 1; r++) {
+            const round = [];
+            for (let i = 0; i < n / 2; i++) {
+                const a = t[i], b = t[n - 1 - i];
+                if (a !== null && b !== null) round.push([a, b]);
+            }
+            t.splice(1, 0, t.pop());
+            rounds.push(round);
+        }
+        return rounds;
+    }
+
+    // Index the stored pool results by an unordered pair key, so the schedule
+    // can look each match up regardless of home/away order.
+    function indexResults(results) {
+        const map = {};
+        (results || []).forEach(function (r) {
+            map[r.home + "\u0001" + r.away] = r;
+            map[r.away + "\u0001" + r.home] = r;
+        });
+        return map;
+    }
+
+    // ── World Cup competition view ──────────────────────────
     function renderRwcComp(room, comp) {
         // Hide every league-specific element so nothing from that path bleeds
         // through into the World Cup view.
@@ -3029,10 +3071,11 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
                     html += "<div class='rwc-pool'><p class='rwc-pool-h'>Pool " + esc(k) + "</p>";
                     pools[k].forEach(function (nation) {
                         const u = ownerNation[nation];
+                        // A user-owned side shows only the team name (the
+                        // user), not the nation it stands in for. Real nations
+                        // show their own name.
                         html += "<div class='rwc-pool-row" + (u ? " user" : "") + "'>"
-                            + esc(nation)
-                            + (u ? " <span class='rwc-owner'>" + esc(nameOf(u)) + "</span>" : "")
-                            + "</div>";
+                            + esc(u ? nameOf(u) : nation) + "</div>";
                     });
                     html += "</div>";
                 });

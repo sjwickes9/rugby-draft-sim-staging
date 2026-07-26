@@ -1093,21 +1093,17 @@ input[type=color] {
 /* Tournament slider: one grey bar, a vertical-line marker, a dot at each
    year. Labels above match the single-player year bar in size. */
 .rwc-slider { padding: 4px 2px 2px; }
-.rwc-ticks { position: relative; height: 40px; margin-bottom: 4px; }
-.rwc-tick {
-    position: absolute; transform: translateX(-50%);
-    font-family: var(--display); font-size: 0.92rem; color: var(--slate);
-    white-space: nowrap;
+/* Tournament slider: a floating year that follows the thumb, dots for each
+   stop on a single grey bar, and the two ends anchored below. */
+.rwc-slider { padding: 4px 2px 2px; }
+.rwc-value-row { position: relative; height: 30px; margin-bottom: 2px; }
+.rwc-value {
+    position: absolute; top: 0; white-space: nowrap;
+    font-family: var(--display); font-size: 1.5rem; color: var(--teal);
+    letter-spacing: 0.02em; transition: left 0.08s ease, transform 0.08s ease;
 }
-.rwc-tick.up { top: 0; }
-.rwc-tick.down { top: 20px; }
-.rwc-tick:first-child { transform: none; }
-.rwc-tick:last-child { transform: translateX(-100%); }
-.rwc-tick.on { color: var(--teal); font-weight: 600; }
 
 .rwc-track { position: relative; height: 30px; }
-/* The grey bar itself. Inset left and right so the marker's travel lines up
-   with the first and last dots and labels. */
 .rwc-track::before {
     content: ""; position: absolute; top: 13px; left: 3px; right: 3px;
     height: 4px; background: var(--panel-2); border-radius: 2px;
@@ -1115,10 +1111,15 @@ input[type=color] {
 .rwc-dots { position: absolute; top: 0; left: 3px; right: 3px; height: 30px; }
 .rwc-dot {
     position: absolute; top: 15px; transform: translate(-50%, -50%);
-    width: 7px; height: 7px; border-radius: 50%;
+    width: 8px; height: 8px; border-radius: 50%;
     background: var(--line); border: 1px solid var(--panel-2);
+    transition: background 0.1s, transform 0.1s;
 }
-.rwc-dot.on { background: var(--teal); border-color: var(--teal); }
+.rwc-dot.on {
+    background: var(--teal); border-color: var(--teal);
+    transform: translate(-50%, -50%) scale(1.15);
+    box-shadow: 0 0 0 4px rgba(22, 224, 205, 0.18);
+}
 
 .rwc-track input[type="range"] {
     position: absolute; top: 0; left: 0; width: 100%; height: 30px;
@@ -1126,22 +1127,26 @@ input[type=color] {
     -webkit-appearance: none; appearance: none;
 }
 .rwc-track input[type="range"]:focus { outline: none; }
-/* A slim vertical bar rather than a round thumb. */
 .rwc-track input[type="range"]::-webkit-slider-thumb {
     -webkit-appearance: none; appearance: none;
-    width: 5px; height: 26px; border-radius: 2px;
-    background: var(--teal); border: 1px solid var(--navy);
+    width: 18px; height: 18px; border-radius: 50%;
+    background: var(--teal); border: 3px solid var(--navy);
     box-shadow: 0 0 0 1px var(--teal); cursor: grab;
 }
 .rwc-track input[type="range"]::-moz-range-thumb {
-    width: 5px; height: 26px; border-radius: 2px;
-    background: var(--teal); border: 1px solid var(--navy);
+    width: 18px; height: 18px; border-radius: 50%;
+    background: var(--teal); border: 3px solid var(--navy);
     box-shadow: 0 0 0 1px var(--teal); cursor: grab;
 }
 .rwc-track input[type="range"]::-webkit-slider-runnable-track { background: none; }
 .rwc-track input[type="range"]::-moz-range-track { background: none; }
 .rwc-track input[type="range"]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 3px var(--amber); }
 .rwc-track input[type="range"]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--amber); }
+
+.rwc-ends {
+    display: flex; justify-content: space-between; margin-top: 2px;
+    font-family: var(--display); font-size: 0.8rem; color: var(--slate);
+}
 
 .modal-hint { margin: 12px 0 0; font-size: 0.8rem; color: var(--slate); }
 
