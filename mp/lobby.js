@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607261210";
+    const VERSION = "v1.2607261220";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -632,7 +632,6 @@ on("watchFinals", "click", resumeFromPools);
                 const keyWatched = compKey(latestRoom || {});
                 playBack(comp.results, comp.fixtures).then(function () {
                     watchedComp[keyWatched] = true;
-                    if (window.MP_DEBUG_REVEAL) console.log("[watched SET via playBtn]", keyWatched, "isHost=", (latestRoom.meta||{}).hostUid===MPNet.currentUid());
                     renderRoom(latestRoom);
                 });
                 return;
@@ -2038,7 +2037,6 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
             const keyWatched = compKey(latestRoom || {});
             return playBack(results, resolved).then(function () {
                 watchedComp[keyWatched] = true;
-                if (window.MP_DEBUG_REVEAL) console.log("[watched SET via runFixtures]", keyWatched, "isHost=", (latestRoom.meta||{}).hostUid===MPNet.currentUid());
                 renderRoom(latestRoom);
             });
         });
@@ -2695,23 +2693,6 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         // competition through. Publishing the results early is what lets
         // everyone start watching at once, but it must not show the answers.
         const watchedHere = !!watchedComp[compKey(room)];
-        // TEMP DIAGNOSTIC: remove once the reveal bug is confirmed fixed.
-        // Logs, per snapshot, whether this client would show scores and why.
-        try {
-            if (window.MP_DEBUG_REVEAL) {
-                console.log("[reveal]", {
-                    me: MPNet.currentUid(),
-                    isHost: (room.meta || {}).hostUid === MPNet.currentUid(),
-                    compKey: compKey(room),
-                    compNumber: (comp || {}).number,
-                    settingsComp: (room.settings || {}).competition,
-                    watchedHere: watchedHere,
-                    playingBack: playingBack,
-                    liveResults: !!liveResults,
-                    resultsInFirebase: (comp.results || []).length
-                });
-            }
-        } catch (e) {}
         const results = {};
         const source = liveResults || (watchedHere ? (comp.results || []) : []);
         source.forEach(function (r) {
