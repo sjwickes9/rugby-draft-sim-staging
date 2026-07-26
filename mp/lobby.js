@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607261725";
+    const VERSION = "v1.2607261913";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -106,6 +106,13 @@
 
     // ── Filters ─────────────────────────────────────────────
     function filters() {
+        // In a World Cup the tournament sets who you play, not who you can
+        // draft from. The pool is every player, all nations, all years, so
+        // the nation and year filters are deliberately not applied here even
+        // if a stale selection lingers in state from custom mode.
+        if (state.gameType === "worldcup") {
+            return { mode: "tournament", geoLabel: "All nations" };
+        }
         const f = { mode: state.mode, geoLabel: state.geo || "All nations" };
         if (state.geo) f.countries = GEO[state.geo];
         if (state.mode === "tournament") { f.yearMin = YEARS[state.yMin]; f.yearMax = YEARS[state.yMax]; }
@@ -255,6 +262,7 @@
             if (el) el.classList.toggle("hidden", t === "worldcup");
         });
         if (t === "worldcup") { state.season = 1; state.aiCount = 0; }
+        applyPoolBlockVisibility();
         refresh();
     }
 
@@ -263,26 +271,30 @@
         const list = MPRWC.tournaments();
 
         // Tournament as a slider: ten years then All time as the final stop.
-        // Every stop is labelled under the track, and the selected one is
-        // highlighted, so no separate readout is needed.
+        // Every stop is labelled above the track and marked with a dot on it,
+        // both positioned to line up with the thumb, so no readout is needed.
         const range = $("rwcRange");
         if (range) {
-            range.max = String(list.length - 1);
+            const n = list.length;
+            range.max = String(n - 1);
             let idx = list.indexOf(state.rwcTournament);
-            if (idx < 0) idx = list.length - 2; // default near 2023
+            if (idx < 0) idx = n - 2; // default near 2023
             range.value = String(idx);
             const labelFor = function (t) { return t === MPRWC.ALL_TIME ? "All time" : t; };
+            const pct = function (i) { return (n === 1) ? 0 : (i / (n - 1)) * 100; };
+
             const scale = $("rwcScale");
             if (scale) {
                 scale.innerHTML = list.map(function (t, i) {
-                    return "<span class='rwc-tick" + (i === idx ? " on" : "") + "'>"
-                        + labelFor(t) + "</span>";
+                    return "<span class='rwc-tick" + (i === idx ? " on" : "") + "'"
+                        + " style='left:" + pct(i) + "%'>" + labelFor(t) + "</span>";
                 }).join("");
             }
-            const ticks = $("rwcTicks");
-            if (ticks && !ticks.childElementCount) {
-                ticks.innerHTML = list.map(function (_, i) {
-                    return "<option value='" + i + "'></option>";
+            const dots = $("rwcDots");
+            if (dots) {
+                dots.innerHTML = list.map(function (_, i) {
+                    return "<span class='rwc-dot" + (i === idx ? " on" : "") + "'"
+                        + " style='left:" + pct(i) + "%'></span>";
                 }).join("");
             }
         }
@@ -336,7 +348,21 @@
         const career = state.mode === "career";
         $("modeCareer").setAttribute("aria-pressed", String(career));
         $("modeTournament").setAttribute("aria-pressed", String(!career));
-        $("yearsBlock").classList.toggle("hidden", career);
+        applyPoolBlockVisibility();
+    }
+
+    // The Years range and the Nations pool are both player-pool filters. They
+    // make no sense in a World Cup, where the tournament is already fixed by
+    // the World Cup slider, so they are hidden there. Years is also hidden in
+    // career mode. Kept in one place so the two conditions never clobber each
+    // other. Rules stay in every mode.
+    function applyPoolBlockVisibility() {
+        const worldCup = state.gameType === "worldcup";
+        const career = state.mode === "career";
+        const yb = $("yearsBlock");
+        if (yb) yb.classList.toggle("hidden", career || worldCup);
+        const nb = $("nationsBlock");
+        if (nb) nb.classList.toggle("hidden", worldCup);
     }
 
     // ── Drafters ────────────────────────────────────────────
@@ -1264,17 +1290,6 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         const rwc = room.rwc;
         const me = MPNet.currentUid();
         const mine = rwc && rwc.seat && rwc.seat[me];
-        // TEMP DIAGNOSTIC: remove once the missing-line bug is confirmed fixed.
-        if (window.MP_DEBUG_RWC) {
-            console.log("[rwcLine]", elId, {
-                me: me,
-                isHost: (room.meta || {}).hostUid === me,
-                hasRwc: !!rwc,
-                seatKeys: rwc && rwc.seat ? Object.keys(rwc.seat) : null,
-                mineSeat: mine || null,
-                elHidden: el.classList.contains("hidden")
-            });
-        }
         if (!rwc || !mine) { el.classList.add("hidden"); el.innerHTML = ""; return; }
         const tournament = rwc.tournament === (typeof MPRWC !== "undefined" ? MPRWC.ALL_TIME : "alltime")
             ? "All time" : rwc.tournament;
