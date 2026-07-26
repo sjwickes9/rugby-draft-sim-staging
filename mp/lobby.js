@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607251712";
+    const VERSION = "v1.2607261210";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -632,6 +632,7 @@ on("watchFinals", "click", resumeFromPools);
                 const keyWatched = compKey(latestRoom || {});
                 playBack(comp.results, comp.fixtures).then(function () {
                     watchedComp[keyWatched] = true;
+                    if (window.MP_DEBUG_REVEAL) console.log("[watched SET via playBtn]", keyWatched, "isHost=", (latestRoom.meta||{}).hostUid===MPNet.currentUid());
                     renderRoom(latestRoom);
                 });
                 return;
@@ -2037,6 +2038,7 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
             const keyWatched = compKey(latestRoom || {});
             return playBack(results, resolved).then(function () {
                 watchedComp[keyWatched] = true;
+                if (window.MP_DEBUG_REVEAL) console.log("[watched SET via runFixtures]", keyWatched, "isHost=", (latestRoom.meta||{}).hostUid===MPNet.currentUid());
                 renderRoom(latestRoom);
             });
         });
