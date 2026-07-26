@@ -1069,3 +1069,25 @@ input[type=color] {
     color: var(--slate); border: 1px solid var(--line); border-radius: 3px;
     padding: 1px 5px; margin-left: 8px; vertical-align: middle;
 }
+
+
+/* World Cup: the simple nation line and the host's pick screen */
+.rwc-line {
+    display: flex; flex-direction: column; gap: 2px;
+    background: linear-gradient(180deg, rgba(22,224,205,0.12), var(--panel));
+    border: 1px solid var(--line); border-left: 4px solid var(--teal);
+    border-radius: 8px; padding: 9px 13px; margin: 0 0 14px;
+}
+.rwc-line-lbl {
+    font-family: var(--display); text-transform: uppercase; letter-spacing: 0.12em;
+    font-size: 0.62rem; color: var(--slate);
+}
+.rwc-line-main { font-size: 0.92rem; }
+.rwc-line-main strong { color: var(--teal); }
+
+.rwc-pick { display: flex; flex-direction: column; gap: 10px; }
+.rwc-pick-row { display: flex; align-items: center; gap: 10px; }
+.rwc-pick-name { flex: 1; font-size: 0.9rem; }
+.rwc-pick-row .dropdown { flex: 1; }
+
+.modal-hint { margin: 12px 0 0; font-size: 0.8rem; color: var(--slate); }

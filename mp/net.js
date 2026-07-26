@@ -293,7 +293,73 @@ window.MPNet = (function () {
     // Writes the draft node and flips the room to "drafting". Once the
     // status leaves "lobby" the settings rule locks the settings block,
     // which is what fixes the season length for the duration.
-    function startDraft(code) {
+    // Build the World Cup nation assignment. Every user replaces one real
+    // nation. For the draw, drawReplacements spreads users across pools;
+    // for the pick, the host has named a nation per user. The result is a
+    // flat structure every client reads: which nation each user is, and
+    // which pool that nation sits in.
+    //   { tournament, assign, seed, seat: { uid: { nation, pool } } }
+    function buildRwcAssignment(settings, uids, members, seed, rwcPicks) {
+        if (typeof MPRWC === "undefined") {
+            return { error: "The World Cup engine failed to load. Reload and try again." };
+        }
+        const tournament = settings.rwcTournament || "2023";
+        // Order humans by join time so the assignment is stable and the
+        // draw's one-per-pool spread follows a predictable sequence.
+        const humans = uids.filter(function (u) { return !(members[u] && members[u].ai); });
+        humans.sort(function (a, b) {
+            return ((members[a] || {}).joinedAt || 0) - ((members[b] || {}).joinedAt || 0);
+        });
+        if (humans.length < 2) {
+            return { error: "A World Cup needs at least two users." };
+        }
+
+        const poolsFor = MPRWC.poolsFor(tournament);
+        const poolOf = function (nation) {
+            let found = null;
+            Object.keys(poolsFor).forEach(function (k) {
+                if (poolsFor[k].indexOf(nation) !== -1) found = k;
+            });
+            return found;
+        };
+
+        const seat = {};
+        if ((settings.rwcAssign || "draw") === "pick" && rwcPicks) {
+            // Named by the host. Validate: every user named, every nation
+            // real and distinct.
+            const seen = {};
+            for (let i = 0; i < humans.length; i++) {
+                const u = humans[i];
+                const nation = rwcPicks[u];
+                if (!nation) return { error: "Every user needs a nation before the draft can start." };
+                if (seen[nation]) return { error: "Two users cannot replace the same nation (" + nation + ")." };
+                const pool = poolOf(nation);
+                if (!pool) return { error: nation + " is not part of this tournament." };
+                seen[nation] = true;
+                seat[u] = { nation: nation, pool: pool };
+            }
+        } else {
+            // Drawn. drawReplacements spreads users one per pool while pools
+            // last, then at random, so a big group is not stacked together.
+            const rng = MPDraft.makeRng(seed);
+            const draw = MPRWC.drawReplacements(tournament, humans.length, rng);
+            if (!draw || draw.length < humans.length) {
+                return { error: "Could not draw nations for this tournament." };
+            }
+            humans.forEach(function (u, i) {
+                seat[u] = { nation: draw[i].nation, pool: draw[i].pool };
+            });
+        }
+
+        return {
+            tournament: tournament,
+            assign: settings.rwcAssign || "draw",
+            seed: seed,
+            seat: seat
+        };
+    }
+
+    function startDraft(code, rwcPicks) {
         return whenReady().then(function () {
             return db.ref("rooms/" + code).get().then(function (snap) {
                 const room = snap.val();
@@ -312,6 +378,16 @@ window.MPNet = (function () {
                 const settings = room.settings || {};
                 const competition = settings.competition || 1;
                 const seed = MPDraft.newSeed();
+
+                // World Cup mode: each user replaces one real nation. The
+                // assignment is decided once, here, and stored so every
+                // client agrees. It is only built if it does not already
+                // exist, so a restarted draft keeps the same nations.
+                let rwcNode = room.rwc || null;
+                if (settings.gameType === "worldcup" && !rwcNode) {
+                    rwcNode = buildRwcAssignment(settings, uids, members, seed, rwcPicks);
+                    if (rwcNode.error) throw new Error(rwcNode.error);
+                }
 
                 // Re-snapshot the pool, so any settings the host changed
                 // between competitions take effect and every user drafts
@@ -355,6 +431,9 @@ window.MPNet = (function () {
                 };
                 if (freshPool && freshPool.length) {
                     updates["rooms/" + code + "/pool"] = freshPool;
+                }
+                if (rwcNode) {
+                    updates["rooms/" + code + "/rwc"] = rwcNode;
                 }
                 updates["rooms/" + code + "/comp"] = null;
                 updates["rooms/" + code + "/ready"] = null;

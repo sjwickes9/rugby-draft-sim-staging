@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607261220";
+    const VERSION = "v1.2607261244";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -932,14 +932,95 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
 
     function onStartDraft() {
         if (!currentCode) return;
+        const room = latestRoom || {};
+        const s = room.settings || {};
+        // World Cup with named nations: the host chooses which nation each
+        // user replaces before the draft can start. Drawn assignment needs
+        // no screen, and neither does a custom game.
+        if (s.gameType === "worldcup" && (s.rwcAssign || "draw") === "pick" && !room.rwc) {
+            openRwcPick(room);
+            return;
+        }
         $("startDraft").disabled = true;
-        setStatus("startHint", "Drawing the draft lottery...", false);
+        setStatus("startHint", s.gameType === "worldcup"
+            ? "Drawing nations and starting the draft..."
+            : "Drawing the draft lottery...", false);
         MPNet.startDraft(currentCode)
             .then(function () { setStatus("startHint", "", false); })
             .catch(function (err) {
                 showNotice(err.message); setStatus("startHint", err.message, true);
                 $("startDraft").disabled = false;
             });
+    }
+
+    // The host names a nation for each user before a pick-mode World Cup.
+    // A simple modal with one dropdown per user, drawn from the tournament's
+    // real nations, each usable once.
+    function openRwcPick(room) {
+        if (typeof MPRWC === "undefined") {
+            showNotice("The World Cup engine is not loaded. Reload and try again.");
+            return;
+        }
+        const s = room.settings || {};
+        const tournament = s.rwcTournament || "2023";
+        const members = room.members || {};
+        const humans = Object.keys(members).filter(function (u) {
+            return !(members[u] && members[u].ai);
+        }).sort(function (a, b) {
+            return ((members[a] || {}).joinedAt || 0) - ((members[b] || {}).joinedAt || 0);
+        });
+        const nations = MPRWC.nationsIn(tournament).slice().sort();
+        const chosen = {};
+
+        const body = document.createElement("div");
+        body.className = "rwc-pick";
+        const rebuild = function () {
+            const taken = {};
+            humans.forEach(function (u) { if (chosen[u]) taken[chosen[u]] = u; });
+            body.innerHTML = humans.map(function (u) {
+                const nm = esc((members[u] || {}).name || "User");
+                const opts = ["<option value=''>Choose a nation</option>"].concat(
+                    nations.map(function (n) {
+                        const disabled = taken[n] && taken[n] !== u;
+                        return "<option value='" + esc(n) + "'"
+                            + (chosen[u] === n ? " selected" : "")
+                            + (disabled ? " disabled" : "") + ">" + esc(n) + "</option>";
+                    })
+                ).join("");
+                return "<label class='rwc-pick-row'><span class='rwc-pick-name'>" + nm + "</span>"
+                    + "<select class='dropdown' data-pickuid='" + esc(u) + "'>" + opts + "</select></label>";
+            }).join("");
+        };
+        rebuild();
+        body.addEventListener("change", function (e) {
+            const sel = e.target.closest("[data-pickuid]");
+            if (!sel) return;
+            const u = sel.getAttribute("data-pickuid");
+            if (sel.value) chosen[u] = sel.value; else delete chosen[u];
+            rebuild();
+        });
+
+        modalNode({
+            title: "Name each nation",
+            node: body,
+            hint: "Each user replaces one real nation from the " + esc(tournament) + " World Cup.",
+            ok: "Start the draft", cancel: "Back"
+        }).then(function (go) {
+            if (!go) return;
+            const missing = humans.filter(function (u) { return !chosen[u]; });
+            if (missing.length) {
+                showNotice("Every user needs a nation before the draft can start.");
+                return;
+            }
+            $("startDraft").disabled = true;
+            setStatus("startHint", "Starting the draft...", false);
+            MPNet.startDraft(currentCode, chosen)
+                .then(function () { setStatus("startHint", "", false); })
+                .catch(function (err) {
+                    showNotice(err.message); setStatus("startHint", err.message, true);
+                    $("startDraft").disabled = false;
+                });
+        });
     }
 
     // A closed room stays readable, but every action that would need the
@@ -1209,6 +1290,24 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         const c = room && room.comp;
         return (c && c.number) || ((room && room.settings && room.settings.competition) || 1);
     }
+    // The simple nation line for World Cup mode: tells this user which
+    // nation they are replacing and which pool it sits in. Shown on the
+    // room and draft screens. Richer pool and fixture visuals come later.
+    function renderRwcLine(room, elId) {
+        const el = $(elId);
+        if (!el) return;
+        const rwc = room.rwc;
+        const me = MPNet.currentUid();
+        const mine = rwc && rwc.seat && rwc.seat[me];
+        if (!rwc || !mine) { el.classList.add("hidden"); el.innerHTML = ""; return; }
+        const tournament = rwc.tournament === (typeof MPRWC !== "undefined" ? MPRWC.ALL_TIME : "alltime")
+            ? "All time" : rwc.tournament;
+        el.classList.remove("hidden");
+        el.innerHTML = "<span class='rwc-line-lbl'>" + esc(tournament) + " World Cup</span>"
+            + "<span class='rwc-line-main'>You are <strong>" + esc(mine.nation) + "</strong>"
+            + (mine.pool ? " in Pool " + esc(mine.pool) : "") + "</span>";
+    }
+
     function renderRoom(room) {
         try {
             renderRoomInner(room);
@@ -1368,6 +1467,7 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
 
         // Season position
         renderBrief(room);
+        renderRwcLine(room, "rwcRoomLine");
         renderHostIdle(room);
         MPNet.noteRoom(room);
         // Keep the host's heartbeat fresh so a live host is never displaced.
@@ -1640,6 +1740,7 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         if (status === "drafting") {
             driveAi(room);
             renderDraftCover(room);
+            renderRwcLine(room, "rwcDraftLine");
             // A new competition writes a fresh draft node, so rebuild the
             // draft UI rather than reusing the finished one.
             ensureDraftInit(room);
@@ -3352,6 +3453,45 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         });
     }
     window.MPModal = modal;
+
+    // Like modal, but takes a live DOM node for the body so interactive
+    // content (dropdowns with their own listeners) survives. Enter does not
+    // auto-confirm here, since a keypress inside a field should not submit.
+    function modalNode(opts) {
+        return new Promise(function (resolve) {
+            $("modalTitle").textContent = opts.title || "";
+            const mb = $("modalBody");
+            mb.innerHTML = "";
+            if (opts.node) mb.appendChild(opts.node);
+            if (opts.hint) {
+                const h = document.createElement("p");
+                h.className = "modal-hint";
+                h.textContent = opts.hint;
+                mb.appendChild(h);
+            }
+            $("modalOk").textContent = opts.ok || "Confirm";
+            $("modalCancel").textContent = opts.cancel === "" ? "" : (opts.cancel || "Cancel");
+            $("modalCancel").classList.toggle("hidden", opts.cancel === "");
+            $("modal").classList.remove("hidden");
+            $("modalScrim").classList.remove("hidden");
+
+            const close = function (val) {
+                $("modal").classList.add("hidden");
+                $("modalScrim").classList.add("hidden");
+                $("modalOk").onclick = null;
+                $("modalCancel").onclick = null;
+                $("modalScrim").onclick = null;
+                document.removeEventListener("keydown", onKey);
+                mb.innerHTML = "";
+                resolve(val);
+            };
+            const onKey = function (e) { if (e.key === "Escape") close(false); };
+            $("modalOk").onclick = function () { close(true); };
+            $("modalCancel").onclick = function () { close(false); };
+            $("modalScrim").onclick = function () { close(false); };
+            document.addEventListener("keydown", onKey);
+        });
+    }
 
     function showNotice(msg) {
         if (!msg) { $("notice").classList.add("hidden"); return; }
