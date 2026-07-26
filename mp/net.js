@@ -763,6 +763,35 @@ window.MPNet = (function () {
         });
     }
 
+    // Store a completed World Cup. Like finishCompetition, but the payload
+    // carries the tournament's tables, results, bracket and sides rather than
+    // a league fixture list. Everything sits under comp with an rwc marker so
+    // the client renders World Cup screens.
+    function finishRwc(code, comp, tally) {
+        return whenReady().then(function () {
+            const updates = {};
+            updates["rooms/" + code + "/comp/rwc"] = true;
+            updates["rooms/" + code + "/comp/number"] = comp.number || 1;
+            updates["rooms/" + code + "/comp/tournament"] = comp.tournament || null;
+            updates["rooms/" + code + "/comp/meta"] = comp.meta || null;
+            updates["rooms/" + code + "/comp/tables"] = comp.tables || null;
+            updates["rooms/" + code + "/comp/results"] = comp.results || null;
+            updates["rooms/" + code + "/comp/bracket"] = comp.bracket || null;
+            updates["rooms/" + code + "/comp/sides"] = comp.sides || null;
+            updates["rooms/" + code + "/comp/winner"] = comp.winner || null;
+            updates["rooms/" + code + "/comp/championNation"] = comp.championNation || null;
+            updates["rooms/" + code + "/comp/illegal"] = comp.illegal || null;
+            updates["rooms/" + code + "/comp/breaches"] = comp.breaches || null;
+            updates["rooms/" + code + "/comp/kickerNames"] = comp.kickerNames || null;
+            updates["rooms/" + code + "/comp/squads"] = comp.squads || null;
+            updates["rooms/" + code + "/comp/playedAt"] = firebase.database.ServerValue.TIMESTAMP;
+            updates["rooms/" + code + "/tally"] = tally;
+            return db.ref().update(updates).catch(function (err) {
+                throw new Error("Could not save the results (" + (err.code || err.message) + ").");
+            });
+        });
+    }
+
     // ── Next competition (host only) ───────────────────────
     // Archives the finished competition, clears the draft and commitments,
     // and starts a fresh draft in reverse standings order so the bottom of
@@ -945,6 +974,7 @@ window.MPNet = (function () {
         submitCommit: submitCommit,
         startCompetition: startCompetition,
         finishCompetition: finishCompetition,
+        finishRwc: finishRwc,
         nextCompetition: nextCompetition,
         rememberRoom: rememberRoom,
         lastRoom: lastRoom,

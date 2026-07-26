@@ -1096,7 +1096,7 @@ input[type=color] {
 .rwc-ticks { position: relative; height: 22px; margin-bottom: 6px; }
 .rwc-tick {
     position: absolute; transform: translateX(-50%);
-    font-family: var(--display); font-size: 1rem; color: var(--slate);
+    font-family: var(--display); font-size: 0.82rem; color: var(--slate);
     white-space: nowrap;
 }
 .rwc-tick:first-child { transform: none; }

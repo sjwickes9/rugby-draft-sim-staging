@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607261938";
+    const VERSION = "v1.2607261946";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -281,13 +281,20 @@
             if (idx < 0) idx = n - 2; // default near 2023
             range.value = String(idx);
             const labelFor = function (t) { return t === MPRWC.ALL_TIME ? "All time" : t; };
+            // Short labels for the ticks: two-digit years and a compact All
+            // time, so eleven stops fit a narrow width without overlapping.
+            const shortLabel = function (t) {
+                if (t === MPRWC.ALL_TIME) return "All";
+                return "'" + String(t).slice(-2);
+            };
             const pct = function (i) { return (n === 1) ? 0 : (i / (n - 1)) * 100; };
 
             const scale = $("rwcScale");
             if (scale) {
                 scale.innerHTML = list.map(function (t, i) {
                     return "<span class='rwc-tick" + (i === idx ? " on" : "") + "'"
-                        + " style='left:" + pct(i) + "%'>" + labelFor(t) + "</span>";
+                        + " style='left:" + pct(i) + "%' title='" + labelFor(t) + "'>"
+                        + shortLabel(t) + "</span>";
                 }).join("");
             }
             const dots = $("rwcDots");
@@ -707,7 +714,9 @@ on("watchFinals", "click", resumeFromPools);
             if (!latestRoom) return;
             $("playBtn").disabled = true;
             $("compStatus").textContent = "Playing the fixtures...";
-            runFixtures(latestRoom)
+            const isWorldCup = ((latestRoom.settings || {}).gameType === "worldcup");
+            const run = isWorldCup ? runRwcTournament(latestRoom) : runFixtures(latestRoom);
+            run
                 .then(function () { $("compStatus").textContent = ""; })
                 .catch(function (err) {
                     $("compStatus").textContent = err.message;
@@ -2142,6 +2151,184 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
                 watchedComp[keyWatched] = true;
                 renderRoom(latestRoom);
             });
+        });
+    }
+
+    // ── World Cup run ───────────────────────────────────────
+    // The World Cup path, parallel to runFixtures. Each user has drafted an
+    // XV that stands in a real nation's place. We rebuild every squad from
+    // the shared pick list exactly as the league path does, rate each side,
+    // then hand the lot to the engine, which plays the pools and knockouts
+    // for the whole tournament and returns tables, results, a bracket and a
+    // champion. The result is stored under comp with an rwc marker so the
+    // render path knows to show World Cup screens.
+    function runRwcTournament(room) {
+        if (typeof MPRWC === "undefined") {
+            return Promise.reject(new Error("The World Cup engine is not loaded. Reload and try again."));
+        }
+        const draft = room.draft || {};
+        const pool = room.pool || [];
+        const commits = room.commit || {};
+        const order = draft.order || [];
+        const rwc = room.rwc || {};
+        const seat = rwc.seat || {};
+
+        // Rebuild every squad from the shared pick list, as runFixtures does.
+        const squads = {};
+        order.forEach(function (u) { squads[u] = MPPicks.emptySquad(); });
+        const picks = draft.picks || {};
+        Object.keys(picks).forEach(function (k) {
+            const pk = picks[k];
+            const p = pool[pk.i];
+            if (p && squads[pk.by]) squads[pk.by][pk.slot] = p;
+        });
+
+        // Active constraints, so an illegal squad carries its penalty.
+        let activeRules = [];
+        try {
+            const st = room.settings || {};
+            const ff = {
+                mode: st.mode || "tournament",
+                yearMin: st.yearMin || undefined,
+                yearMax: st.yearMax || undefined,
+                countries: st.countries || null
+            };
+            const an = MPEngine.feasibility(allSquads, ff, positionFamilyMap);
+            activeRules = MPRules.activeConstraints(MPRules.buildContext(ff, an), st.rules || {});
+        } catch (e) {}
+
+        const stset = room.settings || {};
+        const chemOpts = {
+            mode: stset.mode || "career",
+            chemistry: stset.chemistry !== false,
+            tournamentCount: (function () {
+                const ys = {};
+                (pool || []).forEach(function (p) { if (p.year) ys[p.year] = 1; });
+                return Object.keys(ys).length || 99;
+            })()
+        };
+
+        // Per user: rating, kicker rate, kicker name, and the compact squad
+        // the engine plays with.
+        const userRating = {}, userKicker = {}, userSquad = {}, kickerSlotOf = {};
+        order.forEach(function (u) {
+            const c = commits[u] || {};
+            userRating[u] = MPSim.teamRating(squads[u], c.strategy, pool, activeRules, chemOpts).overall;
+            const kp = c.kickerSlot ? squads[u][c.kickerSlot] : null;
+            userKicker[u] = MPCommit.kickerRate(kp);
+            kickerSlotOf[u] = c.kickerSlot || null;
+            userSquad[u] = squads[u];
+        });
+
+        // The drafted map: nation -> { playerName: true }. A player a user has
+        // drafted cannot also turn out for his real nation in the score
+        // breakdown, so the engine excludes him and the next man scores.
+        const drafted = {};
+        order.forEach(function (u) {
+            MPPicks.SLOTS.forEach(function (s) {
+                const p = squads[u][s.id];
+                if (p && p.name) {
+                    if (!drafted[p.country]) drafted[p.country] = {};
+                    drafted[p.country][p.name] = true;
+                }
+            });
+        });
+
+        // replacements: uid -> nation, from the assignment.
+        const replacements = {};
+        order.forEach(function (u) { if (seat[u]) replacements[u] = seat[u].nation; });
+
+        const rng = MPDraft.makeRng((draft.seed || 1) ^ 0x5f3759df);
+        const nameOf = function (u) { return ((room.members || {})[u] || {}).name || "User"; };
+
+        let out;
+        try {
+            out = MPRWC.runTournament({
+                tournament: rwc.tournament || "2023",
+                MPPicks: MPPicks, MPSim: MPSim,
+                rng: rng,
+                replacements: replacements,
+                userRating: userRating,
+                userKicker: userKicker,
+                userSquad: userSquad,
+                drafted: drafted,
+                nameOf: nameOf
+            });
+        } catch (e) {
+            return Promise.reject(new Error("The tournament could not be simulated (" + e.message + ")."));
+        }
+
+        // Legality per user, stored so every client shows the same verdict.
+        const illegal = {}, breachInfo = {};
+        order.forEach(function (u) {
+            const b = MPSim.squadBreaches(squads[u], pool, activeRules);
+            if (b.length) { illegal[u] = true; breachInfo[u] = b; }
+        });
+
+        // Compact squads for later team-sheet rendering, matching runFixtures.
+        const compactSquads = {};
+        order.forEach(function (u) {
+            const sq = squads[u] || {};
+            const one = {};
+            MPPicks.SLOTS.forEach(function (s) {
+                const p = sq[s.id];
+                if (!p) return;
+                one[s.id] = { n: p.name, c: p.country, y: p.year || null,
+                    r: p.rating, ps: p.positions || [] };
+            });
+            compactSquads[u] = one;
+        });
+
+        const kickerNames = {};
+        order.forEach(function (u) {
+            const kp = kickerSlotOf[u] ? squads[u][kickerSlotOf[u]] : null;
+            kickerNames[u] = kp ? kp.name : null;
+        });
+
+        // The engine returns the champion nation key; map it to a uid winner
+        // when a user owns that nation, so the room tally and the winner
+        // panel read the same way as the league path.
+        const championNation = (out.bracket || {}).champion || null;
+        const winnerUid = (function () {
+            let w = null;
+            Object.keys(seat).forEach(function (u) {
+                if (seat[u] && seat[u].nation === championNation) w = u;
+            });
+            return w;
+        })();
+
+        const tally = MPSim.updateTally(room.tally, order, winnerUid, null, illegal);
+
+        return MPNet.finishRwc(currentCode, {
+            number: (room.settings || {}).competition || 1,
+            rwc: true,
+            tournament: out.tournament,
+            meta: out.meta,
+            tables: out.tables,
+            results: out.results,
+            bracket: out.bracket,
+            sides: out.sides,
+            winner: winnerUid,
+            championNation: championNation,
+            illegal: illegal, breaches: breachInfo,
+            kickerNames: kickerNames,
+            squads: compactSquads
+        }, tally).then(function () {
+            const keyWatched = compKey(latestRoom || {});
+            // Playback screens are built in the next stage. For now the
+            // result is stored and marked watched so the flow does not stall,
+            // and a console line confirms the shape for verification.
+            if (window.MP_DEBUG_RWC) {
+                console.log("[rwc stored]", {
+                    champion: championNation,
+                    winnerUid: winnerUid,
+                    pools: Object.keys(out.tables || {}),
+                    matches: (out.results || []).length,
+                    bracket: out.bracket
+                });
+            }
+            watchedComp[keyWatched] = true;
+            renderRoom(latestRoom);
         });
     }
 
