@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607261609";
+    const VERSION = "v1.2607261657";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -261,14 +261,42 @@
     function renderRwc() {
         if (typeof MPRWC === "undefined") return;
         const list = MPRWC.tournaments();
-        $("rwcYears").innerHTML = list.map(function (t) {
-            const label = t === MPRWC.ALL_TIME ? "All time" : t;
-            return "<button class='chip" + (state.rwcTournament === t ? " on" : "")
-                + "' data-rwc='" + t + "'>" + label + "</button>";
-        }).join("");
+
+        // Tournament as a slider: ten years then All time as the final stop.
+        const range = $("rwcRange");
+        if (range) {
+            range.max = String(list.length - 1);
+            let idx = list.indexOf(state.rwcTournament);
+            if (idx < 0) idx = list.length - 2; // default near 2023
+            range.value = String(idx);
+            const labelFor = function (t) { return t === MPRWC.ALL_TIME ? "All time" : t; };
+            $("rwcRangeValue").textContent = labelFor(list[idx]);
+            // A light scale under the track: first year, a middle year, and
+            // All time, so the ends are legible without crowding.
+            const scale = $("rwcScale");
+            if (scale) {
+                scale.innerHTML = "<span>" + labelFor(list[0]) + "</span>"
+                    + "<span>" + labelFor(list[Math.floor((list.length - 1) / 2)]) + "</span>"
+                    + "<span>" + labelFor(list[list.length - 1]) + "</span>";
+            }
+            const ticks = $("rwcTicks");
+            if (ticks && !ticks.childElementCount) {
+                ticks.innerHTML = list.map(function (_, i) {
+                    return "<option value='" + i + "'></option>";
+                }).join("");
+            }
+        }
 
         $("rwcAssignApp").setAttribute("aria-pressed", String(state.rwcAssign === "app"));
         $("rwcAssignDraft").setAttribute("aria-pressed", String(state.rwcAssign === "userdraft"));
+
+        // When users draft only from their own nation, there is no shared
+        // pool to choose, so the pool buttons are not shown. A small link
+        // remains so the host is never trapped and can reopen the choice.
+        const poolControl = $("rwcPoolControl");
+        const poolReopen = $("rwcPoolReopen");
+        if (poolControl) poolControl.classList.toggle("hidden", state.rwcPool === "nation");
+        if (poolReopen) poolReopen.classList.toggle("hidden", state.rwcPool !== "nation");
         $("rwcPoolWhole").setAttribute("aria-pressed", String(state.rwcPool === "whole"));
         $("rwcPoolNation").setAttribute("aria-pressed", String(state.rwcPool === "nation"));
 
@@ -288,7 +316,7 @@
         if (state.rwcPool === "nation") pending.push("drafting from within your nation");
         if (pending.length) {
             summary += " Coming soon: " + pending.join(" and ")
-                + ". For now, choose the app assigning nations and the whole pool.";
+                + ". For now, choose randomly assigned nations and the whole pool.";
         }
         $("rwcSummary").textContent = summary;
     }
@@ -544,10 +572,11 @@ on("typeCustom", "click", function () { setGameType("custom"); });
         on("rwcAssignDraft", "click", function () { state.rwcAssign = "userdraft"; refresh(); });
         on("rwcPoolWhole", "click", function () { state.rwcPool = "whole"; refresh(); });
         on("rwcPoolNation", "click", function () { state.rwcPool = "nation"; refresh(); });
-        on("rwcYears", "click", function (e) {
-            const b = e.target.closest("[data-rwc]");
-            if (!b) return;
-            state.rwcTournament = b.getAttribute("data-rwc");
+        on("rwcPoolReopen", "click", function () { state.rwcPool = "whole"; refresh(); });
+        on("rwcRange", "input", function (e) {
+            const list = MPRWC.tournaments();
+            const i = Math.max(0, Math.min(list.length - 1, parseInt(e.target.value, 10) || 0));
+            state.rwcTournament = list[i];
             refresh();
         });
         on("helpOpen", "click", function () { openGuide(null); });
@@ -1231,12 +1260,27 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
     // The simple nation line for World Cup mode: tells this user which
     // nation they are replacing and which pool it sits in. Shown on the
     // room and draft screens. Richer pool and fixture visuals come later.
+    // The simple nation line for World Cup mode: tells each user which
+    // nation they are replacing and which pool it sits in. Shown to every
+    // user on the room and draft screens. Richer pool and fixture visuals
+    // come later.
     function renderRwcLine(room, elId) {
         const el = $(elId);
         if (!el) return;
         const rwc = room.rwc;
         const me = MPNet.currentUid();
         const mine = rwc && rwc.seat && rwc.seat[me];
+        // TEMP DIAGNOSTIC: remove once the missing-line bug is confirmed fixed.
+        if (window.MP_DEBUG_RWC) {
+            console.log("[rwcLine]", elId, {
+                me: me,
+                isHost: (room.meta || {}).hostUid === me,
+                hasRwc: !!rwc,
+                seatKeys: rwc && rwc.seat ? Object.keys(rwc.seat) : null,
+                mineSeat: mine || null,
+                elHidden: el.classList.contains("hidden")
+            });
+        }
         if (!rwc || !mine) { el.classList.add("hidden"); el.innerHTML = ""; return; }
         const tournament = rwc.tournament === (typeof MPRWC !== "undefined" ? MPRWC.ALL_TIME : "alltime")
             ? "All time" : rwc.tournament;
