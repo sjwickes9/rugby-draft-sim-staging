@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607261244";
+    const VERSION = "v1.2607261609";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -68,8 +68,11 @@
         chemistry: true,   // whether the chemistry bonus applies
         gameType: "custom",     // "custom" or "worldcup"
         rwcTournament: "2023",  // which World Cup, or MPRWC.ALL_TIME
-        rwcAssign: "draw",      // "draw" or "pick"
-        rwcChosen: {},          // seat index -> nation, when picking
+        // Three independent World Cup choices. The tournament above sets the
+        // opposition and structure only. Assignment and pool are separate and
+        // combine freely; the tournament never restricts either.
+        rwcAssign: "app",       // "app" (app assigns) or "userdraft" (users draft nations)
+        rwcPool: "whole",       // "whole" (competitive snake) or "nation" (within-nation parallel)
         turnMs: 600000,    // time allowed per pick, 0 means no limit
         hostIdleMs: 86400000,  // host handover after this much silence
         path: "create",    // "create" | "join"
@@ -263,31 +266,38 @@
             return "<button class='chip" + (state.rwcTournament === t ? " on" : "")
                 + "' data-rwc='" + t + "'>" + label + "</button>";
         }).join("");
-        $("rwcDraw").setAttribute("aria-pressed", String(state.rwcAssign === "draw"));
-        $("rwcPick").setAttribute("aria-pressed", String(state.rwcAssign === "pick"));
-        $("rwcPickList").classList.toggle("hidden", state.rwcAssign !== "pick");
+
+        $("rwcAssignApp").setAttribute("aria-pressed", String(state.rwcAssign === "app"));
+        $("rwcAssignDraft").setAttribute("aria-pressed", String(state.rwcAssign === "userdraft"));
+        $("rwcPoolWhole").setAttribute("aria-pressed", String(state.rwcPool === "whole"));
+        $("rwcPoolNation").setAttribute("aria-pressed", String(state.rwcPool === "nation"));
 
         const meta = MPRWC.metaFor(state.rwcTournament);
         const nations = MPRWC.nationsIn(state.rwcTournament);
-        $("rwcSummary").textContent = (state.rwcTournament === MPRWC.ALL_TIME
+        let summary = (state.rwcTournament === MPRWC.ALL_TIME
                 ? "All time squads, 2023 structure. "
                 : "")
             + meta.teams + " teams, pools of " + meta.poolsOf + ", "
             + (meta.bonusPoints ? "bonus points" : "two points for a win") + ". "
             + state.size + " of the " + nations.length + " nations replaced by users.";
-
-        if (state.rwcAssign === "pick") {
-            $("rwcPickList").innerHTML = Array.from({ length: state.size }, function (_, i) {
-                const chosen = state.rwcChosen[i] || "";
-                return "<label class='pick-row'><span>User " + (i + 1) + "</span>"
-                    + "<select data-rwcseat='" + i + "'>"
-                    + "<option value=''>Choose a nation</option>"
-                    + nations.map(function (n) {
-                        return "<option value='" + n + "'" + (chosen === n ? " selected" : "")
-                            + ">" + n + "</option>";
-                    }).join("") + "</select></label>";
-            }).join("");
+        // The two new mechanics are not built yet. The controls are live so
+        // the intent is clear, but selecting one is flagged as not yet ready
+        // and the start is blocked until it is.
+        const pending = [];
+        if (state.rwcAssign === "userdraft") pending.push("users drafting their nations");
+        if (state.rwcPool === "nation") pending.push("drafting from within your nation");
+        if (pending.length) {
+            summary += " Coming soon: " + pending.join(" and ")
+                + ". For now, choose the app assigning nations and the whole pool.";
         }
+        $("rwcSummary").textContent = summary;
+    }
+
+    // True when the current World Cup choices include a mechanic not yet
+    // built, so the host cannot start into a half-finished flow.
+    function rwcHasPending() {
+        return state.gameType === "worldcup"
+            && (state.rwcAssign === "userdraft" || state.rwcPool === "nation");
     }
 
     function renderPath() {
@@ -455,8 +465,9 @@
             (status.state === "ready" ? "<span class='live-dot'></span>" : "")
             + "<span class='status-pill'><span class='glyph'>" + glyph + "</span>" + status.label + "</span>"
             + "<span class='strap-body'><span>" + MPEngine.readoutText(analysis, f) + "</span>" + extra + "</span>";
-        // Advisory is playable: only a blocked pool disables Create.
-        $("create").disabled = (status.state === "blocked");
+        // Advisory is playable: only a blocked pool disables Create. A World
+        // Cup using a not-yet-built mechanic is also blocked from creation.
+        $("create").disabled = (status.state === "blocked") || rwcHasPending();
     }
 
     // ── Events ──────────────────────────────────────────────
@@ -529,19 +540,15 @@
         on("joinBtn", "click", onJoin);
 on("typeCustom", "click", function () { setGameType("custom"); });
         on("typeWorldCup", "click", function () { setGameType("worldcup"); });
-        on("rwcDraw", "click", function () { state.rwcAssign = "draw"; refresh(); });
-        on("rwcPick", "click", function () { state.rwcAssign = "pick"; refresh(); });
+        on("rwcAssignApp", "click", function () { state.rwcAssign = "app"; refresh(); });
+        on("rwcAssignDraft", "click", function () { state.rwcAssign = "userdraft"; refresh(); });
+        on("rwcPoolWhole", "click", function () { state.rwcPool = "whole"; refresh(); });
+        on("rwcPoolNation", "click", function () { state.rwcPool = "nation"; refresh(); });
         on("rwcYears", "click", function (e) {
             const b = e.target.closest("[data-rwc]");
             if (!b) return;
             state.rwcTournament = b.getAttribute("data-rwc");
-            state.rwcChosen = {};
             refresh();
-        });
-        on("rwcPickList", "change", function (e) {
-            const sel = e.target.closest("[data-rwcseat]");
-            if (!sel) return;
-            state.rwcChosen[sel.getAttribute("data-rwcseat")] = sel.value;
         });
         on("helpOpen", "click", function () { openGuide(null); });
         on("helpBack", "click", function () { showOnly(lastViewBeforeHelp || "lobbyView"); });
@@ -849,6 +856,13 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
 
     function onCreate() {
         rememberName(($("name").value || "").trim());
+        // The two new World Cup mechanics are not built yet, so a room using
+        // one could never start. Stop it at creation with a clear reason.
+        if (rwcHasPending()) {
+            setStatus("lobbyStatus", "That combination is coming soon. For now, "
+                + "choose the app assigning nations and the whole pool.", true);
+            return;
+        }
         // Rules that cannot produce a legal XV must be caught here, not
         // discovered at pick thirteen.
         try {
@@ -867,7 +881,8 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
               turnMs: state.turnMs, hostIdleMs: state.hostIdleMs, chemistry: state.chemistry,
               gameType: state.gameType,
               rwcTournament: state.gameType === "worldcup" ? state.rwcTournament : null,
-              rwcAssign: state.gameType === "worldcup" ? state.rwcAssign : null })
+              rwcAssign: state.gameType === "worldcup" ? state.rwcAssign : null,
+              rwcPool: state.gameType === "worldcup" ? state.rwcPool : null })
             .then(function (code) {
                 // Seats are generated from the built pool, so a personality
                 // can only prefer nations that are actually available.
@@ -934,16 +949,9 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         if (!currentCode) return;
         const room = latestRoom || {};
         const s = room.settings || {};
-        // World Cup with named nations: the host chooses which nation each
-        // user replaces before the draft can start. Drawn assignment needs
-        // no screen, and neither does a custom game.
-        if (s.gameType === "worldcup" && (s.rwcAssign || "draw") === "pick" && !room.rwc) {
-            openRwcPick(room);
-            return;
-        }
         $("startDraft").disabled = true;
         setStatus("startHint", s.gameType === "worldcup"
-            ? "Drawing nations and starting the draft..."
+            ? "Assigning nations and starting the draft..."
             : "Drawing the draft lottery...", false);
         MPNet.startDraft(currentCode)
             .then(function () { setStatus("startHint", "", false); })
@@ -951,76 +959,6 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
                 showNotice(err.message); setStatus("startHint", err.message, true);
                 $("startDraft").disabled = false;
             });
-    }
-
-    // The host names a nation for each user before a pick-mode World Cup.
-    // A simple modal with one dropdown per user, drawn from the tournament's
-    // real nations, each usable once.
-    function openRwcPick(room) {
-        if (typeof MPRWC === "undefined") {
-            showNotice("The World Cup engine is not loaded. Reload and try again.");
-            return;
-        }
-        const s = room.settings || {};
-        const tournament = s.rwcTournament || "2023";
-        const members = room.members || {};
-        const humans = Object.keys(members).filter(function (u) {
-            return !(members[u] && members[u].ai);
-        }).sort(function (a, b) {
-            return ((members[a] || {}).joinedAt || 0) - ((members[b] || {}).joinedAt || 0);
-        });
-        const nations = MPRWC.nationsIn(tournament).slice().sort();
-        const chosen = {};
-
-        const body = document.createElement("div");
-        body.className = "rwc-pick";
-        const rebuild = function () {
-            const taken = {};
-            humans.forEach(function (u) { if (chosen[u]) taken[chosen[u]] = u; });
-            body.innerHTML = humans.map(function (u) {
-                const nm = esc((members[u] || {}).name || "User");
-                const opts = ["<option value=''>Choose a nation</option>"].concat(
-                    nations.map(function (n) {
-                        const disabled = taken[n] && taken[n] !== u;
-                        return "<option value='" + esc(n) + "'"
-                            + (chosen[u] === n ? " selected" : "")
-                            + (disabled ? " disabled" : "") + ">" + esc(n) + "</option>";
-                    })
-                ).join("");
-                return "<label class='rwc-pick-row'><span class='rwc-pick-name'>" + nm + "</span>"
-                    + "<select class='dropdown' data-pickuid='" + esc(u) + "'>" + opts + "</select></label>";
-            }).join("");
-        };
-        rebuild();
-        body.addEventListener("change", function (e) {
-            const sel = e.target.closest("[data-pickuid]");
-            if (!sel) return;
-            const u = sel.getAttribute("data-pickuid");
-            if (sel.value) chosen[u] = sel.value; else delete chosen[u];
-            rebuild();
-        });
-
-        modalNode({
-            title: "Name each nation",
-            node: body,
-            hint: "Each user replaces one real nation from the " + esc(tournament) + " World Cup.",
-            ok: "Start the draft", cancel: "Back"
-        }).then(function (go) {
-            if (!go) return;
-            const missing = humans.filter(function (u) { return !chosen[u]; });
-            if (missing.length) {
-                showNotice("Every user needs a nation before the draft can start.");
-                return;
-            }
-            $("startDraft").disabled = true;
-            setStatus("startHint", "Starting the draft...", false);
-            MPNet.startDraft(currentCode, chosen)
-                .then(function () { setStatus("startHint", "", false); })
-                .catch(function (err) {
-                    showNotice(err.message); setStatus("startHint", err.message, true);
-                    $("startDraft").disabled = false;
-                });
-        });
     }
 
     // A closed room stays readable, but every action that would need the

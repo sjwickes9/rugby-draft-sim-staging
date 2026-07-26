@@ -25,7 +25,7 @@
     <!-- ══ LOBBY VIEW ══ -->
     <div id="lobbyView">
 
-        <p class="version" id="version">v1.2607261244</p>
+        <p class="version" id="version">v1.2607261609</p>
 
         <div id="notice" class="notice hidden">
             <span id="noticeText"></span>
@@ -87,14 +87,23 @@
         <section class="block hidden" id="rwcBlock">
             <p class="eyebrow">Tournament<button class="info-i" data-help="rwcMode" aria-label="What is this?">i</button></p>
             <div class="chips" id="rwcYears"></div>
-            <p class="eyebrow">Nations to replace</p>
-            <div class="seg small" role="group" aria-label="How nations are chosen">
-                <button id="rwcDraw" aria-pressed="true">Draw them
+
+            <p class="eyebrow">How nations are assigned</p>
+            <div class="seg small" role="group" aria-label="How nations are assigned">
+                <button id="rwcAssignApp" aria-pressed="true">The app assigns them
                     <span class="hint">Spread across the pools</span></button>
-                <button id="rwcPick" aria-pressed="false">Choose them
-                    <span class="hint">The host names each one</span></button>
+                <button id="rwcAssignDraft" aria-pressed="false">Users draft nations
+                    <span class="hint">Pick in a random order</span></button>
             </div>
-            <div id="rwcPickList" class="hidden"></div>
+
+            <p class="eyebrow">Where you draft players from</p>
+            <div class="seg small" role="group" aria-label="Where players are drafted from">
+                <button id="rwcPoolWhole" aria-pressed="true">The whole pool
+                    <span class="hint">Compete for every player</span></button>
+                <button id="rwcPoolNation" aria-pressed="false">Only your nation
+                    <span class="hint">Your nation, all years</span></button>
+            </div>
+
             <p class="list-hint" id="rwcSummary"></p>
         </section>
 
