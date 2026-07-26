@@ -25,7 +25,7 @@
     <!-- ══ LOBBY VIEW ══ -->
     <div id="lobbyView">
 
-        <p class="version" id="version">v1.2607261913</p>
+        <p class="version" id="version">v1.2607261938</p>
 
         <div id="notice" class="notice hidden">
             <span id="noticeText"></span>
@@ -216,8 +216,16 @@
         </section>
 
         <section class="block" id="nationsBlock">
-            <p class="eyebrow">Nations pool <small>which countries players can be drafted from</small><button class="info-i" data-help="pool" aria-label="What is this?">i</button></p>
-            <div class="chips" id="geoChips"></div>
+            <p class="eyebrow section-toggle">Nations pool
+                <button class="acc-btn" id="nationsAcc" aria-expanded="false" aria-label="Show the nations pool">
+                    <span class="acc-caret">&#9662;</span>
+                </button>
+            </p>
+            <p class="acc-now" id="nationsNow"></p>
+            <div class="acc-body hidden" id="nationsBody">
+                <p class="sub-label">Which countries players can be drafted from</p>
+                <div class="chips" id="geoChips"></div>
+            </div>
         </section>
 
         <section class="block" id="rulesBlock">

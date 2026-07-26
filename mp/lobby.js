@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607261913";
+    const VERSION = "v1.2607261938";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -106,16 +106,16 @@
 
     // ── Filters ─────────────────────────────────────────────
     function filters() {
-        // In a World Cup the tournament sets who you play, not who you can
-        // draft from. The pool is every player, all nations, all years, so
-        // the nation and year filters are deliberately not applied here even
-        // if a stale selection lingers in state from custom mode.
-        if (state.gameType === "worldcup") {
-            return { mode: "tournament", geoLabel: "All nations" };
-        }
+        // World Cup uses the same rating mode and nations pool as a custom
+        // game (Career Peak, Chemistry, All Nations by default). The one
+        // difference is the year range: a World Cup's structure is fixed by
+        // the tournament slider, so no separate player-year range applies.
+        const worldCup = state.gameType === "worldcup";
         const f = { mode: state.mode, geoLabel: state.geo || "All nations" };
         if (state.geo) f.countries = GEO[state.geo];
-        if (state.mode === "tournament") { f.yearMin = YEARS[state.yMin]; f.yearMax = YEARS[state.yMax]; }
+        if (state.mode === "tournament" && !worldCup) {
+            f.yearMin = YEARS[state.yMin]; f.yearMax = YEARS[state.yMax];
+        }
         return f;
     }
 
@@ -359,10 +359,14 @@
     function applyPoolBlockVisibility() {
         const worldCup = state.gameType === "worldcup";
         const career = state.mode === "career";
+        // Years is a player-year range. It is meaningless in career mode
+        // (one card per player) and in a World Cup (the tournament fixes the
+        // structure), so it hides in both. The Nations pool stays in every
+        // mode; in a World Cup it appears as a collapsed accordion.
         const yb = $("yearsBlock");
         if (yb) yb.classList.toggle("hidden", career || worldCup);
         const nb = $("nationsBlock");
-        if (nb) nb.classList.toggle("hidden", worldCup);
+        if (nb) nb.classList.remove("hidden");
     }
 
     // ── Drafters ────────────────────────────────────────────
@@ -420,6 +424,8 @@
         Array.prototype.forEach.call($("geoChips").children, function (el) {
             el.setAttribute("aria-pressed", String((state.geo || "") === el.getAttribute("data-geo")));
         });
+        const now = $("nationsNow");
+        if (now) now.textContent = state.geo || "All nations";
     }
 
     // ── Rules ───────────────────────────────────────────────
@@ -559,6 +565,11 @@
             let v = +e.target.value; if (v < state.yMin) state.yMin = v; state.yMax = v; refresh();
         });
 
+        on("nationsAcc", "click", function () {
+            const open = $("nationsAcc").getAttribute("aria-expanded") === "true";
+            $("nationsAcc").setAttribute("aria-expanded", String(!open));
+            $("nationsBody").classList.toggle("hidden", open);
+        });
         on("geoChips", "click", function (e) {
             const btn = e.target.closest(".chip"); if (!btn) return;
             state.geo = btn.getAttribute("data-geo") || null; refresh();
