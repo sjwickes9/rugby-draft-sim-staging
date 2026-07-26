@@ -721,15 +721,27 @@ window.MPNet = (function () {
                 const missing = order.filter(function (u) { return !commits[u]; });
                 if (missing.length) throw new Error("Not everyone has locked in yet.");
 
-                const comp = MPFixtures.generate(order);
+                const settings = room.settings || {};
                 const updates = {};
-                updates["rooms/" + code + "/comp"] = {
-                    name: comp.name,
-                    decidedBy: comp.decidedBy,
-                    fixtures: comp.fixtures,
-                    pools: comp.pools || null,
-                    startedAt: firebase.database.ServerValue.TIMESTAMP
-                };
+                if (settings.gameType === "worldcup") {
+                    // A World Cup has its own structure, run by the engine when
+                    // the host plays. No series or league fixtures are made
+                    // here; the compView shows the World Cup screens instead.
+                    updates["rooms/" + code + "/comp"] = {
+                        rwc: true,
+                        pending: true,
+                        startedAt: firebase.database.ServerValue.TIMESTAMP
+                    };
+                } else {
+                    const comp = MPFixtures.generate(order);
+                    updates["rooms/" + code + "/comp"] = {
+                        name: comp.name,
+                        decidedBy: comp.decidedBy,
+                        fixtures: comp.fixtures,
+                        pools: comp.pools || null,
+                        startedAt: firebase.database.ServerValue.TIMESTAMP
+                    };
+                }
                 updates["rooms/" + code + "/meta/status"] = "competing";
                 return db.ref().update(updates).catch(function (err) {
                     throw new Error("Could not start the tournament ("

@@ -200,7 +200,15 @@ window.MPCommit = (function () {
         }).join("");
         $("kickerList").innerHTML = "<div class='kicker-list-inner'>" + rows
             + "<svg class='chem-lines' id='chemLines'></svg></div>";
-        if (state.chemistry !== false) drawChemLines(link);
+        if (state.chemistry !== false) {
+            // The lines are positioned from the dots' on-screen rectangles, so
+            // they must be measured after layout. If the page has only just
+            // become visible the first measurement can be zero, so draw on the
+            // next frame and once more shortly after to be safe.
+            drawChemLines(link);
+            requestAnimationFrame(function () { drawChemLines(link); });
+            setTimeout(function () { drawChemLines(link); }, 120);
+        }
 
         // A short summary above the list, so the tinting is explained.
         const el = $("commitChem");

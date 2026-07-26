@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607261946";
+    const VERSION = "v1.2607262002";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -261,7 +261,10 @@
             const el = $(id);
             if (el) el.classList.toggle("hidden", t === "worldcup");
         });
-        if (t === "worldcup") { state.season = 1; state.aiCount = 0; }
+        if (t === "worldcup") {
+            state.season = 1; state.aiCount = 0;
+            if (state.size < 2) state.size = 2;
+        }
         applyPoolBlockVisibility();
         refresh();
     }
@@ -281,20 +284,16 @@
             if (idx < 0) idx = n - 2; // default near 2023
             range.value = String(idx);
             const labelFor = function (t) { return t === MPRWC.ALL_TIME ? "All time" : t; };
-            // Short labels for the ticks: two-digit years and a compact All
-            // time, so eleven stops fit a narrow width without overlapping.
-            const shortLabel = function (t) {
-                if (t === MPRWC.ALL_TIME) return "All";
-                return "'" + String(t).slice(-2);
-            };
             const pct = function (i) { return (n === 1) ? 0 : (i / (n - 1)) * 100; };
 
             const scale = $("rwcScale");
             if (scale) {
                 scale.innerHTML = list.map(function (t, i) {
-                    return "<span class='rwc-tick" + (i === idx ? " on" : "") + "'"
-                        + " style='left:" + pct(i) + "%' title='" + labelFor(t) + "'>"
-                        + shortLabel(t) + "</span>";
+                    // Alternate labels between an upper and lower row so full
+                    // four-digit years have room and never overlap.
+                    const row = (i % 2 === 0) ? "up" : "down";
+                    return "<span class='rwc-tick " + row + (i === idx ? " on" : "") + "'"
+                        + " style='left:" + pct(i) + "%'>" + labelFor(t) + "</span>";
                 }).join("");
             }
             const dots = $("rwcDots");
@@ -378,7 +377,10 @@
 
     // ── Drafters ────────────────────────────────────────────
     function renderPlayers() {
-        if (state.size < 1) state.size = 1;
+        // A World Cup has no AI sides, so it needs at least two humans to be
+        // playable. A custom game can run with one human plus AI sides.
+        const minSize = state.gameType === "worldcup" ? 2 : 1;
+        if (state.size < minSize) state.size = minSize;
         if (state.size > 8) state.size = 8;
         if (state.season < 1) state.season = 1;
         if (state.season > 15) state.season = 15;
@@ -387,7 +389,7 @@
         if (state.gameType === "worldcup") renderRwc();
         if (state.aiCount > 8 - state.size) state.aiCount = Math.max(0, 8 - state.size);
         $("seasonNum").textContent = state.season;
-        $("sizeDown").disabled = state.size <= 1;
+        $("sizeDown").disabled = state.size <= minSize;
         $("sizeUp").disabled = state.size >= 8;
         $("seasonDown").disabled = state.season <= 1;
         $("seasonUp").disabled = state.season >= 15;
@@ -1439,12 +1441,24 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
             return;
         }
         const s = room.settings || {};
+        const worldCup = s.gameType === "worldcup";
         const yrs = (s.mode === "tournament" && s.yearMin)
             ? (s.yearMin === s.yearMax ? s.yearMin : s.yearMin + " to " + s.yearMax) : "all years";
         const modeTxt = s.mode === "career" ? "Career peak" : "Tournament";
         const seatTxt = s.tableSize ? (Object.keys(room.members || {}).length + "/" + s.tableSize + " seats | ") : "";
-        $("roomStrapText").textContent = seatTxt + modeTxt + " | " + (s.geoLabel || "All nations")
-            + (s.mode === "career" ? "" : " | " + yrs) + " | " + (room.pool ? room.pool.length : 0) + " players";
+        if (worldCup) {
+            // Whoever enters should see at once that this is a World Cup and
+            // which one, not a custom game.
+            const tourn = (room.rwc && room.rwc.tournament) || s.rwcTournament || "2023";
+            const tournLabel = (tourn === (typeof MPRWC !== "undefined" ? MPRWC.ALL_TIME : "alltime"))
+                ? "All time" : tourn;
+            $("roomStrapText").textContent = seatTxt + tournLabel + " World Cup | "
+                + modeTxt + " | " + (s.geoLabel || "All nations")
+                + " | " + (room.pool ? room.pool.length : 0) + " players";
+        } else {
+            $("roomStrapText").textContent = seatTxt + modeTxt + " | " + (s.geoLabel || "All nations")
+                + (s.mode === "career" ? "" : " | " + yrs) + " | " + (room.pool ? room.pool.length : 0) + " players";
+        }
 
         const members = room.members || {};
         const hostUid = room.meta ? room.meta.hostUid : null;
@@ -1486,8 +1500,9 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
             const seen = (room.meta || {}).hostSeenAt || 0;
             if (MPNet.serverNow() - seen > 60000) MPNet.touchHost(currentCode);
         }
-        $("seasonLine").textContent = "Competition " + (s.competition || 1)
-            + " of " + (s.seasonLength || 1);
+        $("seasonLine").textContent = worldCup
+            ? "Entire World Cup Tournament"
+            : "Competition " + (s.competition || 1) + " of " + (s.seasonLength || 1);
 
         const amHostNow = hostUid === MPNet.currentUid();
         // Offer cover once someone has been away long enough to have missed
@@ -1573,6 +1588,12 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
             $("startDraft").disabled = !ready;
             if (count < 2) setStatus("startHint", "Waiting for at least one more user to join.", false);
             else if (count < seats) setStatus("startHint", "Waiting for " + (seats - count) + " more of " + seats + " users.", false);
+            else if (worldCup) {
+                const tourn = (room.rwc && room.rwc.tournament) || s.rwcTournament || "2023";
+                const tournLabel = (tourn === (typeof MPRWC !== "undefined" ? MPRWC.ALL_TIME : "alltime"))
+                    ? "All time" : tourn;
+                setStatus("startHint", tournLabel + " World Cup. Everyone is here.", false);
+            }
             else setStatus("startHint", MPDraft.formatFor(count).name + ". Everyone is here.", false);
         } else if (!isHost && status === "lobby" && compNo === 1) {
             // Before the first draft, everyone else deserves the same
@@ -2959,9 +2980,138 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
             }).join("");
     }
 
+    // The World Cup competition view. This is the interim version: it shows
+    // the pools before play and the champion with pool tables and bracket
+    // after. The full staged playback (round or pool views, knockouts, final
+    // summary) is built on top of this.
+    function renderRwcComp(room, comp) {
+        // Hide every league-specific element so nothing from that path bleeds
+        // through into the World Cup view.
+        ["fixtureList", "speedRow", "poolPause", "seriesWrap", "tableWrap",
+         "winnerBox", "compStats", "playBtn"].forEach(function (id) {
+            const el = $(id); if (el) el.classList.add("hidden");
+        });
+        $("compName").textContent = "";
+        $("compDecided").textContent = "";
+
+        const el = $("rwcComp");
+        if (!el) return;
+        el.classList.remove("hidden");
+
+        const me = MPNet.currentUid();
+        const isHost = (room.meta || {}).hostUid === me;
+        const rwc = room.rwc || {};
+        const seat = rwc.seat || {};
+        const members = room.members || {};
+        const nameOf = function (u) { return (members[u] || {}).name || "User"; };
+        const tourn = comp.tournament || rwc.tournament || "2023";
+        const tournLabel = (tourn === (typeof MPRWC !== "undefined" ? MPRWC.ALL_TIME : "alltime"))
+            ? "All time" : tourn;
+
+        const hasResult = !!(comp.results && comp.tables && comp.bracket);
+        const watched = !!watchedComp[compKey(room)];
+
+        let html = "<div class='rwc-comp'>";
+        html += "<p class='eyebrow'>" + esc(tournLabel) + " World Cup</p>";
+
+        if (!hasResult) {
+            // Before play: the pools, with each user's nation flagged.
+            html += "<p class='list-hint'>The draft is done. "
+                + (isHost ? "Play the tournament when everyone is ready."
+                          : "Waiting for " + esc(hostName(room)) + " to play the tournament.")
+                + "</p>";
+            if (typeof MPRWC !== "undefined") {
+                const pools = MPRWC.poolsFor(tourn);
+                const ownerNation = {};
+                Object.keys(seat).forEach(function (u) { ownerNation[seat[u].nation] = u; });
+                html += "<div class='rwc-pools'>";
+                Object.keys(pools).sort().forEach(function (k) {
+                    html += "<div class='rwc-pool'><p class='rwc-pool-h'>Pool " + esc(k) + "</p>";
+                    pools[k].forEach(function (nation) {
+                        const u = ownerNation[nation];
+                        html += "<div class='rwc-pool-row" + (u ? " user" : "") + "'>"
+                            + esc(nation)
+                            + (u ? " <span class='rwc-owner'>" + esc(nameOf(u)) + "</span>" : "")
+                            + "</div>";
+                    });
+                    html += "</div>";
+                });
+                html += "</div>";
+            }
+            el.innerHTML = html + "</div>";
+            // The host plays via the existing play button, which the World
+            // Cup branch of its handler routes to runRwcTournament.
+            if (isHost) {
+                const pb = $("playBtn");
+                if (pb) {
+                    pb.classList.remove("hidden");
+                    pb.disabled = false;
+                    const sp = pb.querySelector("span");
+                    if (sp) sp.textContent = "Play the World Cup";
+                }
+            }
+            return;
+        }
+
+        // After play. For now, the champion and the final pool tables and a
+        // compact bracket. Full playback comes next.
+        const champNation = comp.championNation || (comp.bracket || {}).champion;
+        const champLabel = (comp.sides && comp.sides[champNation])
+            ? comp.sides[champNation].label : champNation;
+        if (!watched) {
+            html += "<p class='list-hint'>The tournament has been played. "
+                + "Watch it to see how it unfolded.</p>";
+            el.innerHTML = html + "</div>";
+            const pb = $("playBtn");
+            if (pb) {
+                pb.classList.remove("hidden");
+                pb.disabled = false;
+                const sp = pb.querySelector("span");
+                if (sp) sp.textContent = "Watch the World Cup";
+            }
+            return;
+        }
+
+        html += "<div class='winner-box champion'><div class='winner-lbl'>World champions</div>"
+            + "<div class='winner-name'>" + esc(champLabel) + "</div>"
+            + "<div class='winner-sub'>" + esc(tournLabel) + " World Cup</div></div>";
+
+        // Final pool tables.
+        html += "<p class='eyebrow'>Final pool standings</p>";
+        Object.keys(comp.tables || {}).sort().forEach(function (k) {
+            html += "<div class='rwc-table'><p class='rwc-pool-h'>Pool " + esc(k) + "</p>";
+            html += "<table class='mini-table'><thead><tr><th>Team</th><th>P</th><th>W</th><th>D</th><th>L</th><th>Pts</th></tr></thead><tbody>";
+            (comp.tables[k] || []).forEach(function (row) {
+                html += "<tr" + (row.isUser ? " class='user'" : "") + "><td>" + esc(row.label)
+                    + "</td><td>" + row.p + "</td><td>" + row.w + "</td><td>" + row.d
+                    + "</td><td>" + row.l + "</td><td>" + row.pts + "</td></tr>";
+            });
+            html += "</tbody></table></div>";
+        });
+
+        // Compact knockout summary.
+        const br = comp.bracket || {};
+        const sideLabel = function (key) {
+            return (comp.sides && comp.sides[key]) ? comp.sides[key].label : key;
+        };
+        html += "<p class='eyebrow'>Knockouts</p><div class='rwc-bracket'>";
+        (comp.results || []).filter(function (r) { return r.stage !== "pool"; }).forEach(function (r) {
+            const stg = r.stage === "quarter" ? "Quarter-final"
+                : r.stage === "semi" ? "Semi-final"
+                : r.stage === "bronze" ? "Bronze final" : "Final";
+            html += "<div class='rwc-ko'><span class='rwc-ko-stage'>" + stg + "</span> "
+                + esc(sideLabel(r.home)) + " " + r.a + " - " + r.b + " " + esc(sideLabel(r.away))
+                + (r.note ? " <span class='rwc-ko-note'>(" + esc(r.note) + ")</span>" : "") + "</div>";
+        });
+        html += "</div>";
+
+        el.innerHTML = html + "</div>";
+    }
+
     // ── Fixtures ────────────────────────────────────────────
     function renderFixtures(room, liveResults, liveRevealed, justPlayed) {
         let comp = room && room.comp;
+        if (comp && comp.rwc) { renderRwcComp(room, comp); return; }
         if (comp && liveFixtures) comp = Object.assign({}, comp, { fixtures: liveFixtures });
         if (!comp) return;
         $("compName").textContent = comp.name || "";
