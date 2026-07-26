@@ -1096,14 +1096,18 @@ input[type=color] {
     width: 100%; margin: 0; accent-color: var(--teal); cursor: pointer;
 }
 .rwc-slider-scale {
-    display: flex; justify-content: space-between; margin-top: 2px;
-    font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.08em;
-    color: var(--slate);
+    display: flex; justify-content: space-between; margin-top: 4px;
 }
-.rwc-slider-value {
-    margin: 6px 0 0; text-align: center;
-    font-family: var(--display); text-transform: uppercase; letter-spacing: 0.06em;
-    font-size: 1.05rem; color: var(--teal);
+.rwc-tick {
+    flex: 1 1 0; text-align: center;
+    font-size: 0.54rem; letter-spacing: 0.02em;
+    color: var(--slate); transition: color 0.12s;
+}
+.rwc-tick:first-child { text-align: left; }
+.rwc-tick:last-child { text-align: right; }
+.rwc-tick.on {
+    color: var(--teal); font-weight: 700;
+    font-family: var(--display);
 }
 
 .modal-hint { margin: 12px 0 0; font-size: 0.8rem; color: var(--slate); }

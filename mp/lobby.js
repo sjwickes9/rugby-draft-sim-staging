@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607261657";
+    const VERSION = "v1.2607261725";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -263,6 +263,8 @@
         const list = MPRWC.tournaments();
 
         // Tournament as a slider: ten years then All time as the final stop.
+        // Every stop is labelled under the track, and the selected one is
+        // highlighted, so no separate readout is needed.
         const range = $("rwcRange");
         if (range) {
             range.max = String(list.length - 1);
@@ -270,14 +272,12 @@
             if (idx < 0) idx = list.length - 2; // default near 2023
             range.value = String(idx);
             const labelFor = function (t) { return t === MPRWC.ALL_TIME ? "All time" : t; };
-            $("rwcRangeValue").textContent = labelFor(list[idx]);
-            // A light scale under the track: first year, a middle year, and
-            // All time, so the ends are legible without crowding.
             const scale = $("rwcScale");
             if (scale) {
-                scale.innerHTML = "<span>" + labelFor(list[0]) + "</span>"
-                    + "<span>" + labelFor(list[Math.floor((list.length - 1) / 2)]) + "</span>"
-                    + "<span>" + labelFor(list[list.length - 1]) + "</span>";
+                scale.innerHTML = list.map(function (t, i) {
+                    return "<span class='rwc-tick" + (i === idx ? " on" : "") + "'>"
+                        + labelFor(t) + "</span>";
+                }).join("");
             }
             const ticks = $("rwcTicks");
             if (ticks && !ticks.childElementCount) {
@@ -290,13 +290,8 @@
         $("rwcAssignApp").setAttribute("aria-pressed", String(state.rwcAssign === "app"));
         $("rwcAssignDraft").setAttribute("aria-pressed", String(state.rwcAssign === "userdraft"));
 
-        // When users draft only from their own nation, there is no shared
-        // pool to choose, so the pool buttons are not shown. A small link
-        // remains so the host is never trapped and can reopen the choice.
-        const poolControl = $("rwcPoolControl");
-        const poolReopen = $("rwcPoolReopen");
-        if (poolControl) poolControl.classList.toggle("hidden", state.rwcPool === "nation");
-        if (poolReopen) poolReopen.classList.toggle("hidden", state.rwcPool !== "nation");
+        // The pool control is a plain toggle like the others: always visible,
+        // always reselectable.
         $("rwcPoolWhole").setAttribute("aria-pressed", String(state.rwcPool === "whole"));
         $("rwcPoolNation").setAttribute("aria-pressed", String(state.rwcPool === "nation"));
 
@@ -572,7 +567,6 @@ on("typeCustom", "click", function () { setGameType("custom"); });
         on("rwcAssignDraft", "click", function () { state.rwcAssign = "userdraft"; refresh(); });
         on("rwcPoolWhole", "click", function () { state.rwcPool = "whole"; refresh(); });
         on("rwcPoolNation", "click", function () { state.rwcPool = "nation"; refresh(); });
-        on("rwcPoolReopen", "click", function () { state.rwcPool = "whole"; refresh(); });
         on("rwcRange", "input", function (e) {
             const list = MPRWC.tournaments();
             const i = Math.max(0, Math.min(list.length - 1, parseInt(e.target.value, 10) || 0));
@@ -1286,7 +1280,7 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
             ? "All time" : rwc.tournament;
         el.classList.remove("hidden");
         el.innerHTML = "<span class='rwc-line-lbl'>" + esc(tournament) + " World Cup</span>"
-            + "<span class='rwc-line-main'>You are <strong>" + esc(mine.nation) + "</strong>"
+            + "<span class='rwc-line-main'>You are replacing <strong>" + esc(mine.nation) + "</strong>"
             + (mine.pool ? " in Pool " + esc(mine.pool) : "") + "</span>";
     }
 
