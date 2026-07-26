@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607251338";
+    const VERSION = "v1.2607251712";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -2009,6 +2009,7 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         const tally = MPSim.updateTally(room.tally, order, winner, standings, illegal);
 
         return MPNet.finishCompetition(currentCode, {
+            number: (room.settings || {}).competition || 1,
             fixtures: resolved, results: results, standings: standings,
             winner: winner, illegal: illegal, breaches: breachInfo,
             kickerNames: kickerName,
@@ -2692,6 +2693,23 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         // competition through. Publishing the results early is what lets
         // everyone start watching at once, but it must not show the answers.
         const watchedHere = !!watchedComp[compKey(room)];
+        // TEMP DIAGNOSTIC: remove once the reveal bug is confirmed fixed.
+        // Logs, per snapshot, whether this client would show scores and why.
+        try {
+            if (window.MP_DEBUG_REVEAL) {
+                console.log("[reveal]", {
+                    me: MPNet.currentUid(),
+                    isHost: (room.meta || {}).hostUid === MPNet.currentUid(),
+                    compKey: compKey(room),
+                    compNumber: (comp || {}).number,
+                    settingsComp: (room.settings || {}).competition,
+                    watchedHere: watchedHere,
+                    playingBack: playingBack,
+                    liveResults: !!liveResults,
+                    resultsInFirebase: (comp.results || []).length
+                });
+            }
+        } catch (e) {}
         const results = {};
         const source = liveResults || (watchedHere ? (comp.results || []) : []);
         source.forEach(function (r) {
@@ -2878,7 +2896,15 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         const members = room.members || {};
         const me = MPNet.currentUid();
         const nameOf = function (u) { return (members[u] || {}).name || "User"; };
-        const now = st.competition || 1;
+        // The competition on screen is the one these results belong to, which
+        // is not necessarily the live one. Once the host presses Setup the
+        // next competition, settings.competition advances while room.comp
+        // still holds the finished competition the user is reading. Keying
+        // off comp.number keeps this screen describing the right competition
+        // rather than jumping to the next and wrongly declaring the season
+        // over. The fallback covers the live competition, whose number is
+        // only written when it finishes.
+        const now = (comp && comp.number) || st.competition || 1;
         const total = st.seasonLength || 1;
         // Nothing about the outcome is shown until this user has watched it.
         const watched = !!watchedComp[compKey(room)];
@@ -3012,9 +3038,21 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         const nameOf = function (u) { return (members[u] || {}).name || "User"; };
 
         const me = MPNet.currentUid();
+        // room.comp holds the most recently finished competition until the
+        // next draft begins. It belongs to its own number, which is not the
+        // live settings.competition once the host has moved on: attributing
+        // it by settings would list that competition twice. Anything already
+        // archived in history takes precedence.
+        const liveComp = room.comp;
+        const liveCompNo = (liveComp && liveComp.number) || null;
+        const compForSlot = function (n) {
+            if (hist[n]) return hist[n];
+            if (liveComp && (liveComp.results || []).length && liveCompNo === n) return liveComp;
+            return null;
+        };
         const rows = [];
         for (let n = 1; n <= total; n++) {
-            const h = hist[n] || (n === ((room.settings || {}).competition || 1) ? room.comp : null);
+            const h = compForSlot(n);
             const w = h && h.winner;
             rows.push("<div class='sum-row" + (w && w === me ? " mine" : "") + "'>"
                 + "<span class='sum-no'>" + n + "</span>"
@@ -3024,7 +3062,7 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
 
         const histList = [];
         for (let n = 1; n <= total; n++) {
-            const h = hist[n] || (n === ((room.settings || {}).competition || 1) ? room.comp : null);
+            const h = compForSlot(n);
             if (h && h.results) histList.push(h);
         }
         const tally = MPSim.tallyOrder(room.tally || {});
