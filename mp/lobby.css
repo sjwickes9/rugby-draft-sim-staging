@@ -1186,7 +1186,8 @@ input[type=color] {
 /* World Cup staged playback */
 .rwc-pool-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; align-items: start; }
 .rwc-pool-full { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; }
-.rwc-pool-full .mini-table { margin-top: auto; }
+.rwc-pool-full .mini-table { margin-top: auto; padding-top: 14px; }
+.mini-table thead th { border-bottom: 2px solid var(--teal); padding-bottom: 5px; color: var(--pitch); font-size: 0.6rem; }
 .rwc-yours { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--teal); border: 1px solid var(--teal); border-radius: 3px; padding: 1px 5px; margin-left: 6px; }
 .rwc-round { margin: 8px 0 3px; font-family: var(--display); text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.58rem; color: var(--slate); }
 

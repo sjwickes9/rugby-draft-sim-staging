@@ -260,6 +260,7 @@
         const userRating = opts.userRating || {};
         const userKicker = opts.userKicker || {};
         const userSquad = opts.userSquad || {};
+        const userKickerSlot = opts.userKickerSlot || {};
         const drafted = opts.drafted || {};       // nation -> { name: true }
 
         // Map a nation to whoever is playing as it.
@@ -276,6 +277,7 @@
                     label: opts.nameOf ? opts.nameOf(uid) : nation,
                     rating: userRating[uid] || 80,
                     kicker: userKicker[uid] || 0.7,
+                    kickerSlot: userKickerSlot[uid] || null,
                     squad: userSquad[uid] || null
                 };
             } else {

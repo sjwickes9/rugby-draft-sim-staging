@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607271407";
+    const VERSION = "v1.2607271644";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -2333,6 +2333,7 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
                 replacements: replacements,
                 userRating: userRating,
                 userKicker: userKicker,
+                userKickerSlot: kickerSlotOf,
                 userSquad: userSquad,
                 drafted: drafted,
                 nameOf: nameOf
@@ -2983,6 +2984,29 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
             console.log("[rwc play]", { view: rwcView, myPool: myPool,
                 poolMatches: poolOrder.length, koMatches: koOrder.length,
                 pools: poolKeys });
+            // Cross-check: recompute each pool's W/D/L from the results we are
+            // about to display, and compare to the stored table. Any mismatch
+            // means the displayed matches and the standings disagree.
+            try {
+                Object.keys(pools).forEach(function (pk) {
+                    const wl = {};
+                    (pools[pk] || []).forEach(function (t) { wl[t] = { w: 0, d: 0, l: 0 }; });
+                    (comp.results || []).filter(function (r) { return r.stage === "pool" && r.pool === pk; })
+                        .forEach(function (r) {
+                            if (r.winner === "a") { wl[r.home].w++; wl[r.away].l++; }
+                            else if (r.winner === "b") { wl[r.away].w++; wl[r.home].l++; }
+                            else { wl[r.home].d++; wl[r.away].d++; }
+                        });
+                    (comp.tables[pk] || []).forEach(function (row) {
+                        const r = wl[row.key];
+                        if (r && (r.w !== row.w || r.l !== row.l || r.d !== row.d)) {
+                            console.warn("[rwc MISMATCH]", pk, row.label,
+                                "table W" + row.w + " D" + row.d + " L" + row.l,
+                                "results W" + r.w + " D" + r.d + " L" + r.l);
+                        }
+                    });
+                });
+            } catch (e) { console.warn("[rwc check failed]", e); }
         }
         const ctxRender = function () { renderRoom(latestRoom); };
         ctxRender();
