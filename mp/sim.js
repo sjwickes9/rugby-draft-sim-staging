@@ -436,21 +436,69 @@
     }
 
     function buildScoreBreakdown(rng, finalScore, squad, kickerName) {
+        // Reconstruct a plausible set of tries, conversions and penalties that
+        // sums exactly to the final score. Try = 5, conversion = 2 (at most one
+        // per try), penalty = 3. The reconstruction must reconcile precisely,
+        // so it is built to leave no unaccounted points.
         var remaining = finalScore;
-        var tryScorers = {};
-        var tries = 0, conversions = 0, penalties = 0;
 
-        var maxTries = Math.max(1, Math.floor(finalScore / 6));
-        while (remaining >= 5 && tries < maxTries) {
-            var canConvert = remaining - 7 >= 0;
-            if (canConvert && rng() < 0.78) { remaining -= 7; tries++; conversions++; }
-            else { remaining -= 5; tries++; }
-            var scorer = pickWeightedScorer(rng, squad);
-            if (scorer) tryScorers[scorer.name] = (tryScorers[scorer.name] || 0) + 1;
+        // Take a random number of penalties first, but never so many that the
+        // rest cannot be made from converted or unconverted tries. Each try is
+        // worth 5 or 7, so any remainder that is a non-negative combination of
+        // 5s and 7s works; 5 and 7 can make every integer >= 4 except nothing
+        // problematic in this range, so we simply cap penalties and then fit
+        // tries to whatever remains, adjusting penalties if a remainder cannot
+        // be split into tries.
+        var maxPen = Math.floor(remaining / 3);
+        // Bias towards few penalties: high scores are try-fests.
+        var wantPen = 0;
+        if (remaining <= 9) wantPen = Math.min(maxPen, Math.floor(rng() * (maxPen + 1)));
+        else wantPen = Math.min(maxPen, Math.floor(rng() * 3)); // 0, 1 or 2 usually
+
+        var fitTries = function (pts) {
+            // Split pts into converted (7) and unconverted (5) tries exactly.
+            // Solve 7a + 5b = pts with a,b >= 0. Prefer more conversions.
+            for (var a = Math.floor(pts / 7); a >= 0; a--) {
+                var rem = pts - a * 7;
+                if (rem % 5 === 0) return { conv: a, unconv: rem / 5 };
+            }
+            return null;
+        };
+
+        var chosen = null, penalties = 0;
+        // Try the wanted penalty count first, then fan outwards, so every
+        // achievable score finds an exact split rather than only those where
+        // fewer penalties happen to work.
+        var tryPen = function (pen) {
+            if (pen < 0 || pen > maxPen) return false;
+            var pts = remaining - pen * 3;
+            var fit = fitTries(pts);
+            if (fit) { chosen = fit; penalties = pen; return true; }
+            return false;
+        };
+        var found = tryPen(wantPen);
+        for (var step = 1; !found && step <= maxPen; step++) {
+            if (tryPen(wantPen - step)) { found = true; break; }
+            if (tryPen(wantPen + step)) { found = true; break; }
         }
-        while (remaining >= 3) { remaining -= 3; penalties++; }
-        if (remaining === 2 && conversions === 0 && tries > 0) { conversions++; remaining -= 2; }
+        if (!found) {
+            // A score that cannot be made from tries, conversions and
+            // penalties at all (1, 2, 4). Not reachable from a real match, so
+            // fall back to as many penalties as fit and drop any tiny leftover
+            // rather than inventing points.
+            penalties = Math.floor(remaining / 3);
+            chosen = { conv: 0, unconv: 0 };
+        }
+        var conversions = chosen.conv;
+        var tries = chosen.conv + chosen.unconv;
 
+        // Name the try scorers, one per try.
+        var tryScorers = {};
+        for (var i = 0; i < tries; i++) {
+            var scorer = pickWeightedScorer(rng, squad);
+            var nm = scorer ? scorer.name : "Unknown";
+            tryScorers[nm] = (tryScorers[nm] || 0) + 1;
+        }
         var list = Object.keys(tryScorers).map(function (n) {
             return { name: n, count: tryScorers[n] };
         });

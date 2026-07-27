@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607271644";
+    const VERSION = "v1.2607271903";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -3519,11 +3519,13 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
 
     function renderPoolTable(comp, poolKey, ctx) {
         const rows = (comp.tables || {})[poolKey] || [];
-        let t = "<table class='mini-table'><thead><tr><th>Team</th><th>P</th><th>W</th><th>D</th><th>L</th><th>Pts</th></tr></thead><tbody>";
+        let t = "<table class='mini-table'><thead><tr><th>Team</th><th>P</th><th>W</th><th>D</th><th>L</th>"
+            + "<th>PF</th><th>PA</th><th>BP</th><th>Pts</th></tr></thead><tbody>";
         rows.forEach(function (row) {
             t += "<tr" + (row.isUser ? " class='user'" : "") + "><td>" + esc(row.label)
                 + "</td><td>" + row.p + "</td><td>" + row.w + "</td><td>" + row.d
-                + "</td><td>" + row.l + "</td><td>" + row.pts + "</td></tr>";
+                + "</td><td>" + row.l + "</td><td>" + (row.pf || 0) + "</td><td>" + (row.pa || 0)
+                + "</td><td>" + (row.bonus || 0) + "</td><td>" + row.pts + "</td></tr>";
         });
         return t + "</tbody></table>";
     }

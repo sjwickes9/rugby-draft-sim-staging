@@ -1170,11 +1170,11 @@ input[type=color] {
 .rwc-pool-row.user .rwc-owner { color: var(--teal); }
 
 .rwc-table { margin-bottom: 10px; }
-.mini-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
-.mini-table th { text-align: right; font-family: var(--display); text-transform: uppercase; letter-spacing: 0.04em; font-size: 0.62rem; color: var(--slate); padding: 3px 5px; }
+.mini-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+.mini-table th { text-align: right; font-family: var(--display); text-transform: uppercase; letter-spacing: 0.02em; font-size: 0.58rem; color: var(--slate); padding: 3px 3px; }
 .mini-table th:first-child { text-align: left; }
-.mini-table td { text-align: right; padding: 3px 5px; border-top: 1px solid var(--line); }
-.mini-table td:first-child { text-align: left; }
+.mini-table td { text-align: right; padding: 3px 3px; border-top: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+.mini-table td:first-child { text-align: left; padding-right: 6px; }
 .mini-table tr.user td { color: var(--teal); font-weight: 600; }
 
 .rwc-bracket { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
