@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607262135";
+    const VERSION = "v1.2607271008";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -654,6 +654,21 @@ on("typeCustom", "click", function () { setGameType("custom"); });
             rwcView = b.getAttribute("data-rwcview");
             try { localStorage.setItem("mp-rwc-view", rwcView); } catch (err) {}
             if (latestRoom) renderRoom(latestRoom);
+        });
+        // Collapsed-pool accordions on the World Cup result screen. Toggled in
+        // place, not by re-rendering, so a background snapshot cannot fight
+        // the open state.
+        document.addEventListener("click", function (e) {
+            const b = (e.target && e.target.closest) ? e.target.closest("[data-rwcpooltoggle]") : null;
+            if (!b) return;
+            const k = b.getAttribute("data-rwcpooltoggle");
+            rwcOpenPools[k] = !rwcOpenPools[k];
+            const wrap = b.closest(".rwc-acc");
+            if (wrap) {
+                wrap.classList.toggle("open", rwcOpenPools[k]);
+                const body = wrap.querySelector(".rwc-acc-body");
+                if (body) body.classList.toggle("hidden", !rwcOpenPools[k]);
+            }
         });
         // (the members list and the mid-draft cover panel). Only the host
         // sees these, but the click is guarded again here.
@@ -1486,17 +1501,7 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
             $("roomStrapText").textContent = seatTxt + tournLabel + " World Cup | "
                 + modeTxt + " | " + (s.geoLabel || "All nations")
                 + " | " + (room.pool ? room.pool.length : 0) + " players";
-            // The nation selection criteria sits on its own line, just below
-            // the pool panel and above the tournament title.
-            const crit = $("rwcCriteria");
-            if (crit) {
-                crit.classList.remove("hidden");
-                crit.textContent = "Nation selection criteria: "
-                    + (s.rwcAssign === "userdraft" ? "drafted" : "randomly assigned");
-            }
         } else {
-            const crit = $("rwcCriteria");
-            if (crit) { crit.classList.add("hidden"); crit.textContent = ""; }
             $("roomStrapText").textContent = seatTxt + modeTxt + " | " + (s.geoLabel || "All nations")
                 + (s.mode === "career" ? "" : " | " + yrs) + " | " + (room.pool ? room.pool.length : 0) + " players";
         }
@@ -2834,6 +2839,14 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
                 + "</div><div class='brief-v'>" + v + "</div></div>");
         };
 
+        // World Cup: the nation selection criteria leads the panel, above the
+        // pool, formatted like every other row.
+        if (st.gameType === "worldcup") {
+            add("Nation selection", (st.rwcAssign === "userdraft"
+                ? "Drafted<span class='sub'>Users pick their nation in a random order</span>"
+                : "Randomly assigned<span class='sub'>Nations dealt out across the pools</span>"));
+        }
+
         add("Pool", esc(st.geoLabel || "All nations")
             + "<span class='sub'>" + (st.yearMin && st.yearMax
                 ? (st.yearMin === st.yearMax ? esc(st.yearMin) : esc(st.yearMin) + " to " + esc(st.yearMax))
@@ -2851,8 +2864,15 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         }
 
         const sides = st.tableSize || Object.keys(room.members || {}).length || 2;
-        add("Format", esc(MPDraft.formatFor(sides).name)
-            + "<span class='sub'>" + sides + " sides, snake draft, 15 rounds each</span>");
+        if (st.gameType === "worldcup") {
+            const tn = st.rwcTournament === (typeof MPRWC !== "undefined" ? MPRWC.ALL_TIME : "alltime")
+                ? "All time" : (st.rwcTournament || "2023");
+            add("Format", esc(tn) + " World Cup<span class='sub'>"
+                + sides + " user side" + (sides === 1 ? "" : "s") + ", pools then knockouts</span>");
+        } else {
+            add("Format", esc(MPDraft.formatFor(sides).name)
+                + "<span class='sub'>" + sides + " sides, snake draft, 15 rounds each</span>");
+        }
 
         const turn = st.turnMs || 0;
         const turnTxt = turn ? turnText(turn) : "No limit";
@@ -2860,9 +2880,11 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
             + (turn ? "If a pick is not made in time, it is made automatically from that user's Big Board"
                     : "A draft can stall if someone stops picking") + "</span>");
 
-        const season = st.seasonLength || 1;
-        add("Season", season + " competition" + (season === 1 ? "" : "s")
-            + "<span class='sub'>Locked once the first draft begins</span>");
+        if (st.gameType !== "worldcup") {
+            const season = st.seasonLength || 1;
+            add("Season", season + " competition" + (season === 1 ? "" : "s")
+                + "<span class='sub'>Locked once the first draft begins</span>");
+        }
 
         let ruleHtml = "";
         try {
@@ -2941,6 +2963,11 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         const koOrder = (comp.results || []).filter(function (r) { return r.stage !== "pool"; });
 
         rwcPlayState = { revealed: {}, stage: "pool", view: rwcView };
+        if (window.MP_DEBUG_RWC) {
+            console.log("[rwc play]", { view: rwcView, myPool: myPool,
+                poolMatches: poolOrder.length, koMatches: koOrder.length,
+                pools: poolKeys });
+        }
         const ctxRender = function () { renderRoom(latestRoom); };
         ctxRender();
 
@@ -3124,6 +3151,7 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
     // round; "mine" plays pool by pool with the other pools collapsed.
     let rwcView = "all";
     let rwcPlayState = null; // live playback cursor, see playRwc
+    let rwcOpenPools = {};   // which collapsed pools this user has opened
 
     // A circle-method round-robin: each team plays once per round. Used to
     // order the pool matches into rounds for playback, since the engine
@@ -3154,6 +3182,22 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
             map[r.away + "\u0001" + r.home] = r;
         });
         return map;
+    }
+
+    // A short scorer summary for one side of a match, from its breakdown:
+    // try scorers by name, then the goal kicker's conversions and penalties.
+    function rwcScorerLine(bd) {
+        if (!bd) return "";
+        const parts = [];
+        (bd.tries || []).forEach(function (t) {
+            parts.push(esc(t.name) + (t.count > 1 ? " " + t.count : "") + " (T)");
+        });
+        const goals = [];
+        if (bd.conversions) goals.push(bd.conversions + "C");
+        if (bd.penalties) goals.push(bd.penalties + "P");
+        if (goals.length && bd.kicker) parts.push(esc(bd.kicker) + " " + goals.join(" "));
+        else if (goals.length) parts.push(goals.join(" "));
+        return parts.join(", ");
     }
 
     // ── World Cup competition view ──────────────────────────
@@ -3296,13 +3340,6 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         const stage = ps ? ps.stage : "done";
         const showChampion = (stage === "done");
 
-        // Champion banner only once the whole thing has been seen.
-        if (showChampion) {
-            html += "<div class='winner-box champion'><div class='winner-lbl'>World champions</div>"
-                + "<div class='winner-name'>" + esc(ctx.champLabel) + "</div>"
-                + "<div class='winner-sub'>" + esc(ctx.tournLabel) + " World Cup</div></div>";
-        }
-
         // ── Pool stage ──
         // Build the round-ordered schedule per pool once.
         const scheduleFor = function (poolKey) {
@@ -3324,9 +3361,15 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
                     + "</span><span class='rwc-vs'>v</span><span class='rwc-side'>" + esc(b) + "</span></div>";
             }
             const aw = r.winner === "a", bw = r.winner === "b";
-            return "<div class='rwc-match'><span class='rwc-side" + (aw ? " win" : "") + "'>" + esc(a)
+            const sa = rwcScorerLine(r.bdA), sb = rwcScorerLine(r.bdB);
+            let row = "<div class='rwc-match'><span class='rwc-side" + (aw ? " win" : "") + "'>" + esc(a)
                 + "</span><span class='rwc-score'>" + r.a + " - " + r.b + "</span>"
                 + "<span class='rwc-side" + (bw ? " win" : "") + "'>" + esc(b) + "</span></div>";
+            if (sa || sb) {
+                row += "<div class='rwc-scorers'><span>" + (sa || "&mdash;") + "</span>"
+                    + "<span>" + (sb || "&mdash;") + "</span></div>";
+            }
+            return row;
         };
 
         const renderPoolBlock = function (poolKey, opts) {
@@ -3346,8 +3389,12 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
             const head = "<p class='rwc-pool-h'>Pool " + esc(poolKey)
                 + (poolKey === myPool ? " <span class='rwc-yours'>your pool</span>" : "") + "</p>";
             if (opts.collapsed) {
-                return "<details class='rwc-acc'><summary>Pool " + esc(poolKey) + "</summary>"
-                    + "<div class='rwc-acc-body'>" + inner + (showTable ? table : "") + "</div></details>";
+                const open = !!rwcOpenPools[poolKey];
+                return "<div class='rwc-acc" + (open ? " open" : "") + "' data-rwcpool='" + esc(poolKey) + "'>"
+                    + "<button type='button' class='rwc-acc-sum' data-rwcpooltoggle='" + esc(poolKey) + "'>"
+                    + "Pool " + esc(poolKey) + "<span class='rwc-acc-caret'>&#9662;</span></button>"
+                    + "<div class='rwc-acc-body" + (open ? "" : " hidden") + "'>" + inner
+                    + (showTable ? table : "") + "</div></div>";
             }
             return "<div class='rwc-pool-full'>" + head + inner + (showTable ? table : "") + "</div>";
         };
@@ -3367,7 +3414,22 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         }
 
         // ── Knockouts ──
+        // At the pool pause, show the quarter-final draw so the user sees
+        // what is coming before choosing to watch on. Once unlocked, the
+        // knockout results reveal in order with their scorers.
+        const br = comp.bracket || {};
         const koUnlocked = (stage === "ko" || stage === "done");
+        const showDraw = (stage === "poolpause");
+
+        if (showDraw && br.quarters && br.quarters.length) {
+            html += "<p class='eyebrow'>Quarter-final draw</p><div class='rwc-bracket'>";
+            br.quarters.forEach(function (pair) {
+                html += "<div class='rwc-ko'><span class='rwc-ko-stage'>Quarter-final</span> "
+                    + esc(ctx.sideLabel(pair[0])) + " v " + esc(ctx.sideLabel(pair[1])) + "</div>";
+            });
+            html += "</div>";
+        }
+
         if (koUnlocked && koResults.length) {
             html += "<p class='eyebrow'>Knockouts</p><div class='rwc-bracket'>";
             koResults.forEach(function (r) {
@@ -3380,9 +3442,22 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
                     + "<span class='" + (aw ? "win" : "") + "'>" + esc(ctx.sideLabel(r.home)) + "</span> "
                     + r.a + " - " + r.b
                     + " <span class='" + (bw ? "win" : "") + "'>" + esc(ctx.sideLabel(r.away)) + "</span>"
-                    + (r.note ? " <span class='rwc-ko-note'>(" + esc(r.note) + ")</span>" : "") + "</div>";
+                    + (r.note ? " <span class='rwc-ko-note'>(" + esc(r.note) + ")</span>" : "");
+                const sc = [rwcScorerLine(r.bdA), rwcScorerLine(r.bdB)].filter(Boolean);
+                if (sc.length) {
+                    html += "<div class='rwc-scorers ko'><span>" + (rwcScorerLine(r.bdA) || "&mdash;")
+                        + "</span><span>" + (rwcScorerLine(r.bdB) || "&mdash;") + "</span></div>";
+                }
+                html += "</div>";
             });
             html += "</div>";
+        }
+
+        // ── Champion banner, between the final and the leaders ──
+        if (showChampion) {
+            html += "<div class='winner-box champion'><div class='winner-lbl'>World champions</div>"
+                + "<div class='winner-name'>" + esc(ctx.champLabel) + "</div>"
+                + "<div class='winner-sub'>" + esc(ctx.tournLabel) + " World Cup</div></div>";
         }
 
         // ── Tournament leaders, on the finished summary ──
@@ -3414,14 +3489,15 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
     function renderRwcLeaders(comp, ctx) {
         const tries = {}, points = {};
         (comp.results || []).forEach(function (r) {
-            [["bdA", r.home], ["bdB", r.away]].forEach(function (pair) {
-                const bd = r[pair[0]]; if (!bd) return;
-                (bd.tries || []).forEach(function (nm) {
-                    tries[nm] = (tries[nm] || 0) + 1;
+            ["bdA", "bdB"].forEach(function (side) {
+                const bd = r[side]; if (!bd) return;
+                // tries is an array of { name, count }.
+                (bd.tries || []).forEach(function (t) {
+                    const nm = t.name, ct = t.count || 1;
+                    tries[nm] = (tries[nm] || 0) + ct;
+                    points[nm] = (points[nm] || 0) + ct * 5;
                 });
-                // Points: 5 a try, 2 a conversion, 3 a penalty, credited to the
-                // named kicker for the goals and try-scorers for the tries.
-                (bd.tries || []).forEach(function (nm) { points[nm] = (points[nm] || 0) + 5; });
+                // Goal kicking points go to the named kicker.
                 if (bd.kicker) {
                     points[bd.kicker] = (points[bd.kicker] || 0)
                         + (bd.conversions || 0) * 2 + (bd.penalties || 0) * 3;
@@ -3431,14 +3507,14 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         const top = function (map) {
             let best = null, bestV = 0;
             Object.keys(map).forEach(function (k) { if (map[k] > bestV) { bestV = map[k]; best = k; } });
-            return best ? (best + " (" + bestV + ")") : "none";
+            return best ? (esc(best) + " (" + bestV + ")") : "none";
         };
         return "<p class='eyebrow'>Across the tournament</p>"
             + "<div class='stats-panel'>"
             + "<div class='stat-line'><span class='stat-lbl'>Most tries</span>"
-            + "<span class='stat-val'>" + esc(top(tries)) + "</span></div>"
+            + "<span class='stat-val'>" + top(tries) + "</span></div>"
             + "<div class='stat-line'><span class='stat-lbl'>Most points</span>"
-            + "<span class='stat-val'>" + esc(top(points)) + "</span></div></div>";
+            + "<span class='stat-val'>" + top(points) + "</span></div></div>";
     }
 
     function renderRwcControls(room, comp, ctx) {

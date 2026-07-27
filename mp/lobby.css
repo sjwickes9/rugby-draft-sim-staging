@@ -1163,7 +1163,7 @@ input[type=color] {
 .rwc-comp { display: flex; flex-direction: column; gap: 6px; }
 .rwc-pools { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin: 4px 0 8px; }
 .rwc-pool { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
-.rwc-pool-h { margin: 0 0 6px; font-family: var(--display); text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.72rem; color: var(--slate); }
+.rwc-pool-h { margin: 0 0 8px; padding-bottom: 5px; border-bottom: 2px solid var(--teal); font-family: var(--display); text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.86rem; color: var(--pitch); font-weight: 700; }
 .rwc-pool-row { font-size: 0.86rem; padding: 2px 0; }
 .rwc-pool-row.user { color: var(--teal); font-weight: 600; }
 .rwc-owner { color: var(--slate); font-size: 0.76rem; }
@@ -1197,8 +1197,15 @@ input[type=color] {
 .rwc-match.pending .rwc-vs { font-size: 0.7rem; }
 
 .rwc-acc { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; margin-top: 8px; }
-.rwc-acc summary { padding: 8px 12px; cursor: pointer; font-family: var(--display); text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.72rem; color: var(--slate); }
-.rwc-acc summary:hover { color: var(--teal); }
+.rwc-acc-sum { width: 100%; text-align: left; background: none; border: 0; padding: 8px 12px; cursor: pointer; font-family: var(--display); text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.72rem; color: var(--slate); display: flex; justify-content: space-between; align-items: center; }
+.rwc-acc-sum:hover { color: var(--teal); }
+.rwc-acc-caret { transition: transform 0.15s; font-size: 0.7rem; }
+.rwc-acc.open .rwc-acc-caret { transform: rotate(180deg); }
 .rwc-acc-body { padding: 0 12px 10px; }
+
+.rwc-scorers { display: flex; justify-content: space-between; gap: 12px; font-size: 0.68rem; color: var(--slate); padding: 0 0 4px; border-bottom: 1px solid var(--line); margin-bottom: 4px; }
+.rwc-scorers span { flex: 1; }
+.rwc-scorers span:last-child { text-align: right; }
+.rwc-scorers.ko { border-bottom: 0; margin-top: 3px; }
 
 .rwc-ko .win { color: var(--teal); font-weight: 600; }
