@@ -1184,17 +1184,28 @@ input[type=color] {
 
 
 /* World Cup staged playback */
-.rwc-pool-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
-.rwc-pool-full { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+.rwc-pool-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; align-items: start; }
+.rwc-pool-full { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; }
+.rwc-pool-full .mini-table { margin-top: auto; }
 .rwc-yours { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--teal); border: 1px solid var(--teal); border-radius: 3px; padding: 1px 5px; margin-left: 6px; }
 .rwc-round { margin: 8px 0 3px; font-family: var(--display); text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.58rem; color: var(--slate); }
-.rwc-match { display: flex; align-items: center; gap: 8px; padding: 3px 0; font-size: 0.84rem; }
-.rwc-match .rwc-side { flex: 1; }
-.rwc-match .rwc-side:last-child { text-align: right; }
-.rwc-match .rwc-side.win { color: var(--teal); font-weight: 600; }
-.rwc-match .rwc-vs, .rwc-match .rwc-score { color: var(--slate); font-variant-numeric: tabular-nums; }
+
+.rwc-match-wrap { border-bottom: 1px solid var(--line); }
+.rwc-match { display: flex; align-items: center; gap: 8px; padding: 5px 0; font-size: 0.84rem; width: 100%; background: none; border: 0; text-align: left; color: inherit; }
+button.rwc-match { cursor: pointer; }
+.rwc-match .rwc-side { flex: 1; display: flex; align-items: center; gap: 5px; }
+.rwc-match .rwc-side.away { justify-content: flex-end; text-align: right; }
+.rwc-match .rwc-side.user { font-weight: 600; }
+.rwc-match .rwc-vs { color: var(--slate); font-size: 0.7rem; }
+.rwc-match .rwc-score { color: var(--slate); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rwc-match .rwc-score .win { color: var(--teal); font-weight: 700; }
 .rwc-match.pending { opacity: 0.4; }
-.rwc-match.pending .rwc-vs { font-size: 0.7rem; }
+.rwc-match-caret { font-size: 0.6rem; color: var(--slate); transition: transform 0.15s; margin-left: 4px; }
+.rwc-match.open .rwc-match-caret { transform: rotate(180deg); }
+.rwc-userdot { width: 7px; height: 7px; border-radius: 50%; background: var(--teal); display: inline-block; flex: none; }
+
+/* Scorers reuse the custom fixture scorer layout (fx-scorers). */
+.rwc-match-body { padding: 2px 0 8px; }
 
 .rwc-acc { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; margin-top: 8px; }
 .rwc-acc-sum { width: 100%; text-align: left; background: none; border: 0; padding: 8px 12px; cursor: pointer; font-family: var(--display); text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.72rem; color: var(--slate); display: flex; justify-content: space-between; align-items: center; }
@@ -1203,9 +1214,7 @@ input[type=color] {
 .rwc-acc.open .rwc-acc-caret { transform: rotate(180deg); }
 .rwc-acc-body { padding: 0 12px 10px; }
 
-.rwc-scorers { display: flex; justify-content: space-between; gap: 12px; font-size: 0.68rem; color: var(--slate); padding: 0 0 4px; border-bottom: 1px solid var(--line); margin-bottom: 4px; }
-.rwc-scorers span { flex: 1; }
-.rwc-scorers span:last-child { text-align: right; }
-.rwc-scorers.ko { border-bottom: 0; margin-top: 3px; }
-
-.rwc-ko .win { color: var(--teal); font-weight: 600; }
+.rwc-bracket { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
+.rwc-match-wrap.ko { border-bottom: 0; margin-bottom: 6px; }
+.rwc-ko-stage { font-family: var(--display); text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.62rem; color: var(--slate); margin: 4px 0 2px; }
+.rwc-ko-note { color: var(--slate); font-size: 0.76rem; }

@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607271008";
+    const VERSION = "v1.2607271407";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -106,14 +106,13 @@
 
     // ── Filters ─────────────────────────────────────────────
     function filters() {
-        // World Cup uses the same rating mode and nations pool as a custom
-        // game (Career Peak, Chemistry, All Nations by default). The one
-        // difference is the year range: a World Cup's structure is fixed by
-        // the tournament slider, so no separate player-year range applies.
-        const worldCup = state.gameType === "worldcup";
+        // World Cup uses the same rating mode, nations pool and (in Tournament
+        // rating) year range as a custom game. The World Cup slider fixes the
+        // tournament structure and opposition; the year range only narrows the
+        // player pool the users draft from, so it applies here as in custom.
         const f = { mode: state.mode, geoLabel: state.geo || "All nations" };
         if (state.geo) f.countries = GEO[state.geo];
-        if (state.mode === "tournament" && !worldCup) {
+        if (state.mode === "tournament") {
             f.yearMin = YEARS[state.yMin]; f.yearMax = YEARS[state.yMax];
         }
         return f;
@@ -367,14 +366,13 @@
     // career mode. Kept in one place so the two conditions never clobber each
     // other. Rules stay in every mode.
     function applyPoolBlockVisibility() {
-        const worldCup = state.gameType === "worldcup";
         const career = state.mode === "career";
-        // Years is a player-year range. It is meaningless in career mode
-        // (one card per player) and in a World Cup (the tournament fixes the
-        // structure), so it hides in both. The Nations pool stays in every
-        // mode; in a World Cup it appears as a collapsed accordion.
+        // The Years range is a player-year filter tied to Tournament rating
+        // (career mode has one card per player, so no years apply). It shows
+        // in both custom and World Cup whenever Tournament rating is chosen,
+        // and hides in career mode. The Nations pool stays in every mode.
         const yb = $("yearsBlock");
-        if (yb) yb.classList.toggle("hidden", career || worldCup);
+        if (yb) yb.classList.toggle("hidden", career);
         const nb = $("nationsBlock");
         if (nb) nb.classList.remove("hidden");
     }
@@ -654,6 +652,17 @@ on("typeCustom", "click", function () { setGameType("custom"); });
             rwcView = b.getAttribute("data-rwcview");
             try { localStorage.setItem("mp-rwc-view", rwcView); } catch (err) {}
             if (latestRoom) renderRoom(latestRoom);
+        });
+        // Match accordions on the World Cup result screen, toggled in place.
+        document.addEventListener("click", function (e) {
+            const b = (e.target && e.target.closest) ? e.target.closest("[data-rwcmatch]") : null;
+            if (!b) return;
+            const k = b.getAttribute("data-rwcmatch");
+            rwcOpenMatch[k] = !rwcOpenMatch[k];
+            b.classList.toggle("open", rwcOpenMatch[k]);
+            const wrap = b.closest(".rwc-match-wrap");
+            const body = wrap ? wrap.querySelector(".rwc-match-body") : null;
+            if (body) body.classList.toggle("hidden", !rwcOpenMatch[k]);
         });
         // Collapsed-pool accordions on the World Cup result screen. Toggled in
         // place, not by re-rendering, so a background snapshot cannot fight
@@ -1297,6 +1306,13 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         draftReady = false;
         lastHostUid = null;
         moveOnNext = false;
+        // A fresh room has been watched by nobody. These are keyed by
+        // competition number, and a World Cup is always competition one, so
+        // without this reset a second game in the same session would inherit
+        // the first game's watched flag and reveal every result at once.
+        watchedComp = {};
+        rwcPlayState = null;
+        rwcOpenPools = {};
         if (window.MPCommit && MPCommit.reset) MPCommit.reset();
         showOnly("roomView");
         $("roomCode").innerHTML = code + "<small>share this code</small>";
@@ -3152,6 +3168,7 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
     let rwcView = "all";
     let rwcPlayState = null; // live playback cursor, see playRwc
     let rwcOpenPools = {};   // which collapsed pools this user has opened
+    let rwcOpenMatch = {};   // which match accordions this user has opened
 
     // A circle-method round-robin: each team plays once per round. Used to
     // order the pool matches into rounds for playback, since the engine
@@ -3182,22 +3199,6 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
             map[r.away + "\u0001" + r.home] = r;
         });
         return map;
-    }
-
-    // A short scorer summary for one side of a match, from its breakdown:
-    // try scorers by name, then the goal kicker's conversions and penalties.
-    function rwcScorerLine(bd) {
-        if (!bd) return "";
-        const parts = [];
-        (bd.tries || []).forEach(function (t) {
-            parts.push(esc(t.name) + (t.count > 1 ? " " + t.count : "") + " (T)");
-        });
-        const goals = [];
-        if (bd.conversions) goals.push(bd.conversions + "C");
-        if (bd.penalties) goals.push(bd.penalties + "P");
-        if (goals.length && bd.kicker) parts.push(esc(bd.kicker) + " " + goals.join(" "));
-        else if (goals.length) parts.push(goals.join(" "));
-        return parts.join(", ");
     }
 
     // ── World Cup competition view ──────────────────────────
@@ -3352,24 +3353,37 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
             });
         };
 
+        const isUserSide = function (key) {
+            return !!(comp.sides && comp.sides[key] && comp.sides[key].isUser);
+        };
         const renderMatchRow = function (r) {
             if (!r) return "";
             const shown = isRevealed(r);
             const a = ctx.sideLabel(r.home), b = ctx.sideLabel(r.away);
+            const aDot = isUserSide(r.home) ? "<span class='rwc-userdot'></span>" : "";
+            const bDot = isUserSide(r.away) ? "<span class='rwc-userdot'></span>" : "";
             if (!shown) {
-                return "<div class='rwc-match pending'><span class='rwc-side'>" + esc(a)
-                    + "</span><span class='rwc-vs'>v</span><span class='rwc-side'>" + esc(b) + "</span></div>";
+                return "<div class='rwc-match pending'>"
+                    + "<span class='rwc-side'>" + aDot + esc(a) + "</span>"
+                    + "<span class='rwc-vs'>v</span>"
+                    + "<span class='rwc-side away'>" + esc(b) + bDot + "</span></div>";
             }
-            const aw = r.winner === "a", bw = r.winner === "b";
-            const sa = rwcScorerLine(r.bdA), sb = rwcScorerLine(r.bdB);
-            let row = "<div class='rwc-match'><span class='rwc-side" + (aw ? " win" : "") + "'>" + esc(a)
-                + "</span><span class='rwc-score'>" + r.a + " - " + r.b + "</span>"
-                + "<span class='rwc-side" + (bw ? " win" : "") + "'>" + esc(b) + "</span></div>";
-            if (sa || sb) {
-                row += "<div class='rwc-scorers'><span>" + (sa || "&mdash;") + "</span>"
-                    + "<span>" + (sb || "&mdash;") + "</span></div>";
-            }
-            return row;
+            const scorers = scorersHtml(r);
+            const hasScorers = scorers.replace(/\s/g, "").length > 0;
+            const key = r.key;
+            const open = !!rwcOpenMatch[key];
+            const head = "<button type='button' class='rwc-match played" + (open ? " open" : "")
+                + "' data-rwcmatch='" + esc(key) + "'>"
+                + "<span class='rwc-side" + (isUserSide(r.home) ? " user" : "") + "'>" + aDot + esc(a) + "</span>"
+                + "<span class='rwc-score'><span class='" + (r.winner === "a" ? "win" : "") + "'>" + r.a
+                + "</span> - <span class='" + (r.winner === "b" ? "win" : "") + "'>" + r.b + "</span></span>"
+                + "<span class='rwc-side away" + (isUserSide(r.away) ? " user" : "") + "'>" + esc(b) + bDot + "</span>"
+                + (hasScorers ? "<span class='rwc-match-caret'>&#9662;</span>" : "")
+                + "</button>";
+            const body = hasScorers
+                ? "<div class='rwc-match-body" + (open ? "" : " hidden") + "'>" + scorers + "</div>"
+                : "";
+            return "<div class='rwc-match-wrap'>" + head + body + "</div>";
         };
 
         const renderPoolBlock = function (poolKey, opts) {
@@ -3437,18 +3451,25 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
                 const stg = r.stage === "quarter" ? "Quarter-final"
                     : r.stage === "semi" ? "Semi-final"
                     : r.stage === "bronze" ? "Bronze final" : "Final";
-                const aw = r.winner === "a", bw = r.winner === "b";
-                html += "<div class='rwc-ko'><span class='rwc-ko-stage'>" + stg + "</span> "
-                    + "<span class='" + (aw ? "win" : "") + "'>" + esc(ctx.sideLabel(r.home)) + "</span> "
-                    + r.a + " - " + r.b
-                    + " <span class='" + (bw ? "win" : "") + "'>" + esc(ctx.sideLabel(r.away)) + "</span>"
-                    + (r.note ? " <span class='rwc-ko-note'>(" + esc(r.note) + ")</span>" : "");
-                const sc = [rwcScorerLine(r.bdA), rwcScorerLine(r.bdB)].filter(Boolean);
-                if (sc.length) {
-                    html += "<div class='rwc-scorers ko'><span>" + (rwcScorerLine(r.bdA) || "&mdash;")
-                        + "</span><span>" + (rwcScorerLine(r.bdB) || "&mdash;") + "</span></div>";
-                }
-                html += "</div>";
+                const a = ctx.sideLabel(r.home), b = ctx.sideLabel(r.away);
+                const aDot = isUserSide(r.home) ? "<span class='rwc-userdot'></span>" : "";
+                const bDot = isUserSide(r.away) ? "<span class='rwc-userdot'></span>" : "";
+                const scorers = scorersHtml(r);
+                const hasScorers = scorers.replace(/\s/g, "").length > 0;
+                const key = r.key;
+                const open = !!rwcOpenMatch[key];
+                html += "<div class='rwc-match-wrap ko'>"
+                    + "<p class='rwc-ko-stage'>" + stg + "</p>"
+                    + "<button type='button' class='rwc-match played" + (open ? " open" : "")
+                    + "' data-rwcmatch='" + esc(key) + "'>"
+                    + "<span class='rwc-side" + (isUserSide(r.home) ? " user" : "") + "'>" + aDot + esc(a) + "</span>"
+                    + "<span class='rwc-score'><span class='" + (r.winner === "a" ? "win" : "") + "'>" + r.a
+                    + "</span> - <span class='" + (r.winner === "b" ? "win" : "") + "'>" + r.b + "</span></span>"
+                    + "<span class='rwc-side away" + (isUserSide(r.away) ? " user" : "") + "'>" + esc(b) + bDot + "</span>"
+                    + (hasScorers ? "<span class='rwc-match-caret'>&#9662;</span>" : "")
+                    + "</button>"
+                    + (hasScorers ? "<div class='rwc-match-body" + (open ? "" : " hidden") + "'>" + scorers + "</div>" : "")
+                    + "</div>";
             });
             html += "</div>";
         }
