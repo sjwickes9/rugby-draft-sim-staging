@@ -234,6 +234,18 @@
                 + "it off entirely, in which case no bonus applies anywhere.</p>"
         },
 
+        strategy: {
+            title: "Team strategy",
+            icon: "\u{2696}\u{FE0F}",
+            section: "After the draft",
+            short: "Whether you play through the forwards or the backs.",
+            body: "<p>The strategy slider weights your forwards against your backs. "
+                + "A pack heavy squad usually wants the weighting to match, but pushing "
+                + "it against your strength is a legitimate gamble.</p>"
+                + "<p>It locks for the whole competition, so set it with your whole run "
+                + "in mind, not just the first game.</p>"
+        },
+
         kicker: {
             title: "Goal kicker and strategy",
             icon: "\u{1F3AF}",
@@ -258,9 +270,9 @@
             body: "<p>Each side gets an overall rating from its players, adjusted for anyone "
                 + "out of position, the strategy weighting and any chemistry. The kicker "
                 + "determines how many points come from conversions and penalties.</p>"
-                + "<p>The simulation is seeded, which means every person in the room sees "
-                + "exactly the same results in the same order. Nobody can reroll a bad "
-                + "afternoon.</p>"
+                + "<p>The result is fixed the moment the tournament is played, so every "
+                + "person in the room sees exactly the same games in the same order. "
+                + "Nobody can reroll a bad afternoon.</p>"
                 + "<p>Results play out game by game, and you can speed that up or slow it "
                 + "down. Scores stay hidden until you have watched, so nothing is spoiled by "
                 + "someone else finishing first.</p>"

@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607281532";
+    const VERSION = "v1.2607281540";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -3599,8 +3599,15 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
 
         // ── Champion banner, between the final and the leaders ──
         if (showChampion) {
+            // If a user owns the winning nation, show their kit colours.
+            let champUid = null;
+            const seat = ctx.seat || {};
+            Object.keys(seat).forEach(function (u) {
+                if (seat[u] && seat[u].nation === ctx.champNation) champUid = u;
+            });
+            const cKit = champUid ? kitSlash((room.members || {})[champUid]) : "";
             html += "<div class='winner-box champion'><div class='winner-lbl'>World champions</div>"
-                + "<div class='winner-name'>" + esc(ctx.champLabel) + "</div>"
+                + "<div class='winner-name'>" + cKit + esc(ctx.champLabel) + "</div>"
                 + "<div class='winner-sub'>" + esc(ctx.tournLabel) + " World Cup</div></div>";
         }
 
@@ -3936,9 +3943,10 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
             const illegalMap = comp.illegal || {};
             const anyIllegal = Object.keys(illegalMap).length;
             const iWon = comp.winner === me;
+            const wKit = kitSlash((room.members || {})[comp.winner]);
             wb.innerHTML = "<div class='winner-box" + (iWon ? " mine" : "") + "'>"
                 + "<div class='winner-lbl'>Competition " + now + " of " + total + "</div>"
-                + "<div class='winner-name'>" + esc(nameOf(comp.winner)) + "</div>"
+                + "<div class='winner-name'>" + wKit + esc(nameOf(comp.winner)) + "</div>"
                 + "<div class='winner-sub'>takes the title"
                 + (anyIllegal ? ", with " + anyIllegal + " side"
                     + (anyIllegal === 1 ? "" : "s") + " ruled ineligible" : "")
@@ -4088,7 +4096,8 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         if (wEl && champ) {
             wEl.innerHTML = "<div class='winner-box champion" + (iAmChamp ? " mine" : "") + "'>"
                 + "<div class='winner-lbl'>Season champion</div>"
-                + "<div class='winner-name'>" + esc(nameOf(champ.uid)) + "</div>"
+                + "<div class='winner-name'>" + kitSlash((room.members || {})[champ.uid])
+                + esc(nameOf(champ.uid)) + "</div>"
                 + "<div class='winner-sub'>" + champ.titles + " of " + total
                 + " competition" + (total === 1 ? "" : "s") + " won</div></div>";
         } else if (wEl) {
@@ -4428,6 +4437,15 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
 
     function setStatus(id, msg, isErr) { const el = $(id); el.textContent = msg; el.classList.toggle("err", !!isErr); }
     function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+
+    // A small two-colour marker for a side's kit, split on the diagonal, to
+    // sit beside a winner's name. Falls back gracefully if a colour is unset.
+    function kitSlash(member) {
+        const m = member || {};
+        const a = m.kit || "#6E8CA6";
+        const b = m.kit2 || a;
+        return "<span class='kit-slash' style='--ks1:" + a + ";--ks2:" + b + "'></span>";
+    }
 
     // ── Boot ────────────────────────────────────────────────
     function randomKit() {

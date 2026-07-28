@@ -620,6 +620,7 @@ input[type=color] {
 }
 .winner-lbl { font-family: var(--display); text-transform: uppercase; letter-spacing: 0.16em; font-size: 0.7rem; color: var(--slate); }
 .winner-name { font-family: var(--display); text-transform: uppercase; letter-spacing: 0.05em; font-size: 1.9rem; margin: 6px 0 4px; color: #F0B90B; }
+.kit-slash { display: inline-block; width: 16px; height: 16px; border-radius: 3px; margin-right: 9px; vertical-align: baseline; position: relative; top: 1px; border: 1px solid rgba(0,0,0,0.25); background: linear-gradient(135deg, var(--ks1) 0%, var(--ks1) 48%, var(--ks2) 52%, var(--ks2) 100%); }
 .winner-sub { font-size: 0.84rem; color: var(--slate); }
 .champion .winner-name { font-size: 2.3rem; }
 .champion { border-left-width: 8px; }
@@ -820,11 +821,11 @@ input[type=color] {
 .acc-btn[aria-expanded="true"] .acc-caret { transform: rotate(180deg); }
 .acc-now { font-size: 0.82rem; color: var(--slate); margin: 0 0 4px; }
 .sub-label {
-    font-family: var(--display); text-transform: uppercase; letter-spacing: 0.08em;
-    font-size: 0.68rem; color: var(--slate); margin: 16px 0 8px;
+    font-family: var(--display); text-transform: uppercase; letter-spacing: 0.06em;
+    font-size: 0.82rem; color: var(--pitch); margin: 16px 0 8px;
 }
 .sub-label:first-child { margin-top: 0; }
-.sub-label small { text-transform: none; letter-spacing: 0; font-size: 0.72rem; opacity: 0.8; }
+.sub-label small { text-transform: none; letter-spacing: 0; font-size: 0.74rem; opacity: 0.75; color: var(--slate); font-weight: 400; }
 .acc-body { padding-top: 12px; }
 .acc-body .eyebrow { margin-top: 16px; }
 .acc-body .eyebrow:first-child { margin-top: 0; }

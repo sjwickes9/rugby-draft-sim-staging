@@ -107,8 +107,21 @@ window.MPCommit = (function () {
             }
         }
         const pct = Math.round(w * 100);
-        $("strategyHint").textContent = "Forwards carry " + pct + "% of the weight, backs "
-            + (100 - pct) + "%. This locks for the whole competition.";
+        $("strategyHint").textContent = strategyLabel(pct)
+            + ". This locks for the whole competition.";
+    }
+
+    // A descriptive label for the forward-versus-backs weighting, so the
+    // strategy reads in rugby terms rather than a bare percentage. pct is the
+    // forward weight, from 25 (backs-heavy) to 75 (forwards-heavy).
+    function strategyLabel(pct) {
+        if (pct >= 68) return "Forwards dominant";
+        if (pct >= 60) return "Forwards focussed";
+        if (pct >= 54) return "Forwards tilted";
+        if (pct > 46) return "Balanced";
+        if (pct > 40) return "Backs tilted";
+        if (pct > 32) return "Backs focussed";
+        return "Backs dominant";
     }
 
     // ── Kicker list ─────────────────────────────────────────
@@ -218,7 +231,8 @@ window.MPCommit = (function () {
                 mode: state.roomMode || "career",
                 tournamentCount: state.tournamentCount || 99
             });
-            el.innerHTML = "<span class='chem-title'>Chemistry</span>"
+            el.innerHTML = "<span class='chem-title'>Chemistry"
+                + "<button class='info-i' data-help='chemistry' aria-label='What is this?'>i</button></span>"
                 + "<span class='chem-chips'>"
                 + b.links.map(function (l) {
                     return "<span class='chem-chip " + l.tier + "'>" + l.label + "</span>";
@@ -393,8 +407,8 @@ window.MPCommit = (function () {
                 : "";
             window.MPModal({
                 title: "Lock in your choices?",
-                body: "<strong>" + esc(p.name) + "</strong> takes the goal kicks, and your forwards "
-                    + "carry <strong>" + pct + "%</strong> of the weight."
+                body: "<strong>" + esc(p.name) + "</strong> takes the goal kicks, and your "
+                    + "strategy is <strong>" + strategyLabel(pct) + "</strong>."
                     + "<span class='warn'>Neither can be changed for the whole competition.</span>"
                     + illegalWarn,
                 ok: "Lock in", cancel: "Go back"
