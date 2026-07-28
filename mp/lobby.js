@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607271903";
+    const VERSION = "v1.2607280513";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -658,7 +658,10 @@ on("typeCustom", "click", function () { setGameType("custom"); });
             const b = (e.target && e.target.closest) ? e.target.closest("[data-rwcmatch]") : null;
             if (!b) return;
             const k = b.getAttribute("data-rwcmatch");
-            rwcOpenMatch[k] = !rwcOpenMatch[k];
+            // Toggle from what is actually on screen, so a match that opened by
+            // default closes on the first click rather than needing two.
+            const currentlyOpen = b.classList.contains("open");
+            rwcOpenMatch[k] = !currentlyOpen;
             b.classList.toggle("open", rwcOpenMatch[k]);
             const wrap = b.closest(".rwc-match-wrap");
             const body = wrap ? wrap.querySelector(".rwc-match-body") : null;
@@ -3395,7 +3398,11 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
             const scorers = scorersHtml(r);
             const hasScorers = scorers.replace(/\s/g, "").length > 0;
             const key = r.key;
-            const open = !!rwcOpenMatch[key];
+            // The user's own pool (when they chose to view it) opens by
+            // default so they see their scorers without clicking. Any explicit
+            // toggle the user makes overrides this.
+            const defOpen = (rwcView === "mine" && r.pool === myPool);
+            const open = (key in rwcOpenMatch) ? rwcOpenMatch[key] : defOpen;
             const head = "<button type='button' class='rwc-match played" + (open ? " open" : "")
                 + "' data-rwcmatch='" + esc(key) + "'>"
                 + "<span class='rwc-side" + (isUserSide(r.home) ? " user" : "") + "'>" + aDot + esc(a) + "</span>"
@@ -3481,7 +3488,9 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
                 const scorers = scorersHtml(r);
                 const hasScorers = scorers.replace(/\s/g, "").length > 0;
                 const key = r.key;
-                const open = !!rwcOpenMatch[key];
+                // Knockouts open by default; each is a headline match worth
+                // seeing in full. An explicit toggle overrides this.
+                const open = (key in rwcOpenMatch) ? rwcOpenMatch[key] : true;
                 html += "<div class='rwc-match-wrap ko'>"
                     + "<p class='rwc-ko-stage'>" + stg + "</p>"
                     + "<button type='button' class='rwc-match played" + (open ? " open" : "")

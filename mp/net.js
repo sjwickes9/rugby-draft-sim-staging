@@ -344,6 +344,105 @@ window.MPNet = (function () {
         };
     }
 
+    // Within-nation parallel draft. Each user drafts only from their own
+    // allocated nation, across all years. Because no two users share a nation,
+    // the pools never overlap and there is nothing to serialise, so everyone
+    // drafts at the same time against one shared deadline. The draft node has
+    // no currentPicker or per-pick clock: instead a per-user pool and a
+    // per-user pick map, plus a whole-draft deadline.
+    // A pick in a parallel draft. The user writes into their own subtree, so
+    // there is no turn gate and no contention: each user's picks are theirs
+    // alone. slotId is the squad slot, poolIndex indexes that user's pool.
+    function makeParallelPick(code, slotId, poolIndex) {
+        return whenReady().then(function () {
+            const base = "rooms/" + code + "/draft/ppicks/" + uid + "/";
+            const updates = {};
+            updates[base + slotId] = poolIndex;
+            return db.ref().update(updates).catch(function (err) {
+                if ((err.code || "").indexOf("permission") !== -1) {
+                    throw new Error("That pick could not be saved. The draft may have ended.");
+                }
+                throw new Error("Could not make that pick (" + (err.code || err.message) + ").");
+            });
+        });
+    }
+
+    // Remove a pick in a parallel draft (deselect a slot).
+    function clearParallelPick(code, slotId) {
+        return whenReady().then(function () {
+            return db.ref("rooms/" + code + "/draft/ppicks/" + uid + "/" + slotId).remove()
+                .catch(function (err) {
+                    throw new Error("Could not clear that pick (" + (err.code || err.message) + ").");
+                });
+        });
+    }
+
+    // Mark this user's XV as complete in a parallel draft.
+    function finishParallelUser(code) {
+        return whenReady().then(function () {
+            return db.ref("rooms/" + code + "/draft/done/" + uid).set(true)
+                .catch(function (err) {
+                    throw new Error("Could not submit your team (" + (err.code || err.message) + ").");
+                });
+        });
+    }
+
+    function startParallelDraft(code, room, uids, members, settings, competition, seed, rwcNode) {
+        if (!rwcNode || !rwcNode.seat) {
+            return Promise.reject(new Error("The nations have not been assigned."));
+        }
+        // Only humans draft; there are no AI sides in a World Cup.
+        const humans = uids.filter(function (u) { return !(members[u] && members[u].ai); });
+
+        // Build each user's nation pool: their nation, every year, using the
+        // room's rating mode. Store per user so each client reads only theirs.
+        const pools = {};
+        const baseFilters = {
+            mode: settings.mode || "tournament",
+            yearMin: undefined, yearMax: undefined
+        };
+        for (let i = 0; i < humans.length; i++) {
+            const u = humans[i];
+            const nation = (rwcNode.seat[u] || {}).nation;
+            if (!nation) return Promise.reject(new Error("A user has no nation assigned."));
+            let pool = null;
+            try {
+                pool = MPEngine.buildPool(allSquads, {
+                    mode: baseFilters.mode, countries: [nation]
+                });
+            } catch (e) {}
+            if (!pool || pool.length < MPDraft.SQUAD_SIZE) {
+                return Promise.reject(new Error(nation + " does not have enough players to field an XV."));
+            }
+            pools[u] = pool;
+        }
+
+        // One whole-draft deadline. The host sets it; default thirty minutes.
+        const wholeMs = settings.wholeDraftMs || (30 * 60 * 1000);
+        const deadline = serverNow() + wholeMs;
+
+        const updates = {};
+        updates["rooms/" + code + "/draft"] = {
+            parallel: true,
+            seed: seed,
+            order: humans,          // used only for iteration, not turn order
+            competition: competition,
+            startedAt: firebase.database.ServerValue.TIMESTAMP,
+            deadline: deadline,
+            pools: pools,           // uid -> [player, ...]
+            ppicks: {},             // uid -> { slotId: poolIndex }
+            done: {}                // uid -> true when their XV is complete
+        };
+        updates["rooms/" + code + "/meta/status"] = "drafting";
+        if (rwcNode && !room.rwc) updates["rooms/" + code + "/rwc"] = rwcNode;
+        // Clear any stale competition result from a previous game.
+        updates["rooms/" + code + "/comp"] = null;
+
+        return db.ref().update(updates).catch(function (err) {
+            throw new Error("Could not start the draft (" + (err.code || err.message) + ").");
+        });
+    }
+
     function startDraft(code) {
         return whenReady().then(function () {
             return db.ref("rooms/" + code).get().then(function (snap) {
@@ -372,6 +471,15 @@ window.MPNet = (function () {
                 if (settings.gameType === "worldcup" && !rwcNode) {
                     rwcNode = buildRwcAssignment(settings, uids, members, seed);
                     if (rwcNode.error) throw new Error(rwcNode.error);
+                }
+
+                // Within-nation World Cup: each user drafts only from their
+                // allocated nation, all years. The pools do not overlap, so
+                // the draft runs in parallel with one shared deadline rather
+                // than a snake order. This is a distinct flow.
+                if (settings.gameType === "worldcup" && settings.rwcPool === "nation") {
+                    return startParallelDraft(code, room, uids, members, settings,
+                        competition, seed, rwcNode);
                 }
 
                 // Re-snapshot the pool, so any settings the host changed
@@ -964,6 +1072,9 @@ window.MPNet = (function () {
         updateSettings: updateSettings,
         startDraft: startDraft,
         makePick: makePick,
+        makeParallelPick: makeParallelPick,
+        clearParallelPick: clearParallelPick,
+        finishParallelUser: finishParallelUser,
         addAiSeats: addAiSeats,
         markMissed: markMissed,
         clearMissed: clearMissed,
