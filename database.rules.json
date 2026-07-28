@@ -142,7 +142,7 @@
           },
           "done": {
             "$uid": {
-              ".write": "auth != null && auth.uid === $uid && root.child('rooms/' + $code + '/meta/status').val() === 'drafting' && root.child('rooms/' + $code + '/draft/parallel').val() === true",
+              ".write": "auth != null && root.child('rooms/' + $code + '/draft/parallel').val() === true && root.child('rooms/' + $code + '/meta/status').val() === 'drafting' && (auth.uid === $uid || (root.child('rooms/' + $code + '/meta/hostUid').val() === auth.uid && now > root.child('rooms/' + $code + '/draft/deadline').val()))",
               ".validate": "newData.isBoolean()"
             }
           }
