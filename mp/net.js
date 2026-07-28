@@ -172,6 +172,7 @@ window.MPNet = (function () {
                         rwcAssign: extra.rwcAssign || null,
                         rwcPool: extra.rwcPool || null,
                         turnMs: (extra.turnMs === 0 || extra.turnMs) ? extra.turnMs : 600000,
+                        wholeDraftMs: extra.wholeDraftMs || null,
                         seasonLength: extra.seasonLength || 3,
                         competition: 1,
                         aiCount: extra.aiCount || 0,

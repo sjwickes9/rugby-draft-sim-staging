@@ -383,12 +383,21 @@
             const A = sides[aKey], B = sides[bKey];
             let m = Sim.simulateMatch(rng, A.rating, B.rating, A.kicker, B.kicker);
             let note = null;
+            let decider = null; // "a" or "b" if the match was decided by a kick
             if (m.drawn) {
                 const res = Sim.resolveKnockout(rng, m, A.kicker, B.kicker);
                 m = res.result; note = res.path;
+                // Sudden death and extra time are won by a kick. Record which
+                // side landed it so its breakdown shows that penalty or drop
+                // goal, rather than a decomposition with no kick at all.
+                if (res.deciderKick) decider = res.deciderKick;
+                else if (res.path === "extra time") {
+                    // The winning side kicked the deciding points in extra time.
+                    decider = (m.a > m.b) ? "a" : (m.b > m.a ? "b" : null);
+                }
             }
-            const bdA = Sim.buildScoreBreakdown(rng, m.a, A.squad, kickerNameOf(A, P));
-            const bdB = Sim.buildScoreBreakdown(rng, m.b, B.squad, kickerNameOf(B, P));
+            const bdA = Sim.buildScoreBreakdown(rng, m.a, A.squad, kickerNameOf(A, P), decider === "a" ? 1 : 0);
+            const bdB = Sim.buildScoreBreakdown(rng, m.b, B.squad, kickerNameOf(B, P), decider === "b" ? 1 : 0);
             results.push({
                 stage: stage, home: aKey, away: bKey,
                 a: m.a, b: m.b, drawn: false,

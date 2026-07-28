@@ -25,7 +25,7 @@
     <!-- ══ LOBBY VIEW ══ -->
     <div id="lobbyView">
 
-        <p class="version" id="version">v1.2607281015</p>
+        <p class="version" id="version">v1.2607281532</p>
 
         <div id="notice" class="notice hidden">
             <span id="noticeText"></span>
@@ -186,6 +186,24 @@
                 </div>
                 <p class="list-hint">If the host does nothing for this long, anyone else in the room can take over.</p>
             </div>
+        </section>
+
+        <!-- Whole-draft timer, shown instead of the per-pick timer when
+             everyone drafts their own nation at once. -->
+        <section class="block hidden" id="wholeDraftBlock">
+            <p class="eyebrow">Draft time<button class="info-i" data-help="ai" aria-label="What is this?">i</button></p>
+            <p class="acc-now" id="wholeDraftNow"></p>
+            <div class="turn-fields">
+                <div class="turn-field">
+                    <label for="wholeHours">Hours</label>
+                    <input type="number" id="wholeHours" min="0" max="168" step="1" value="0" inputmode="numeric">
+                </div>
+                <div class="turn-field">
+                    <label for="wholeMins">Minutes</label>
+                    <input type="number" id="wholeMins" min="0" max="59" step="1" value="30" inputmode="numeric">
+                </div>
+            </div>
+            <p class="list-hint">Everyone drafts their own nation at the same time. When this runs out, any team not submitted is entered as it stands.</p>
         </section>
 
         <section class="block">

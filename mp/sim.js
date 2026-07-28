@@ -237,7 +237,18 @@
         return out;
     }
 
+    // Rugby scores of 1, 2 and 4 are impossible (no combination of tries,
+    // conversions, drop goals and penalties makes them). The simulation can
+    // occasionally land on 4, so scores are snapped to the nearest legal
+    // value before anything downstream tries to break them down.
+    function legalScore(v) {
+        if (v === 1 || v === 2) return v - v; // 0
+        if (v === 4) return 3;                 // a penalty rather than a phantom try
+        return v;
+    }
+
     function finish(aS, bS) {
+        aS = legalScore(aS); bS = legalScore(bS);
         var margin = Math.abs(aS - bS);
         var drawn = aS === bS;
         return {
@@ -267,10 +278,13 @@
             return { result: r1, path: "extra time", extra: { a: aET, b: bET } };
         }
 
-        // Sudden death: ten minutes, first score wins.
+        // Sudden death: ten minutes, first score wins. The deciding score is
+        // a kick (penalty or drop goal), so it is recorded so the winner's
+        // breakdown can show that three-point score rather than inventing a
+        // try that would not reconcile with a sudden-death finish.
         var sd = rng();
-        if (sd < 0.4) return { result: finish(result.a + aET + 3, result.b + bET), path: "sudden death", extra: { a: aET + 3, b: bET } };
-        if (sd > 0.6) return { result: finish(result.a + aET, result.b + bET + 3), path: "sudden death", extra: { a: aET, b: bET + 3 } };
+        if (sd < 0.4) return { result: finish(result.a + aET + 3, result.b + bET), path: "sudden death", extra: { a: aET + 3, b: bET }, deciderKick: "a" };
+        if (sd > 0.6) return { result: finish(result.a + aET, result.b + bET + 3), path: "sudden death", extra: { a: aET, b: bET + 3 }, deciderKick: "b" };
 
         // Place-kicking competition. This is where the kicker mechanic pays
         // off: a tighthead on the tee at 40% loses roughly two times in three.
@@ -435,12 +449,16 @@
         return best;
     }
 
-    function buildScoreBreakdown(rng, finalScore, squad, kickerName) {
+    function buildScoreBreakdown(rng, finalScore, squad, kickerName, minPenalties) {
         // Reconstruct a plausible set of tries, conversions and penalties that
         // sums exactly to the final score. Try = 5, conversion = 2 (at most one
         // per try), penalty = 3. The reconstruction must reconcile precisely,
-        // so it is built to leave no unaccounted points.
+        // so it is built to leave no unaccounted points. minPenalties forces a
+        // floor on penalties, used when a match was decided by a kick (a
+        // sudden-death or extra-time penalty or drop goal) so the breakdown
+        // reflects that deciding score.
         var remaining = finalScore;
+        var floorPen = minPenalties || 0;
 
         // Take a random number of penalties first, but never so many that the
         // rest cannot be made from converted or unconverted tries. Each try is
@@ -450,10 +468,13 @@
         // tries to whatever remains, adjusting penalties if a remainder cannot
         // be split into tries.
         var maxPen = Math.floor(remaining / 3);
-        // Bias towards few penalties: high scores are try-fests.
+        if (floorPen > maxPen) floorPen = maxPen; // cannot force more than fit
+        // Bias towards few penalties: high scores are try-fests. Never below
+        // the forced floor.
         var wantPen = 0;
         if (remaining <= 9) wantPen = Math.min(maxPen, Math.floor(rng() * (maxPen + 1)));
         else wantPen = Math.min(maxPen, Math.floor(rng() * 3)); // 0, 1 or 2 usually
+        if (wantPen < floorPen) wantPen = floorPen;
 
         var fitTries = function (pts) {
             // Split pts into converted (7) and unconverted (5) tries exactly.
@@ -468,9 +489,9 @@
         var chosen = null, penalties = 0;
         // Try the wanted penalty count first, then fan outwards, so every
         // achievable score finds an exact split rather than only those where
-        // fewer penalties happen to work.
+        // fewer penalties happen to work. Never drop below the forced floor.
         var tryPen = function (pen) {
-            if (pen < 0 || pen > maxPen) return false;
+            if (pen < floorPen || pen > maxPen) return false;
             var pts = remaining - pen * 3;
             var fit = fitTries(pts);
             if (fit) { chosen = fit; penalties = pen; return true; }
@@ -480,6 +501,17 @@
         for (var step = 1; !found && step <= maxPen; step++) {
             if (tryPen(wantPen - step)) { found = true; break; }
             if (tryPen(wantPen + step)) { found = true; break; }
+        }
+        if (!found && floorPen > 0) {
+            // The forced penalty floor made the score unfittable (e.g. a total
+            // of exactly one try). Relax the floor and try again from zero, so
+            // the score still reconciles even if it cannot show the kick.
+            floorPen = 0;
+            found = tryPen(wantPen);
+            for (var s2 = 1; !found && s2 <= maxPen; s2++) {
+                if (tryPen(wantPen - s2)) { found = true; break; }
+                if (tryPen(wantPen + s2)) { found = true; break; }
+            }
         }
         if (!found) {
             // A score that cannot be made from tries, conversions and

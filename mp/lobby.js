@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607281015";
+    const VERSION = "v1.2607281532";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -74,6 +74,7 @@
         rwcAssign: "app",       // "app" (app assigns) or "userdraft" (users draft nations)
         rwcPool: "whole",       // "whole" (competitive snake) or "nation" (within-nation parallel)
         turnMs: 600000,    // time allowed per pick, 0 means no limit
+        wholeDraftMs: 1800000, // whole-draft deadline for within-nation, default 30 min
         hostIdleMs: 86400000,  // host handover after this much silence
         path: "create",    // "create" | "join"
         countryCap: null,  // null = use the engine's auto value
@@ -175,10 +176,35 @@
     }
 
     function renderTimersSummary() {
+        // Within-nation drafting is parallel, so the per-pick timer is
+        // replaced by one whole-draft deadline. Show one block or the other.
+        const withinNation = (state.gameType === "worldcup" && state.rwcPool === "nation");
+        const tb = $("turnBlock"), wb = $("wholeDraftBlock");
+        if (tb) tb.classList.toggle("hidden", withinNation);
+        if (wb) wb.classList.toggle("hidden", !withinNation);
+
         const t = state.turnMs ? turnText(state.turnMs) : "no pick limit";
         const i = Math.round((state.hostIdleMs || 86400000) / 3600000);
         $("turnNow").textContent = t + ", host handover after " + i + "h";
         $("idleHours").value = i;
+
+        if (withinNation) {
+            const wh = Math.floor((state.wholeDraftMs || 1800000) / 3600000);
+            const wm = Math.round(((state.wholeDraftMs || 1800000) % 3600000) / 60000);
+            const now = $("wholeDraftNow");
+            if (now) now.textContent = (wh ? wh + "h " : "") + wm + " min to draft";
+            if ($("wholeHours")) $("wholeHours").value = wh;
+            if ($("wholeMins")) $("wholeMins").value = wm;
+        }
+    }
+
+    function readWholeDraftFields() {
+        const h = Math.max(0, Math.min(168, parseInt($("wholeHours").value, 10) || 0));
+        const m = Math.max(0, Math.min(59, parseInt($("wholeMins").value, 10) || 0));
+        let ms = (h * 3600000) + (m * 60000);
+        // A floor so nobody gets an instantly-expiring draft.
+        if (ms < 60000) ms = 60000;
+        state.wholeDraftMs = ms;
     }
 
     function readTurnFields() {
@@ -587,6 +613,10 @@
         ["turnHours", "turnMins"].forEach(function (id) {
             on(id, "change", function () { readTurnFields(); refresh(); });
             on(id, "blur", function () { readTurnFields(); refresh(); });
+        });
+        ["wholeHours", "wholeMins"].forEach(function (id) {
+            on(id, "change", function () { readWholeDraftFields(); refresh(); });
+            on(id, "blur", function () { readWholeDraftFields(); refresh(); });
         });
 
         on("yMin", "input", function (e) {
@@ -1022,6 +1052,8 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         $("create").disabled = true;
         MPNet.createRoom(filters(), profile(), rulesForCreate(), { tableSize: state.size + state.aiCount, aiCount: state.aiCount, seasonLength: state.gameType === "worldcup" ? 1 : state.season,
               turnMs: state.turnMs, hostIdleMs: state.hostIdleMs, chemistry: state.chemistry,
+              wholeDraftMs: (state.gameType === "worldcup" && state.rwcPool === "nation")
+                  ? state.wholeDraftMs : null,
               gameType: state.gameType,
               rwcTournament: state.gameType === "worldcup" ? state.rwcTournament : null,
               rwcAssign: state.gameType === "worldcup" ? state.rwcAssign : null,
