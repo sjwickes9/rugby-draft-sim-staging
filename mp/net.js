@@ -353,6 +353,27 @@ window.MPNet = (function () {
     // A pick in a parallel draft. The user writes into their own subtree, so
     // there is no turn gate and no contention: each user's picks are theirs
     // alone. slotId is the squad slot, poolIndex indexes that user's pool.
+    // Once the whole-draft deadline passes, the host submits any users who
+    // have not finished, using whatever XV they have drafted so far. A partial
+    // side is legal to store; the engine rates it from the players present.
+    function sweepParallelDeadline(code) {
+        return whenReady().then(function () {
+            return db.ref("rooms/" + code + "/draft").get().then(function (snap) {
+                const d = snap.val();
+                if (!d || !d.parallel) return;
+                if (!d.deadline || serverNow() <= d.deadline) return;
+                const order = d.order || [];
+                const done = d.done || {};
+                const updates = {};
+                order.forEach(function (u) {
+                    if (!done[u]) updates["rooms/" + code + "/draft/done/" + u] = true;
+                });
+                if (!Object.keys(updates).length) return;
+                return db.ref().update(updates).catch(function () { /* best effort */ });
+            });
+        });
+    }
+
     function makeParallelPick(code, slotId, poolIndex) {
         return whenReady().then(function () {
             const base = "rooms/" + code + "/draft/ppicks/" + uid + "/";
@@ -1075,6 +1096,7 @@ window.MPNet = (function () {
         makeParallelPick: makeParallelPick,
         clearParallelPick: clearParallelPick,
         finishParallelUser: finishParallelUser,
+        sweepParallelDeadline: sweepParallelDeadline,
         addAiSeats: addAiSeats,
         markMissed: markMissed,
         clearMissed: clearMissed,

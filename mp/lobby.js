@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607280513";
+    const VERSION = "v1.2607281015";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -325,14 +325,16 @@
             + (meta.bonusPoints ? "bonus points" : "two points for a win") + ". "
             + state.size + " of the " + nations.length + " nations replaced by users.";
         // The two new mechanics are not built yet. The controls are live so
-        // the intent is clear, but selecting one is flagged as not yet ready
-        // and the start is blocked until it is.
+        // The users-draft-nations assignment is still to come. The
+        // within-nation pool is now built, so it is no longer gated.
         const pending = [];
         if (state.rwcAssign === "userdraft") pending.push("users drafting their nations");
-        if (state.rwcPool === "nation") pending.push("drafting from within your nation");
         if (pending.length) {
             summary += " Coming soon: " + pending.join(" and ")
-                + ". For now, choose randomly assigned nations and the whole pool.";
+                + ". For now, choose randomly assigned nations.";
+        } else if (state.rwcPool === "nation") {
+            summary += " Everyone drafts a full XV from their own nation, all at "
+                + "once, against a shared deadline.";
         }
         $("rwcSummary").textContent = summary;
     }
@@ -340,8 +342,7 @@
     // True when the current World Cup choices include a mechanic not yet
     // built, so the host cannot start into a half-finished flow.
     function rwcHasPending() {
-        return state.gameType === "worldcup"
-            && (state.rwcAssign === "userdraft" || state.rwcPool === "nation");
+        return state.gameType === "worldcup" && state.rwcAssign === "userdraft";
     }
 
     function renderPath() {
@@ -452,7 +453,17 @@
     function renderRules(analysis) {
         const ctx = MPRules.buildContext(filters(), analysis);
         const rows = MPRules.evaluateRules(ctx, state.rules);
+        // Within-nation drafting means every player in an XV comes from the
+        // one allocated nation, so any rule about how nations are mixed is
+        // meaningless. Grey those out with a clear reason.
+        const withinNation = (state.gameType === "worldcup" && state.rwcPool === "nation");
         $("ruleList").innerHTML = rows.map(function (r) {
+            if (withinNation && (r.id === "maxPerCountry" || r.id === "minPerCountry" || r.id === "onePerTournament")) {
+                r = Object.assign({}, r, {
+                    available: false, enabled: false,
+                    unavailableReason: "Not used when everyone drafts from a single nation."
+                });
+            }
             const t = RULE_TEXT[r.id];
             const cls = "rule" + (r.available ? (r.enabled ? "" : " off") : " unavailable");
             let why = "";
@@ -972,11 +983,14 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
     function rulesForCreate() {
         const f = filters();
         const ctx = MPRules.buildContext(f, MPEngine.feasibility(allSquads, f, positionFamilyMap));
+        // Within-nation drafting has one nation per XV, so nation-mix rules do
+        // not apply and are never stored.
+        const withinNation = (state.gameType === "worldcup" && state.rwcPool === "nation");
         const out = {
             maxPerTournament: !!state.rules.maxPerTournament,
-            maxPerCountry: !!state.rules.maxPerCountry,
-            minPerCountry: !!state.rules.minPerCountry,
-            onePerTournament: !!state.rules.onePerTournament
+            maxPerCountry: !withinNation && !!state.rules.maxPerCountry,
+            minPerCountry: !withinNation && !!state.rules.minPerCountry,
+            onePerTournament: !withinNation && !!state.rules.onePerTournament
         };
         if (out.maxPerCountry) out.countryCap = currentCountryCap(ctx);
         if (out.minPerCountry) out.minNations = currentMinNations(ctx);
@@ -1836,6 +1850,7 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
 
         if (status === "drafting") {
             driveAi(room);
+            sweepParallelIfHost(room);
             renderDraftCover(room);
             renderRwcLine(room, "rwcDraftLine");
             // A new competition writes a fresh draft node, so rebuild the
@@ -1914,8 +1929,19 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         const ctx = MPRules.buildContext(f, analysis);
         const active = MPRules.activeConstraints(ctx, st.rules || {});
 
+        const draftNode = room.draft || {};
+        const parallel = !!draftNode.parallel;
+        const me = MPNet.currentUid();
+        // In a parallel within-nation draft each user drafts only from their
+        // own nation's players, so the board is their own pool, not the shared
+        // one, and there is no turn order.
+        const draftPool = parallel
+            ? ((draftNode.pools || {})[me] || [])
+            : (room.pool || []);
+
         MPDraftUI.init({
-            pool: room.pool || [],
+            pool: draftPool,
+            parallel: parallel,
             squad: MPPicks.emptySquad(),
             taken: {},
             constraints: active,
@@ -1929,15 +1955,21 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
             chemistry: (room.settings || {}).chemistry !== false,
             tournamentCount: (function () {
                 const ys = {};
-                (room.pool || []).forEach(function (p) { if (p.year) ys[p.year] = 1; });
+                (draftPool || []).forEach(function (p) { if (p.year) ys[p.year] = 1; });
                 return Object.keys(ys).length || 99;
             })(),
             onMissed: function (forUid) {
                 MPNet.markMissed(currentCode, forUid);
             },
+            onSubmit: function (done) {
+                MPNet.finishParallelUser(currentCode)
+                    .then(function () { done(null); })
+                    .catch(done);
+            },
             onTick: function () {
                 if (latestRoom && (latestRoom.meta || {}).status === "drafting") {
                     renderDraftCover(latestRoom);
+                    sweepParallelIfHost(latestRoom);
                     // If I am present on my own turn, I am plainly back, so
                     // clear any earlier miss against my seat.
                     const me = MPNet.currentUid();
@@ -1955,10 +1987,16 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
                     .then(function () { done(); })
                     .catch(function () { done(); });
             },
-            live: !!(room.draft && room.draft.order),
+            live: !!(room.draft && (room.draft.order || room.draft.parallel)),
             onPick: function (slotId, poolIndex, done) {
                 const d = latestRoom && latestRoom.draft;
                 if (!d) { done(new Error("No draft in progress.")); return; }
+                if (d.parallel) {
+                    MPNet.makeParallelPick(currentCode, slotId, poolIndex)
+                        .then(function () { done(null); })
+                        .catch(done);
+                    return;
+                }
                 MPNet.makePick(currentCode, slotId, poolIndex, d.order, d.pickIndex)
                     .then(function () { done(null); })
                     .catch(done);
@@ -1973,8 +2011,17 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
 
     function maybeCommit(room) {
         const d = room.draft || {};
-        const total = (d.order || []).length * MPPicks.SLOTS.length;
-        const done = total > 0 && (d.pickIndex || 0) >= total;
+        let done;
+        if (d.parallel) {
+            // Parallel: complete when every human has submitted their XV.
+            const humans = (d.order || []).filter(function (u) {
+                return !((room.members || {})[u] || {}).ai;
+            });
+            done = humans.length > 0 && humans.every(function (u) { return (d.done || {})[u]; });
+        } else {
+            const total = (d.order || []).length * MPPicks.SLOTS.length;
+            done = total > 0 && (d.pickIndex || 0) >= total;
+        }
         if (!done) return;
 
         // Commit for any AI side that has not yet, so the room never waits
@@ -2022,9 +2069,12 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
                 st2.rules || {});
         } catch (e) {}
 
+        const commitPool = (room.draft && room.draft.parallel)
+            ? (((room.draft.pools || {})[MPNet.currentUid()]) || [])
+            : (room.pool || []);
         const payload = {
             squad: MPDraftUI.squad(),
-            pool: room.pool || [],
+            pool: commitPool,
             constraints: liveRules,
             members: room.members || {},
             commits: room.commit || {},
@@ -2035,7 +2085,7 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
             chemistry: (room.settings || {}).chemistry !== false,
             tournamentCount: (function () {
                 const ys = {};
-                (room.pool || []).forEach(function (p) { if (p.year) ys[p.year] = 1; });
+                (commitPool || []).forEach(function (p) { if (p.year) ys[p.year] = 1; });
                 return Object.keys(ys).length || 99;
             })()
         };
@@ -2259,15 +2309,10 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         const rwc = room.rwc || {};
         const seat = rwc.seat || {};
 
-        // Rebuild every squad from the shared pick list, as runFixtures does.
+        // Rebuild every squad. squadFor handles both the sequential shared
+        // pick list and the parallel per-user pools and picks.
         const squads = {};
-        order.forEach(function (u) { squads[u] = MPPicks.emptySquad(); });
-        const picks = draft.picks || {};
-        Object.keys(picks).forEach(function (k) {
-            const pk = picks[k];
-            const p = pool[pk.i];
-            if (p && squads[pk.by]) squads[pk.by][pk.slot] = p;
-        });
+        order.forEach(function (u) { squads[u] = squadFor(room, u); });
 
         // Active constraints, so an illegal squad carries its penalty.
         let activeRules = [];
@@ -2711,6 +2756,19 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
                 + " missed a pick.</span>"
                 + "<button class='cover-btn' data-cover='" + u + "'>Assign an AI</button></div>";
         }).join("");
+    }
+
+    let sweepBusy = false;
+    function sweepParallelIfHost(room) {
+        const d = room.draft || {};
+        if (!d.parallel || !d.deadline) return;
+        if ((room.meta || {}).hostUid !== MPNet.currentUid()) return;
+        if (MPNet.serverNow() <= d.deadline) return;
+        if (sweepBusy) return;
+        sweepBusy = true;
+        MPNet.sweepParallelDeadline(currentCode).then(function () {
+            sweepBusy = false;
+        }).catch(function () { sweepBusy = false; });
     }
 
     function driveAi(room) {
@@ -4105,6 +4163,19 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
                 if (!p) return;
                 sq[slotId] = { name: p.n, country: p.c, year: p.y,
                     rating: p.r, positions: p.ps || [] };
+            });
+            return sq;
+        }
+
+        const draftNode = room.draft || {};
+        if (draftNode.parallel) {
+            // Parallel draft: each user's picks live under ppicks/<uid> as
+            // { slotId: poolIndex } against their own nation pool.
+            const myPool = (draftNode.pools || {})[uid] || [];
+            const myPicks = (draftNode.ppicks || {})[uid] || {};
+            Object.keys(myPicks).forEach(function (slotId) {
+                const p = myPool[myPicks[slotId]];
+                if (p) sq[slotId] = p;
             });
             return sq;
         }

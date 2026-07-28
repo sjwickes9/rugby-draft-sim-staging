@@ -59,6 +59,7 @@ window.MPDraftUI = (function () {
     // ── Setup ───────────────────────────────────────────────
     function init(opts) {
         state.pool = opts.pool || [];
+        state.parallel = !!opts.parallel;
         state.squad = opts.squad || MPPicks.emptySquad();
         state.taken = opts.taken || {};
         state.axis = loadAxis();
@@ -76,6 +77,7 @@ window.MPDraftUI = (function () {
         state.tournamentCount = opts.tournamentCount || 99;
         state.onExpire = opts.onExpire || function () {};
         state.onMissed = opts.onMissed || null;
+        state.onSubmit = opts.onSubmit || null;
         state.onTick = opts.onTick || null;
         state.starred = loadStars();
         pruneStars();
@@ -266,6 +268,7 @@ window.MPDraftUI = (function () {
     // and a reconnecting user resumes exactly where they left off.
     function applyRoom(room) {
         const draft = room.draft || {};
+        if (draft.parallel) { applyParallelRoom(room); return; }
         const pool = room.pool || [];
         state.order = draft.order || [];
         state.members = room.members || {};
@@ -312,6 +315,56 @@ window.MPDraftUI = (function () {
         else if (state.tab !== "xv") renderList();
         renderBoardBadge();
         maybeAutoPick();
+    }
+
+    // A parallel within-nation draft, from this user's point of view. There
+    // is no turn order and no contention: the user drafts their own nation's
+    // pool into their own squad, against one shared whole-draft deadline. The
+    // only picks that matter here are this user's own.
+    function applyParallelRoom(room) {
+        const draft = room.draft || {};
+        state.members = room.members || {};
+        state.order = draft.order || [];
+        state.parallelDeadline = draft.deadline || 0;
+        state.myDone = !!((draft.done || {})[state.myUid]);
+
+        // This user's own pool was passed at init as state.pool. Their own
+        // picks live under ppicks/<uid> as { slotId: poolIndex }.
+        const myPicks = (draft.ppicks || {})[state.myUid] || {};
+        state.squad = MPPicks.emptySquad();
+        state.taken = {};
+        Object.keys(myPicks).forEach(function (slotId) {
+            const p = state.pool[myPicks[slotId]];
+            if (!p) return;
+            state.squad[slotId] = p;
+            state.taken[MPPicks.personKey(p)] = "you";
+        });
+
+        const emptyLeft = MPPicks.emptySlots(state.squad).length;
+        state.complete = emptyLeft === 0;
+        // Always this user's turn until they have submitted. There is no
+        // waiting on anyone else.
+        state.isMyTurn = !state.myDone;
+        state.currentPicker = state.myUid;
+
+        // The shared deadline drives a single countdown, not a per-pick clock.
+        renderParallelTurn(room);
+        paintParallelClock();
+        startParallelClock();
+        renderTeamsheet();
+        if (state.tab === "picks") renderPicks();
+        else if (state.tab !== "xv") renderList();
+        renderBoardBadge();
+    }
+
+    // How many users have submitted, for the status line.
+    function parallelProgress(room) {
+        const draft = room.draft || {};
+        const humans = (draft.order || []).filter(function (u) {
+            return !((state.members[u] || {}).ai);
+        });
+        const done = humans.filter(function (u) { return (draft.done || {})[u]; });
+        return { done: done.length, total: humans.length };
     }
 
     // Big Board tab badge: how many starred players are still available.
@@ -524,6 +577,47 @@ window.MPDraftUI = (function () {
                 : (cur.name ? esc(cur.name) + " is picking" : "Waiting for the next pick"))
             + "</span><span class='turn-meta'>Round " + round + " of 15, pick "
             + (state.pickIndex + 1) + "</span>";
+    }
+
+    // The turn bar in a parallel draft. There is no turn to wait for, so it
+    // shows this user's own progress and how many of the room have submitted.
+    function renderParallelTurn(room) {
+        const el = $("turnBar");
+        if (!el) return;
+        el.classList.remove("hidden");
+        const filled = MPPicks.SLOTS.length - MPPicks.emptySlots(state.squad).length;
+        const prog = parallelProgress(room);
+        if (state.myDone) {
+            el.className = "turn-bar done";
+            el.innerHTML = "<span class='turn-who'>Team submitted</span>"
+                + "<span class='turn-meta'>" + prog.done + " of " + prog.total
+                + " teams in. Waiting for the rest.</span>";
+            return;
+        }
+        el.className = "turn-bar mine";
+        el.innerHTML = "<span class='turn-who'>Draft your XV</span>"
+            + "<span class='turn-meta'>" + filled + " of 15 picked"
+            + "  |  " + prog.done + " of " + prog.total + " teams in</span>";
+    }
+
+    let parallelClockTimer = null;
+    function startParallelClock() {
+        if (parallelClockTimer) return;
+        parallelClockTimer = setInterval(function () {
+            if (!state.live) return;
+            paintParallelClock();
+            if (typeof state.onTick === "function") state.onTick();
+        }, 1000);
+    }
+
+    function paintParallelClock() {
+        const el = $("turnClock");
+        if (!el) return;
+        if (!state.parallelDeadline) { el.textContent = ""; return; }
+        const left = state.parallelDeadline - MPNet.serverNow();
+        el.textContent = left > 0 ? formatLeft(left) + " left to draft" : "time is up";
+        el.classList.toggle("urgent", left > 0 && left < 120000);
+        el.classList.toggle("expired", left <= 0);
     }
 
     // ── Index ───────────────────────────────────────────────
@@ -824,7 +918,7 @@ window.MPDraftUI = (function () {
                     + "<span class='snum'>" + s.num + "</span>"
                     + "<span class='slabel'>" + s.label + "</span>"
                     + "<span class='empty-hint'>"
-                    + (state.live && !state.isMyTurn ? "Waiting for your turn" : "Tap to pick")
+                    + ((state.live && !state.isMyTurn && !state.parallel) ? "Waiting for your turn" : "Tap to pick")
                     + "</span></button>";
             }
             const pen = MPPicks.oopPenalty(p, s.node);
@@ -840,6 +934,30 @@ window.MPDraftUI = (function () {
                 + "</span></span>"
                 + "<span class='srating'>" + eff + "</span></div>";
         }).join("");
+
+        // In a parallel draft the user submits their own finished XV. The
+        // submit control only appears once every slot is filled.
+        renderParallelSubmit();
+    }
+
+    function renderParallelSubmit() {
+        const host = $("parallelSubmit");
+        if (!host) return;
+        if (!state.parallel) { host.classList.add("hidden"); host.innerHTML = ""; return; }
+        host.classList.remove("hidden");
+        if (state.myDone) {
+            host.innerHTML = "<p class='parallel-note'>Your team is in. "
+                + "Waiting for the other users to finish.</p>";
+            return;
+        }
+        const empty = MPPicks.emptySlots(state.squad).length;
+        if (empty > 0) {
+            host.innerHTML = "<p class='parallel-note'>Fill all fifteen positions, "
+                + "then submit your team. " + empty + " to go.</p>";
+            return;
+        }
+        host.innerHTML = "<button class='cta' id='parallelSubmitBtn'>"
+            + "<span>Submit your team</span></button>";
     }
 
     // ── Picking mode ────────────────────────────────────────
@@ -1287,6 +1405,29 @@ window.MPDraftUI = (function () {
         }
         $("axisNation").addEventListener("click", function () { setAxis("nation"); });
         $("axisPosition").addEventListener("click", function () { setAxis("position"); });
+
+        // Submit a finished team in a parallel draft. Delegated because the
+        // button is rendered in and out with the teamsheet.
+        document.addEventListener("click", function (e) {
+            const b = e.target && e.target.closest && e.target.closest("#parallelSubmitBtn");
+            if (!b) return;
+            if (!state.onSubmit) return;
+            const go = function () {
+                b.disabled = true;
+                state.onSubmit(function (err) {
+                    b.disabled = false;
+                    if (err) { note(err.message); return; }
+                });
+            };
+            if (window.MPModal) {
+                window.MPModal({
+                    title: "Submit your team?",
+                    body: "Your XV is locked in once you submit, and you cannot change it. "
+                        + "The tournament starts when every user has submitted.",
+                    ok: "Submit", cancel: "Keep drafting"
+                }).then(function (yes) { if (yes) go(); });
+            } else { go(); }
+        });
 
         $("teamsheet").addEventListener("click", function (e) {
             const btn = e.target.closest(".slot");
