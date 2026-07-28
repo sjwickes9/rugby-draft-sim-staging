@@ -131,6 +131,20 @@
           "turnDeadline": {
             ".write": "auth != null && (root.child('rooms/' + $code + '/draft/currentPicker').val() === auth.uid || (root.child('rooms/' + $code + '/draft/turnDeadline').val() > 0 && now > root.child('rooms/' + $code + '/draft/turnDeadline').val()) || (root.child('rooms/' + $code + '/meta/hostUid').val() === auth.uid && (root.child('rooms/' + $code + '/members/' + root.child('rooms/' + $code + '/draft/currentPicker').val() + '/ai').exists() || root.child('rooms/' + $code + '/members/' + root.child('rooms/' + $code + '/draft/currentPicker').val() + '/cover').exists())))",
             ".validate": "newData.isNumber() && newData.val() <= now + root.child('rooms/' + $code + '/settings/turnMs').val() + 90000000"
+          },
+          "ppicks": {
+            "$uid": {
+              ".write": "auth != null && auth.uid === $uid && root.child('rooms/' + $code + '/meta/status').val() === 'drafting' && root.child('rooms/' + $code + '/draft/parallel').val() === true",
+              "$slot": {
+                ".validate": "newData.isNumber()"
+              }
+            }
+          },
+          "done": {
+            "$uid": {
+              ".write": "auth != null && auth.uid === $uid && root.child('rooms/' + $code + '/meta/status').val() === 'drafting' && root.child('rooms/' + $code + '/draft/parallel').val() === true",
+              ".validate": "newData.isBoolean()"
+            }
           }
         },
         "boards": {
