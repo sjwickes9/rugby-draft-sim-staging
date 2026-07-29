@@ -141,10 +141,22 @@
 
         if (mode === "tournament") return tournamentEntries;
 
-        // Career peak: collapse to one entry per player.
+        // Career peak: collapse to one entry per player. The key must match
+        // the identity used elsewhere (personKey): country, name, and whether
+        // the player is a forward or a back. Some countries have had two
+        // players of the same name, one a forward and one a back (England's two
+        // Richard Hills, a flanker and a scrum-half; Wales's two Gareth
+        // Thomas). They are different men and must not be merged into one card
+        // carrying both sets of positions.
+        const forwardGroups = ["front-row", "lock", "back-row"];
+        const isForwardEntry = function (e) {
+            return (e.positions || []).some(function (pos) {
+                return forwardGroups.indexOf(POS_GROUP[pos]) !== -1;
+            });
+        };
         const byPlayer = new Map();
         for (const e of tournamentEntries) {
-            const key = e.country + "|" + e.name;
+            const key = e.country + "|" + e.name + "|" + (isForwardEntry(e) ? "fwd" : "back");
             let acc = byPlayer.get(key);
             if (!acc) {
                 acc = {
