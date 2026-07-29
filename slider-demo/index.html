@@ -1,1 +1,36 @@
+<script>
 
+const years = [
+    1987,
+    1991,
+    1995,
+    1999,
+    2003,
+    2007,
+    2011,
+    2015,
+    2019,
+    2023
+];
+
+
+const picker = new YearCarousel({
+
+    element:"#yearPicker",
+
+    years,
+
+    value:2023,
+
+    onChange(year){
+
+        console.log(
+            "Selected:",
+            year
+        );
+
+    }
+
+});
+
+</script>
