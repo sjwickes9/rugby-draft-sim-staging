@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607291013";
+    const VERSION = "v1.2607291202";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -1906,18 +1906,12 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         }
 
         if (status === "nationdraft") {
-            if (window.MP_DEBUG_NATION) console.log("[nation] render, pickIndex",
-                (room.nationDraft || {}).pickIndex, "of", ((room.nationDraft || {}).order || []).length,
-                "hasRwc", !!room.rwc);
             renderNationDraft(room);
             sweepNationIfHost(room);
             return;
         }
 
         if (status === "drafting") {
-            if (window.MP_DEBUG_NATION) console.log("[nation] drafting branch, parallel",
-                !!(room.draft || {}).parallel, "order", ((room.draft || {}).order || []).length,
-                "poolLen", (room.pool || []).length);
             driveAi(room);
             sweepParallelIfHost(room);
             renderDraftCover(room);
