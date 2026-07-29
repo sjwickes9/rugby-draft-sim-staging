@@ -535,7 +535,10 @@ window.MPNet = (function () {
             return db.ref("rooms/" + code).get().then(function (snap) {
                 const room = snap.val();
                 if (!room) throw new Error("That room no longer exists.");
-                if ((room.meta || {}).status !== "nationdraft") return;
+                if ((room.meta || {}).status !== "nationdraft") {
+                    if (typeof console !== "undefined") console.log("[nation] start ignored, status is", (room.meta || {}).status);
+                    return;
+                }
                 if ((room.meta || {}).hostUid !== uid) throw new Error("Only the host can start the draft.");
                 const nd = room.nationDraft || {};
                 const order = nd.order || [];

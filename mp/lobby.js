@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607290940";
+    const VERSION = "v1.2607291013";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -1906,12 +1906,18 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         }
 
         if (status === "nationdraft") {
+            if (window.MP_DEBUG_NATION) console.log("[nation] render, pickIndex",
+                (room.nationDraft || {}).pickIndex, "of", ((room.nationDraft || {}).order || []).length,
+                "hasRwc", !!room.rwc);
             renderNationDraft(room);
             sweepNationIfHost(room);
             return;
         }
 
         if (status === "drafting") {
+            if (window.MP_DEBUG_NATION) console.log("[nation] drafting branch, parallel",
+                !!(room.draft || {}).parallel, "order", ((room.draft || {}).order || []).length,
+                "poolLen", (room.pool || []).length);
             driveAi(room);
             sweepParallelIfHost(room);
             renderDraftCover(room);
@@ -2854,14 +2860,21 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
 
         const taken = {};
         Object.keys(picks).forEach(function (u) { taken[picks[u]] = nameOf(u); });
-        // Alphabetical, so the list is predictable and easy to scan.
-        const sortedNations = (nd.nations || []).slice().sort();
-        $("nationPool").innerHTML = sortedNations.map(function (n) {
+        // Present the nations grouped by their World Cup pool, so everyone can
+        // see which pool each nation sits in. Within a pool they are
+        // alphabetical. Buttons are compact so a pool fits at a glance.
+        const tournament = (room.settings || {}).rwcTournament
+            || (room.rwc && room.rwc.tournament) || "2023";
+        let pools = {};
+        try { pools = (typeof MPRWC !== "undefined") ? MPRWC.poolsFor(tournament) : {}; } catch (e) { pools = {}; }
+        const allowed = {};
+        (nd.nations || []).forEach(function (n) { allowed[n] = true; });
+
+        const chip = function (n) {
             const gone = taken[n];
             const can = myTurn && !gone;
             const cols = (typeof MPRWC !== "undefined" && MPRWC.nationColours)
                 ? MPRWC.nationColours(n) : ["#6E8CA6", "#2B3A4A"];
-            // Readable text on the primary colour: dark text on light kits.
             const dark = isLightColour(cols[0]);
             const style = "--nc1:" + cols[0] + ";--nc2:" + cols[1]
                 + ";--nctext:" + (dark ? "#0A0A0A" : "#FFFFFF");
@@ -2870,7 +2883,23 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
                 + "><span class='nchip-name'>" + esc(n) + "</span>"
                 + (gone ? "<span class='nchip-by'>" + esc(taken[n]) + "</span>" : "")
                 + "</button>";
-        }).join("");
+        };
+
+        const poolKeys = Object.keys(pools).sort();
+        let poolHtml = "";
+        if (poolKeys.length) {
+            poolKeys.forEach(function (pk) {
+                const inPool = pools[pk].filter(function (n) { return allowed[n]; }).slice().sort();
+                if (!inPool.length) return;
+                poolHtml += "<div class='nation-poolgroup'><p class='nation-poolh'>Pool " + esc(pk) + "</p>"
+                    + "<div class='nation-pool'>" + inPool.map(chip).join("") + "</div></div>";
+            });
+        } else {
+            // No pool structure available: fall back to a single alphabetical list.
+            poolHtml = "<div class='nation-pool'>"
+                + (nd.nations || []).slice().sort().map(chip).join("") + "</div>";
+        }
+        $("nationPool").innerHTML = poolHtml;
         $("nationPicked").innerHTML = "";
 
         // Once every nation is chosen, the host gets a button to start the
