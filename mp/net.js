@@ -456,6 +456,7 @@ window.MPNet = (function () {
             pickIndex: 0,
             competition: competition,
             seed: seed,
+            perPick: perPick,          // per-pick clock, read by the pick transaction
             startedAt: firebase.database.ServerValue.TIMESTAMP,
             deadline: perPick ? (serverNow() + perPick) : 0
         };
@@ -484,7 +485,7 @@ window.MPNet = (function () {
                 taken[uid] = nation;
                 nd.picks = taken;
                 nd.pickIndex = (nd.pickIndex || 0) + 1;
-                const perPick = (room.settings || {}).turnMs || 0;
+                const perPick = nd.perPick || 0;
                 nd.deadline = perPick ? (serverNow() + perPick) : 0;
                 return nd;
             }).then(function (res) {
@@ -516,7 +517,7 @@ window.MPNet = (function () {
                 taken[picker] = free[Math.floor(rng() * free.length)];
                 nd.picks = taken;
                 nd.pickIndex = (nd.pickIndex || 0) + 1;
-                const perPick = (room.settings || {}).turnMs || 0;
+                const perPick = nd.perPick || 0;
                 nd.deadline = perPick ? (serverNow() + perPick) : 0;
                 return nd;
             }).then(function () { return maybeFinishNationDraft(code); });

@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607290720";
+    const VERSION = "v1.2607290855";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -2158,7 +2158,7 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         showOnly("commitView");
     }
 
-    const ALL_VIEWS = ["lobbyView", "roomView", "setupView", "waitView", "teamsView", "seasonView", "helpView", "draftView", "commitView", "compView"];
+    const ALL_VIEWS = ["lobbyView", "roomView", "setupView", "waitView", "teamsView", "seasonView", "helpView", "nationView", "draftView", "commitView", "compView"];
     let shownView = null;
     function showOnly(id) {
         ALL_VIEWS.forEach(function (v) {
