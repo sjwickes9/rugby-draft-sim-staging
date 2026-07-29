@@ -86,6 +86,16 @@
         return Object.keys(pools).reduce(function (a, k) { return a.concat(pools[k]); }, []);
     }
 
+    // Which pool a given nation sits in for a tournament, or null.
+    function poolOfNation(tournament, nation, d) {
+        const pools = poolsFor(tournament, d);
+        const keys = Object.keys(pools);
+        for (let i = 0; i < keys.length; i++) {
+            if (pools[keys[i]].indexOf(nation) !== -1) return keys[i];
+        }
+        return null;
+    }
+
     // Every tournament this mode can offer.
     function tournaments(d) {
         d = dataOf(d);
@@ -485,7 +495,7 @@
 
     return {
         ALL_TIME, ALL_TIME_STRUCTURE,
-        metaFor, poolsFor, nationsIn, tournaments,
+        metaFor, poolsFor, nationsIn, poolOfNation, tournaments,
         nationXV, nationRating, drawReplacements, maxReplacements, runTournament,
         greedyXV, bestPerPerson
     };

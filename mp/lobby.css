@@ -1220,3 +1220,18 @@ button.rwc-match { cursor: pointer; }
 .rwc-match-wrap.ko { border-bottom: 0; margin-bottom: 6px; }
 .rwc-ko-stage { font-family: var(--display); text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.62rem; color: var(--slate); margin: 4px 0 2px; }
 .rwc-ko-note { color: var(--slate); font-size: 0.76rem; }
+
+/* Nation draft screen */
+.nation-order { display: flex; flex-direction: column; gap: 4px; margin: 14px 0; }
+.nation-seat { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: var(--panel); border-left: 3px solid var(--line); border-radius: 0 6px 6px 0; }
+.nation-seat.now { border-left-color: #F0B90B; background: linear-gradient(90deg, rgba(240,185,11,0.14), transparent); }
+.nation-seat.done { opacity: 0.85; }
+.nseat-n { font-family: var(--display); color: var(--slate); font-size: 0.8rem; width: 18px; }
+.nseat-name { flex: 1; }
+.nseat-pick { font-family: var(--display); text-transform: uppercase; letter-spacing: 0.04em; font-size: 0.78rem; color: var(--teal); }
+.nation-pool { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.nation-chip { padding: 9px 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); cursor: pointer; font-size: 0.9rem; display: flex; flex-direction: column; align-items: center; gap: 1px; }
+.nation-chip:hover:not(:disabled):not(.taken) { border-color: var(--teal); color: var(--teal); }
+.nation-chip:disabled { cursor: default; }
+.nation-chip.taken { opacity: 0.4; text-decoration: line-through; }
+.nation-chip small { text-decoration: none; font-size: 0.62rem; color: var(--slate); text-transform: uppercase; letter-spacing: 0.04em; }

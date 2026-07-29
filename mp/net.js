@@ -415,6 +415,202 @@ window.MPNet = (function () {
         });
     }
 
+    // ── Nation draft (users draft their nations) ────────────
+    // Before any player draft, users pick the nation they represent, in a
+    // random order, one each. For the whole pool this becomes round one of the
+    // snake, so the pick order here is what the player draft snakes back from.
+    // For only-your-nation it simply fixes each user's nation, then the
+    // parallel draft runs. A per-pick clock mirrors the snake draft.
+    function startNationDraft(code, room, uids, members, settings, competition, seed) {
+        if (typeof MPRWC === "undefined") {
+            return Promise.reject(new Error("The World Cup engine failed to load."));
+        }
+        const humans = uids.filter(function (u) { return !(members[u] && members[u].ai); });
+        if (humans.length < 2) {
+            return Promise.reject(new Error("A World Cup needs at least two users."));
+        }
+        const tournament = settings.rwcTournament || "2023";
+
+        // The nations a user may pick: the tournament's nations, limited to the
+        // host's chosen set if one was set.
+        let nations = MPRWC.nationsIn(tournament);
+        if (settings.countries && settings.countries.length) {
+            const allow = {};
+            settings.countries.forEach(function (n) { allow[n] = true; });
+            nations = nations.filter(function (n) { return allow[n]; });
+        }
+        if (nations.length < humans.length) {
+            return Promise.reject(new Error("There are only " + nations.length
+                + " nations to choose from, too few for " + humans.length + " users."));
+        }
+
+        // Random pick order.
+        const order = MPDraft.lottery(humans, seed);
+
+        const perPick = settings.turnMs || 0;
+        const updates = {};
+        updates["rooms/" + code + "/nationDraft"] = {
+            order: order,
+            nations: nations,
+            picks: {},                 // uid -> nation
+            pickIndex: 0,
+            competition: competition,
+            seed: seed,
+            startedAt: firebase.database.ServerValue.TIMESTAMP,
+            deadline: perPick ? (serverNow() + perPick) : 0
+        };
+        updates["rooms/" + code + "/meta/status"] = "nationdraft";
+        updates["rooms/" + code + "/comp"] = null;
+        return db.ref().update(updates).catch(function (err) {
+            throw new Error("Could not start the nation draft (" + (err.code || err.message) + ").");
+        });
+    }
+
+    // A user picks their nation. Only the user on the clock may pick, and only
+    // a nation nobody has taken.
+    function pickNation(code, nation) {
+        return whenReady().then(function () {
+            const ref = db.ref("rooms/" + code + "/nationDraft");
+            return ref.transaction(function (nd) {
+                if (!nd) return nd;
+                const order = nd.order || [];
+                const picker = order[nd.pickIndex || 0];
+                if (picker !== uid) return; // not your turn, abort
+                const taken = nd.picks || {};
+                // Already taken by someone?
+                const clash = Object.keys(taken).some(function (u) { return taken[u] === nation; });
+                if (clash) return;
+                if ((nd.nations || []).indexOf(nation) === -1) return;
+                taken[uid] = nation;
+                nd.picks = taken;
+                nd.pickIndex = (nd.pickIndex || 0) + 1;
+                const perPick = (room.settings || {}).turnMs || 0;
+                nd.deadline = perPick ? (serverNow() + perPick) : 0;
+                return nd;
+            }).then(function (res) {
+                // When the last nation is picked, move on to the player draft.
+                return maybeFinishNationDraft(code);
+            }).catch(function (err) {
+                throw new Error("Could not pick that nation (" + (err.code || err.message) + ").");
+            });
+        });
+    }
+
+    // The host auto-picks for a user who lets the clock run out, taking a
+    // random free nation so the draft never stalls.
+    function sweepNationDeadline(code) {
+        return whenReady().then(function () {
+            return db.ref("rooms/" + code + "/nationDraft").transaction(function (nd) {
+                if (!nd || !nd.deadline) return nd;
+                if (serverNow() <= nd.deadline) return nd;
+                const order = nd.order || [];
+                if ((nd.pickIndex || 0) >= order.length) return nd;
+                const taken = nd.picks || {};
+                const used = {};
+                Object.keys(taken).forEach(function (u) { used[taken[u]] = true; });
+                const free = (nd.nations || []).filter(function (n) { return !used[n]; });
+                if (!free.length) return nd;
+                const picker = order[nd.pickIndex || 0];
+                // A stable pseudo-random choice from the seed and index.
+                const rng = MPDraft.makeRng((nd.seed || 1) + (nd.pickIndex || 0) * 101);
+                taken[picker] = free[Math.floor(rng() * free.length)];
+                nd.picks = taken;
+                nd.pickIndex = (nd.pickIndex || 0) + 1;
+                const perPick = (room.settings || {}).turnMs || 0;
+                nd.deadline = perPick ? (serverNow() + perPick) : 0;
+                return nd;
+            }).then(function () { return maybeFinishNationDraft(code); });
+        });
+    }
+
+    // Once every user has a nation, build the assignment and start the player
+    // draft: parallel for only-your-nation, snake for the whole pool. The snake
+    // order is the reverse of the nation-pick order, so the first nation picker
+    // gets the last pick of the first player round.
+    function maybeFinishNationDraft(code) {
+        return db.ref("rooms/" + code).get().then(function (snap) {
+            const room = snap.val();
+            if (!room) return;
+            if ((room.meta || {}).status !== "nationdraft") return;
+            const nd = room.nationDraft || {};
+            const order = nd.order || [];
+            const picks = nd.picks || {};
+            if (order.length === 0 || (nd.pickIndex || 0) < order.length) return;
+            if (!order.every(function (u) { return picks[u]; })) return;
+
+            // Only the host performs the transition, so it happens once.
+            if ((room.meta || {}).hostUid !== uid) return;
+
+            const settings = room.settings || {};
+            const members = room.members || {};
+            const uids = Object.keys(members);
+            const competition = settings.competition || 1;
+            const seed = nd.seed || MPDraft.newSeed();
+            const tournament = settings.rwcTournament || "2023";
+
+            // Build the rwc assignment from the users' chosen nations, working
+            // out each nation's pool from the tournament structure.
+            const seat = {};
+            order.forEach(function (u) {
+                seat[u] = { nation: picks[u], pool: MPRWC.poolOfNation(tournament, picks[u]) };
+            });
+            const rwcNode = {
+                tournament: tournament, assign: "userdraft",
+                pool: settings.rwcPool || "whole", seed: seed, seat: seat
+            };
+
+            if (settings.rwcPool === "nation") {
+                return startParallelDraft(code, room, uids, members, settings,
+                    competition, seed, rwcNode);
+            }
+            // Whole pool: the player draft snakes back from the nation order.
+            // Round one of the player draft is the reverse of the nation order.
+            const playerOrder = order.slice().reverse();
+            return startSnakeFromNations(code, room, uids, members, settings,
+                competition, seed, rwcNode, playerOrder);
+        });
+    }
+
+    // Start the snake player draft using a fixed opening order (the reverse of
+    // the nation-pick order), so the nation round and the player draft form one
+    // continuous snake. Mirrors the normal draft node.
+    function startSnakeFromNations(code, room, uids, members, settings, competition, seed, rwcNode, playerOrder) {
+        const filters = {
+            mode: settings.mode || "tournament",
+            yearMin: settings.yearMin || undefined,
+            yearMax: settings.yearMax || undefined,
+            countries: settings.countries || null
+        };
+        let freshPool = null;
+        try { freshPool = MPEngine.buildPool(allSquads, filters); } catch (e) {}
+
+        const updates = {};
+        updates["rooms/" + code + "/draft"] = {
+            seed: seed,
+            order: playerOrder,
+            pickIndex: 0,
+            currentPicker: playerOrder[0],
+            startedAt: firebase.database.ServerValue.TIMESTAMP,
+            turnStartedAt: firebase.database.ServerValue.TIMESTAMP,
+            turnDeadline: (function () {
+                const t = settings.turnMs || 0;
+                if (!t) return 0;
+                const q = ((room.quiet || {})[playerOrder[0]]) || null;
+                return MPDraft.deadlineFrom(serverNow(), t, q);
+            })(),
+            competition: competition
+        };
+        if (freshPool && freshPool.length) updates["rooms/" + code + "/pool"] = freshPool;
+        if (rwcNode) updates["rooms/" + code + "/rwc"] = rwcNode;
+        updates["rooms/" + code + "/nationDraft"] = null;
+        updates["rooms/" + code + "/comp"] = null;
+        updates["rooms/" + code + "/ready"] = null;
+        updates["rooms/" + code + "/entered"] = null;
+        updates["rooms/" + code + "/meta/announcedAt"] = null;
+        updates["rooms/" + code + "/meta/status"] = "drafting";
+        return db.ref().update(updates).then(function () { return playerOrder; });
+    }
+
     function startParallelDraft(code, room, uids, members, settings, competition, seed, rwcNode) {
         if (!rwcNode || !rwcNode.seat) {
             return Promise.reject(new Error("The nations have not been assigned."));
@@ -465,6 +661,7 @@ window.MPNet = (function () {
         if (rwcNode && !room.rwc) updates["rooms/" + code + "/rwc"] = rwcNode;
         // Clear any stale competition result from a previous game.
         updates["rooms/" + code + "/comp"] = null;
+        updates["rooms/" + code + "/nationDraft"] = null;
 
         return db.ref().update(updates).catch(function (err) {
             throw new Error("Could not start the draft (" + (err.code || err.message) + ").");
@@ -496,6 +693,15 @@ window.MPNet = (function () {
                 // client agrees. It is only built if it does not already
                 // exist, so a restarted draft keeps the same nations.
                 let rwcNode = room.rwc || null;
+
+                // Users-draft-nations: before any player draft, the users pick
+                // the nation they represent, in a random order, on their own
+                // screen. Only once every nation is chosen does the player
+                // draft begin. If that phase has not run yet, start it now.
+                if (settings.gameType === "worldcup" && settings.rwcAssign === "userdraft" && !rwcNode) {
+                    return startNationDraft(code, room, uids, members, settings, competition, seed);
+                }
+
                 if (settings.gameType === "worldcup" && !rwcNode) {
                     rwcNode = buildRwcAssignment(settings, uids, members, seed);
                     if (rwcNode.error) throw new Error(rwcNode.error);
@@ -1104,6 +1310,8 @@ window.MPNet = (function () {
         clearParallelPick: clearParallelPick,
         finishParallelUser: finishParallelUser,
         sweepParallelDeadline: sweepParallelDeadline,
+        pickNation: pickNation,
+        sweepNationDeadline: sweepNationDeadline,
         addAiSeats: addAiSeats,
         markMissed: markMissed,
         clearMissed: clearMissed,

@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607290706";
+    const VERSION = "v1.2607290720";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -351,13 +351,11 @@
             + (meta.bonusPoints ? "bonus points" : "two points for a win") + ". "
             + state.size + " of the " + nations.length + " nations replaced by users.";
         // The two new mechanics are not built yet. The controls are live so
-        // The users-draft-nations assignment is still to come. The
-        // within-nation pool is now built, so it is no longer gated.
+        // Both World Cup mechanics are now built, so nothing is gated.
         const pending = [];
-        if (state.rwcAssign === "userdraft") pending.push("users drafting their nations");
-        if (pending.length) {
-            summary += " Coming soon: " + pending.join(" and ")
-                + ". For now, choose randomly assigned nations.";
+        if (state.rwcAssign === "userdraft") {
+            summary += " Users pick their nation in a random order"
+                + (state.rwcPool === "nation" ? ", then draft that nation's players." : ", which is round one of the draft.");
         } else if (state.rwcPool === "nation") {
             summary += " Everyone drafts a full XV from their own nation, all at "
                 + "once, against a shared deadline.";
@@ -368,7 +366,7 @@
     // True when the current World Cup choices include a mechanic not yet
     // built, so the host cannot start into a half-finished flow.
     function rwcHasPending() {
-        return state.gameType === "worldcup" && state.rwcAssign === "userdraft";
+        return false;
     }
 
     function renderPath() {
@@ -688,6 +686,17 @@ on("typeCustom", "click", function () { setGameType("custom"); });
         on("tipClose", "click", function () { closeTip(tourQueue.length > 0); });
         on("tipOverlay", "click", function (e) {
             if (e.target === $("tipOverlay")) closeTip(tourQueue.length > 0);
+        });
+        // Picking a nation in the nation draft.
+        document.addEventListener("click", function (e) {
+            const b = (e.target && e.target.closest) ? e.target.closest("[data-nation]") : null;
+            if (!b) return;
+            const nation = b.getAttribute("data-nation");
+            b.disabled = true;
+            MPNet.pickNation(currentCode, nation).catch(function (err) {
+                b.disabled = false;
+                showNotice(err.message);
+            });
         });
         // Any information circle, wherever it sits, opens its own topic.
         document.addEventListener("click", function (e) {
@@ -1889,6 +1898,12 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
             return;
         }
 
+        if (status === "nationdraft") {
+            renderNationDraft(room);
+            sweepNationIfHost(room);
+            return;
+        }
+
         if (status === "drafting") {
             driveAi(room);
             sweepParallelIfHost(room);
@@ -2774,6 +2789,98 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
     // A missed turn during the draft, surfaced where the host is actually
     // looking. The room-screen roster carries the same option, but nobody
     // is on the room screen mid draft, so the host never saw it.
+    let sweepNationBusy = false;
+    function sweepNationIfHost(room) {
+        const nd = room.nationDraft || {};
+        if (!nd.deadline) return;
+        if ((room.meta || {}).hostUid !== MPNet.currentUid()) return;
+        if (MPNet.serverNow() <= nd.deadline) return;
+        if (sweepNationBusy) return;
+        sweepNationBusy = true;
+        MPNet.sweepNationDeadline(currentCode).then(function () {
+            sweepNationBusy = false;
+        }).catch(function () { sweepNationBusy = false; });
+    }
+
+    let nationClockTimer = null;
+    function renderNationDraft(room) {
+        showOnly("nationView");
+        const nd = room.nationDraft || {};
+        const me = MPNet.currentUid();
+        const members = room.members || {};
+        const order = nd.order || [];
+        const picks = nd.picks || {};
+        const idx = nd.pickIndex || 0;
+        const picker = order[idx];
+        const myTurn = picker === me;
+        const nameOf = function (u) { return (members[u] || {}).name || "Player"; };
+
+        const turn = $("nationTurn");
+        if (idx >= order.length) {
+            turn.className = "turn-bar done";
+            turn.innerHTML = "<span class='turn-who'>Nations chosen</span>"
+                + "<span class='turn-meta'>Starting the draft.</span>";
+        } else if (myTurn) {
+            turn.className = "turn-bar mine";
+            turn.innerHTML = "<span class='turn-who'>Your pick</span>"
+                + "<span class='turn-meta'>Choose the nation you will represent.</span>";
+        } else {
+            turn.className = "turn-bar";
+            turn.innerHTML = "<span class='turn-who'>" + esc(nameOf(picker)) + " is picking</span>"
+                + "<span class='turn-meta'>Pick " + (idx + 1) + " of " + order.length + "</span>";
+        }
+
+        const whole = (room.settings || {}).rwcPool !== "nation";
+        $("nationHint").textContent = whole
+            ? "This is round one of the draft. Whoever picks their nation first drafts their players last in the opening round, and so on."
+            : "Everyone then drafts their own nation's players at the same time.";
+
+        $("nationOrder").innerHTML = order.map(function (u, i) {
+            const done = !!picks[u];
+            const isNow = i === idx;
+            return "<div class='nation-seat" + (isNow ? " now" : "") + (done ? " done" : "") + "'>"
+                + "<span class='nseat-n'>" + (i + 1) + "</span>"
+                + "<span class='nseat-name'>" + esc(nameOf(u)) + (u === me ? " (you)" : "") + "</span>"
+                + "<span class='nseat-pick'>" + (done ? esc(picks[u]) : (isNow ? "picking" : "")) + "</span>"
+                + "</div>";
+        }).join("");
+
+        const taken = {};
+        Object.keys(picks).forEach(function (u) { taken[picks[u]] = nameOf(u); });
+        $("nationPool").innerHTML = (nd.nations || []).map(function (n) {
+            const gone = taken[n];
+            const can = myTurn && !gone;
+            return "<button class='nation-chip" + (gone ? " taken" : "") + "'"
+                + (can ? " data-nation='" + esc(n) + "'" : " disabled")
+                + ">" + esc(n) + (gone ? "<small>" + esc(taken[n]) + "</small>" : "") + "</button>";
+        }).join("");
+        $("nationPicked").innerHTML = "";
+
+        paintNationClock(room);
+        if (!nationClockTimer) {
+            nationClockTimer = setInterval(function () {
+                if (latestRoom && (latestRoom.meta || {}).status === "nationdraft") {
+                    paintNationClock(latestRoom);
+                    sweepNationIfHost(latestRoom);
+                } else { clearInterval(nationClockTimer); nationClockTimer = null; }
+            }, 1000);
+        }
+    }
+
+    function paintNationClock(room) {
+        const nd = room.nationDraft || {};
+        const el = $("nationClock");
+        if (!el) return;
+        if (!nd.deadline) { el.textContent = ""; return; }
+        const left = nd.deadline - MPNet.serverNow();
+        const s = Math.max(0, Math.floor(left / 1000));
+        const m = Math.floor(s / 60), sec = s % 60;
+        el.textContent = left > 0
+            ? (m ? m + "m " + sec + "s" : sec + "s") + " to pick"
+            : "time is up";
+        el.classList.toggle("urgent", left > 0 && left < 15000);
+    }
+
     function renderDraftCover(room) {
         const el = $("draftCover");
         if (!el) return;
