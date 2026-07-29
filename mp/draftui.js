@@ -1125,13 +1125,15 @@ window.MPDraftUI = (function () {
             $("panelBody").innerHTML = "<p class='panel-empty'>Your Big Board is empty. "
                 + "Open Full Draft and star players to build a shortlist. "
                 + "The order matters: if your turn runs out, the pick is taken from here, "
-                + "highest first, for a position they actually play.</p>";
+                + "highest first, for a position they actually play."
+                + "<button class='info-i' data-help='board' aria-label='What is this?'>i</button></p>";
             return;
         }
 
         const html = "<p class='board-intro'>Drag to reorder, or use the arrows. "
             + "If your turn expires, the first player here who fits an empty position "
-            + "and meets the rules is picked.</p>"
+            + "and meets the rules is picked."
+            + "<button class='info-i' data-help='board' aria-label='What is this?'>i</button></p>"
             + rows.map(function (r) {
                 const p = r.player;
                 const takenBy = state.taken[MPPicks.personKey(p)];
