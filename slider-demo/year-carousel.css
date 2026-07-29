@@ -1,0 +1,76 @@
+.year-carousel {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    user-select: none;
+}
+
+.year-window {
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+    height: 90px;
+}
+
+.year-track {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    will-change: transform;
+}
+
+.year-item {
+    flex: 0 0 20%;
+    text-align: center;
+    font-family: "Inter", sans-serif;
+    font-size: 22px;
+    font-weight: 500;
+    opacity: 0.35;
+    transform: scale(.85);
+    transition:
+        opacity .25s ease,
+        transform .25s ease,
+        font-weight .25s ease;
+    cursor: pointer;
+}
+
+.year-item.near {
+    opacity: .65;
+    transform: scale(.95);
+}
+
+.year-item.selected {
+    opacity: 1;
+    transform: scale(1.25);
+    font-weight: 700;
+}
+
+
+.year-nav {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    border: 0;
+    background: transparent;
+    font-size: 32px;
+    cursor: pointer;
+    opacity: .7;
+}
+
+.year-nav:hover {
+    opacity: 1;
+}
+
+
+@media(max-width:600px){
+
+    .year-item {
+        font-size:18px;
+    }
+
+    .year-window {
+        height:70px;
+    }
+
+}
