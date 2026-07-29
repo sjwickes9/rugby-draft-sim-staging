@@ -378,13 +378,13 @@ render(){
 
 
             item.style.transform =
-                `
-                translate(
-                    ${x}px,
-                    calc(-50% + ${y}px)
-                )
-                scale(${scale})
-                `;
+            `
+            translate(
+                ${distance * this.itemSpacing}px,
+                calc(-50% + ${y}px)
+            )
+            scale(${scale})
+            `;
 
 
             item.style.opacity =
