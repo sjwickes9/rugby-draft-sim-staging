@@ -1,36 +1,52 @@
+<!doctype html>
+<html>
+<head>
+
+<meta charset="utf-8">
+
+<link rel="stylesheet" href="year-carousel.css">
+
+</head>
+
+<body>
+
+<div class="year-carousel" id="yearPicker">
+    <button class="year-nav prev">‹</button>
+
+    <div class="year-window">
+        <div class="year-track"></div>
+    </div>
+
+    <button class="year-nav next">›</button>
+</div>
+
+<script src="year-carousel.js"></script>
+
 <script>
-
-const years = [
-    1987,
-    1991,
-    1995,
-    1999,
-    2003,
-    2007,
-    2011,
-    2015,
-    2019,
-    2023
-];
-
 
 const picker = new YearCarousel({
 
     element:"#yearPicker",
 
-    years,
+    years:[
+        1987,
+        1991,
+        1995,
+        1999,
+        2003,
+        2007,
+        2011,
+        2015,
+        2019,
+        2023,
+        2027
+    ],
 
-    value:2023,
-
-    onChange(year){
-
-        console.log(
-            "Selected:",
-            year
-        );
-
-    }
+    value:2023
 
 });
 
 </script>
+
+</body>
+</html>
