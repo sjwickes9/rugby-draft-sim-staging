@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607291412";
+    const VERSION = "v1.2607291437";
 
     const $ = function (id) { return document.getElementById(id); };
 
