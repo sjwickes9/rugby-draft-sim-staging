@@ -326,10 +326,16 @@ window.MPNet = (function () {
 
         // The app assigns. drawReplacements spreads users one per pool while
         // pools last, then at random, so a big group is not stacked together.
+        // When the host has restricted the pool to a set of nations, only
+        // those may be assigned.
+        const allowed = (settings.countries && settings.countries.length)
+            ? settings.countries : null;
         const rng = MPDraft.makeRng(seed);
-        const draw = MPRWC.drawReplacements(tournament, humans.length, rng);
+        const draw = MPRWC.drawReplacements(tournament, humans.length, rng, null, allowed);
         if (!draw || draw.length < humans.length) {
-            return { error: "Could not assign nations for this tournament." };
+            const cap = MPRWC.maxReplacements(tournament, null, allowed);
+            return { error: "Only " + cap + " of the chosen nations are in this World Cup, "
+                + "so it cannot seat " + humans.length + " users. Choose more nations or fewer users." };
         }
         const seat = {};
         humans.forEach(function (u, i) {

@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607281540";
+    const VERSION = "v1.2607290706";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -410,7 +410,16 @@
         // playable. A custom game can run with one human plus AI sides.
         const minSize = state.gameType === "worldcup" ? 2 : 1;
         if (state.size < minSize) state.size = minSize;
-        if (state.size > 8) state.size = 8;
+        // A World Cup can seat no more users than there are eligible nations in
+        // the tournament. When the host restricts the nations pool, that caps
+        // the number of users.
+        let sizeMax = 8;
+        if (state.gameType === "worldcup" && typeof MPRWC !== "undefined") {
+            const allowed = (state.geo && GEO[state.geo]) ? GEO[state.geo] : null;
+            const avail = MPRWC.maxReplacements(state.rwcTournament || "2023", null, allowed);
+            sizeMax = Math.max(minSize, Math.min(8, avail));
+        }
+        if (state.size > sizeMax) state.size = sizeMax;
         if (state.season < 1) state.season = 1;
         if (state.season > 15) state.season = 15;
         $("sizeNum").textContent = state.size;
@@ -419,7 +428,7 @@
         if (state.aiCount > 8 - state.size) state.aiCount = Math.max(0, 8 - state.size);
         $("seasonNum").textContent = state.season;
         $("sizeDown").disabled = state.size <= minSize;
-        $("sizeUp").disabled = state.size >= 8;
+        $("sizeUp").disabled = state.size >= sizeMax;
         $("seasonDown").disabled = state.season <= 1;
         $("seasonUp").disabled = state.season >= 15;
         const totalSides = state.size + state.aiCount;

@@ -615,7 +615,7 @@ window.MPDraftUI = (function () {
         if (!el) return;
         if (!state.parallelDeadline) { el.textContent = ""; return; }
         const left = state.parallelDeadline - MPNet.serverNow();
-        el.textContent = left > 0 ? formatLeft(left) + " left to draft" : "time is up";
+        el.textContent = left > 0 ? formatShort(left) + " left to draft" : "time is up";
         el.classList.toggle("urgent", left > 0 && left < 120000);
         el.classList.toggle("expired", left <= 0);
     }

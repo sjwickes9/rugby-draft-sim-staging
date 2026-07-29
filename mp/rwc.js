@@ -217,10 +217,26 @@
     // ── Which nations the users replace ─────────────────────
     // A draw must not stack one pool. Up to four users take different
     // pools; beyond that the rest are spread at random across the pools.
-    function drawReplacements(tournament, count, rng, d) {
+    // allowed: an optional array of nation names to restrict assignment to.
+    // When given, only those nations may be drawn, and pools contribute only
+    // their members that appear in the list. This lets a host limit the World
+    // Cup to a chosen set of nations.
+    function drawReplacements(tournament, count, rng, d, allowed) {
         const pools = poolsFor(tournament, d);
-        const keys = Object.keys(pools).sort();
+        let keys = Object.keys(pools).sort();
         if (!keys.length || count < 1) return [];
+
+        const allowSet = (allowed && allowed.length) ? {} : null;
+        if (allowSet) allowed.forEach(function (n) { allowSet[n] = true; });
+        const inPool = function (poolKey) {
+            return pools[poolKey].filter(function (n) {
+                return !allowSet || allowSet[n];
+            });
+        };
+        // Drop pools that have no eligible nation, so the one-per-pool spread
+        // only walks pools that can actually supply a side.
+        if (allowSet) keys = keys.filter(function (k) { return inPool(k).length > 0; });
+        if (!keys.length) return [];
 
         const pick = function (arr) { return arr[Math.floor(rng() * arr.length)]; };
         const shuffled = keys.slice();
@@ -231,20 +247,41 @@
 
         const out = [];
         const usedByPool = {};
+        let guard = 0;
         for (let i = 0; i < count; i++) {
             // One per pool while pools last, then anywhere.
             const poolKey = i < shuffled.length ? shuffled[i] : pick(keys);
             const already = usedByPool[poolKey] || [];
-            const available = pools[poolKey].filter(function (n) {
+            const available = inPool(poolKey).filter(function (n) {
                 return already.indexOf(n) === -1;
             });
-            if (!available.length) { i--; continue; }
+            if (!available.length) {
+                // This pool is exhausted. Bail out if every pool is now full,
+                // otherwise retry this seat against another pool.
+                guard++;
+                if (guard > count + keys.length + 5) break;
+                i--; continue;
+            }
             const nation = pick(available);
             already.push(nation);
             usedByPool[poolKey] = already;
             out.push({ nation: nation, pool: poolKey });
         }
         return out;
+    }
+
+    // The greatest number of distinct sides that can be drawn from a
+    // tournament, optionally limited to an allow-list of nations. Used to cap
+    // the number of users a within-nation World Cup can seat.
+    function maxReplacements(tournament, d, allowed) {
+        const pools = poolsFor(tournament, d);
+        const allowSet = (allowed && allowed.length) ? {} : null;
+        if (allowSet) allowed.forEach(function (n) { allowSet[n] = true; });
+        let total = 0;
+        Object.keys(pools).forEach(function (k) {
+            total += pools[k].filter(function (n) { return !allowSet || allowSet[n]; }).length;
+        });
+        return total;
     }
 
     // ── Running the tournament ──────────────────────────────
@@ -449,7 +486,7 @@
     return {
         ALL_TIME, ALL_TIME_STRUCTURE,
         metaFor, poolsFor, nationsIn, tournaments,
-        nationXV, nationRating, drawReplacements, runTournament,
+        nationXV, nationRating, drawReplacements, maxReplacements, runTournament,
         greedyXV, bestPerPerson
     };
 });
