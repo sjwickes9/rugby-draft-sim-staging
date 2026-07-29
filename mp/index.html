@@ -25,7 +25,7 @@
     <!-- ══ LOBBY VIEW ══ -->
     <div id="lobbyView">
 
-        <p class="version" id="version">v1.2607291334</p>
+        <p class="version" id="version">v1.2607291343</p>
 
         <div id="notice" class="notice hidden">
             <span id="noticeText"></span>
@@ -40,7 +40,7 @@
                     <input type="text" id="name" maxlength="20" value="" placeholder="Your name" autocomplete="off">
                 </div>
                 <div>
-                    <label class="field" for="kit1">Kit</label>
+                    <label class="field" for="kit1">Kit<button class="info-i" data-help="kit" aria-label="What is this?">i</button></label>
                     <div class="kits">
                         <input type="color" id="kit1" value="#16E0CD" aria-label="Primary kit colour">
                         <input type="color" id="kit2" value="#FFC24D" aria-label="Second kit colour">
@@ -153,7 +153,7 @@
         </section>
 
         <section class="block" id="turnBlock">
-            <p class="eyebrow section-toggle">Timers
+            <p class="eyebrow section-toggle">Timers<button class="info-i" data-help="timers" aria-label="What is this?">i</button>
                 <button class="acc-btn" id="turnAcc" aria-expanded="false" aria-label="Show timer settings">
                     <span class="acc-caret">&#9662;</span>
                 </button>
@@ -191,7 +191,7 @@
         <!-- Whole-draft timer, shown instead of the per-pick timer when
              everyone drafts their own nation at once. -->
         <section class="block hidden" id="wholeDraftBlock">
-            <p class="eyebrow">Draft time<button class="info-i" data-help="ai" aria-label="What is this?">i</button></p>
+            <p class="eyebrow">Draft time<button class="info-i" data-help="timers" aria-label="What is this?">i</button></p>
             <p class="acc-now" id="wholeDraftNow"></p>
             <div class="turn-fields">
                 <div class="turn-field">
@@ -285,7 +285,10 @@
 
     <div id="draftView" class="hidden">
 
-        <div id="turnBar" class="turn-bar hidden"></div>
+        <div class="turn-bar-row">
+            <div id="turnBar" class="turn-bar hidden"></div>
+            <button class="info-i" data-help="clock" aria-label="The turn clock">i</button>
+        </div>
         <div id="turnClock" class="turn-clock"></div>
         <div id="rwcDraftLine" class="rwc-line hidden"></div>
         <div id="draftCover" class="draft-cover hidden"></div>
@@ -293,9 +296,7 @@
         <div class="draft-help">
             <button class="info-i" data-help="draft" aria-label="How the draft works">i</button>
             <button class="info-i" data-help="board" aria-label="The Big Board">i</button>
-            <button class="info-i" data-help="clock" aria-label="The turn clock">i</button>
             <button class="info-i" data-help="positions" aria-label="Positions">i</button>
-            <button class="info-i" data-help="chemistry" aria-label="Chemistry">i</button>
         </div>
         <div class="draft-tabs" role="group" aria-label="Draft sections">
             <button id="tabXV" aria-pressed="true">Your XV</button>

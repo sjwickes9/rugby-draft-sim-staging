@@ -88,6 +88,37 @@
                 + "because the newcomer still needs to enter a name and pick their colours.</p>"
         },
 
+        kit: {
+            title: "Your kit colours",
+            icon: "\u{1F3C9}",
+            section: "Setting up",
+            short: "The two colours that mark your side across every screen.",
+            body: "<p>Pick a primary and a second colour. They identify your team "
+                + "throughout: on the draft board, in the fixtures, and beside your name when "
+                + "you win, shown as a diagonal split of the two.</p>"
+                + "<p>Choose something distinct from the other users so your results are easy "
+                + "to pick out at a glance.</p>"
+        },
+
+        timers: {
+            title: "Timers",
+            icon: "\u{23F1}",
+            section: "Setting up",
+            short: "A pick clock keeps turns moving, and a host-inactivity timeout "
+                + "lets the room carry on if the host disappears.",
+            body: "<p>The <strong>pick timer</strong> caps how long each turn may take, "
+                + "ten minutes by default, and can be switched off. When a turn runs out the "
+                + "pick is made automatically from that person's Big Board, so one person "
+                + "stepping away cannot stall the room. The clock counts usable time, so it "
+                + "pauses during quiet hours rather than burning through the night.</p>"
+                + "<p>The <strong>host-inactivity timeout</strong> is separate. If the host "
+                + "goes quiet for longer than this, anyone else in the room can take over as "
+                + "host, so a vanished host never freezes a game permanently.</p>"
+                + "<p>In a draft-your-own-nation World Cup the pick timer is replaced by one "
+                + "<strong>whole-draft deadline</strong>: everyone drafts at once, and any team "
+                + "not submitted when it runs out is entered as it stands.</p>"
+        },
+
         mode: {
             title: "Career peak or tournament",
             icon: "\u{1F4C5}",
@@ -198,6 +229,9 @@
                 + "Big Board, so one person stepping away cannot stall a room indefinitely. "
                 + "The countdown shows usable time rather than wall clock time, so it pauses "
                 + "during quiet hours rather than burning through the night.</p>"
+                + "<p>A separate host-inactivity timeout means that if the host goes quiet for "
+                + "too long, someone else can take over as host, so the room is never stuck "
+                + "waiting on a person who has gone.</p>"
         },
 
         positions: {
@@ -380,9 +414,9 @@
     const SCREEN_TOURS = {
         lobbyView:  ["welcome", "rooms"],
         setupView:  ["mode", "pool", "rules", "ai"],
-        roomView:   ["host", "quiet", "cover"],
+        roomView:   ["host", "board", "quiet", "cover"],
         draftView:  ["draft", "board", "clock", "positions", "chemistry"],
-        commitView: ["kicker"],
+        commitView: ["kicker", "strategy", "chemistry"],
         compView:   ["simulation", "formats"],
         seasonView: ["season"]
     };

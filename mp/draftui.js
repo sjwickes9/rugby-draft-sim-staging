@@ -777,7 +777,8 @@ window.MPDraftUI = (function () {
 
         el.classList.remove("hidden");
         el.innerHTML = "<div class='chem-bar'>"
-            + "<span class='chem-title'>Chemistry</span>"
+            + "<span class='chem-title'>Chemistry"
+            + "<button class='info-i' data-help='chemistry' aria-label='What is this?'>i</button></span>"
             + "<span class='chem-chips'>" + chips + "</span>"
             + "<span class='chem-score'>" + b.formed + "/7</span>"
             + "</div>"
@@ -829,7 +830,9 @@ window.MPDraftUI = (function () {
             if (r.id === "minPerCountry") return spreadRule(picked, r, left);
             return "";
         }).filter(Boolean).join("");
-        el.innerHTML = html;
+        el.innerHTML = "<div class='rule-panel-head'>Squad rules"
+            + "<button class='info-i' data-help='rules' aria-label='What is this?'>i</button></div>"
+            + html;
     }
 
     // "Maximum N from any one nation/tournament": show what you hold and

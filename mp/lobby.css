@@ -636,6 +636,7 @@ input[type=color] {
 
 /* Rules progress on Your XV */
 .rule-panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 4px 14px; margin: 0 0 16px; }
+.rule-panel-head { display: flex; align-items: center; gap: 4px; font-family: var(--display); text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.68rem; color: var(--slate); padding: 8px 0 4px; }
 .rule-item { padding: 11px 0; border-bottom: 1px solid var(--line); }
 .rule-item:last-child { border-bottom: 0; }
 .rule-top { display: flex; align-items: baseline; gap: 10px; }
@@ -967,6 +968,10 @@ input[type=color] {
 }
 .info-i:hover { border-color: var(--teal); color: var(--teal); background: rgba(22,224,205,0.1); }
 .draft-help { display: flex; gap: 6px; margin: 0 0 8px; }
+.turn-bar-row { display: flex; align-items: flex-start; gap: 8px; }
+.turn-bar-row .turn-bar { flex: 1; }
+.turn-bar-row .info-i { margin-top: 4px; flex: none; }
+.turn-bar-row .turn-bar.hidden + .info-i { display: none; }
 .draft-help .info-i { margin-left: 0; width: 18px; height: 18px; }
 
 /* Tip overlay */
