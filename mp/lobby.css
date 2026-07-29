@@ -1229,9 +1229,12 @@ button.rwc-match { cursor: pointer; }
 .nseat-n { font-family: var(--display); color: var(--slate); font-size: 0.8rem; width: 18px; }
 .nseat-name { flex: 1; }
 .nseat-pick { font-family: var(--display); text-transform: uppercase; letter-spacing: 0.04em; font-size: 0.78rem; color: var(--teal); }
-.nation-pool { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-.nation-chip { padding: 9px 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); cursor: pointer; font-size: 0.9rem; display: flex; flex-direction: column; align-items: center; gap: 1px; }
-.nation-chip:hover:not(:disabled):not(.taken) { border-color: var(--teal); color: var(--teal); }
+.nation-pool { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; margin-top: 12px; }
+.nation-chip { position: relative; height: 58px; padding: 8px 10px 8px 16px; border-radius: 8px; border: 1px solid rgba(0,0,0,0.25); cursor: pointer; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px; overflow: hidden; background: var(--nc1); color: var(--nctext); }
+.nation-chip::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7px; background: var(--nc2); }
+.nation-chip .nchip-name { font-family: var(--display); text-transform: uppercase; letter-spacing: 0.03em; font-size: 0.86rem; font-weight: 700; }
+.nation-chip .nchip-by { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.9; }
+.nation-chip:hover:not(:disabled):not(.taken) { outline: 2px solid var(--teal); outline-offset: 1px; }
 .nation-chip:disabled { cursor: default; }
-.nation-chip.taken { opacity: 0.4; text-decoration: line-through; }
-.nation-chip small { text-decoration: none; font-size: 0.62rem; color: var(--slate); text-transform: uppercase; letter-spacing: 0.04em; }
+.nation-chip.taken { opacity: 0.45; }
+.nation-chip.taken .nchip-name { text-decoration: line-through; }

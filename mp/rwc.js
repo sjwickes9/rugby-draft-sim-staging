@@ -86,6 +86,41 @@
         return Object.keys(pools).reduce(function (a, k) { return a.concat(pools[k]); }, []);
     }
 
+    // National kit colours, primary and secondary, for the nations that can
+    // appear in any World Cup. Used to colour the nation-draft chips. These are
+    // the recognised rugby jersey colours, not official brand values.
+    const NATION_COLOURS = {
+        "Argentina":    ["#75AADB", "#FFFFFF"],
+        "Australia":    ["#0B7A2F", "#F2C500"],
+        "Canada":       ["#D52B1E", "#FFFFFF"],
+        "Chile":        ["#D52B1E", "#0033A0"],
+        "England":      ["#FFFFFF", "#0A0A0A"],
+        "Fiji":         ["#6EC1E4", "#0A0A0A"],
+        "France":       ["#0A2A6B", "#FFFFFF"],
+        "Georgia":      ["#8B0000", "#FFFFFF"],
+        "Ireland":      ["#0B6E4F", "#FFFFFF"],
+        "Italy":        ["#1E4FA0", "#FFFFFF"],
+        "Ivory Coast":  ["#F77F00", "#0B7A2F"],
+        "Japan":        ["#C8102E", "#FFFFFF"],
+        "Namibia":      ["#003580", "#D21034"],
+        "New Zealand":  ["#0A0A0A", "#FFFFFF"],
+        "Portugal":     ["#C8102E", "#0B6E4F"],
+        "Romania":      ["#FFD400", "#0A2A6B"],
+        "Russia":       ["#D52B1E", "#FFFFFF"],
+        "Samoa":        ["#0A47A0", "#D21034"],
+        "Scotland":     ["#12295B", "#FFFFFF"],
+        "South Africa": ["#0B6E31", "#F2C500"],
+        "Spain":        ["#AA151B", "#F1BF00"],
+        "Tonga":        ["#C8102E", "#FFFFFF"],
+        "USA":          ["#0A2A6B", "#D52B1E"],
+        "Uruguay":      ["#5CB8E4", "#0A0A0A"],
+        "Wales":        ["#C8102E", "#0A0A0A"],
+        "Zimbabwe":     ["#0B7A2F", "#F2C500"]
+    };
+    function nationColours(nation) {
+        return NATION_COLOURS[nation] || ["#6E8CA6", "#2B3A4A"];
+    }
+
     // Which pool a given nation sits in for a tournament, or null.
     function poolOfNation(tournament, nation, d) {
         const pools = poolsFor(tournament, d);
@@ -495,7 +530,7 @@
 
     return {
         ALL_TIME, ALL_TIME_STRUCTURE,
-        metaFor, poolsFor, nationsIn, poolOfNation, tournaments,
+        metaFor, poolsFor, nationsIn, poolOfNation, nationColours, tournaments,
         nationXV, nationRating, drawReplacements, maxReplacements, runTournament,
         greedyXV, bestPerPerson
     };

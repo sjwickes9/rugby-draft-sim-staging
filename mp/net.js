@@ -489,8 +489,7 @@ window.MPNet = (function () {
                 nd.deadline = perPick ? (serverNow() + perPick) : 0;
                 return nd;
             }).then(function (res) {
-                // When the last nation is picked, move on to the player draft.
-                return maybeFinishNationDraft(code);
+                return true;
             }).catch(function (err) {
                 throw new Error("Could not pick that nation (" + (err.code || err.message) + ").");
             });
@@ -520,7 +519,7 @@ window.MPNet = (function () {
                 const perPick = nd.perPick || 0;
                 nd.deadline = perPick ? (serverNow() + perPick) : 0;
                 return nd;
-            }).then(function () { return maybeFinishNationDraft(code); });
+            });
         });
     }
 
@@ -528,47 +527,49 @@ window.MPNet = (function () {
     // draft: parallel for only-your-nation, snake for the whole pool. The snake
     // order is the reverse of the nation-pick order, so the first nation picker
     // gets the last pick of the first player round.
-    function maybeFinishNationDraft(code) {
-        return db.ref("rooms/" + code).get().then(function (snap) {
-            const room = snap.val();
-            if (!room) return;
-            if ((room.meta || {}).status !== "nationdraft") return;
-            const nd = room.nationDraft || {};
-            const order = nd.order || [];
-            const picks = nd.picks || {};
-            if (order.length === 0 || (nd.pickIndex || 0) < order.length) return;
-            if (!order.every(function (u) { return picks[u]; })) return;
+    // The host starts the player draft once every nation is chosen. This is an
+    // explicit action (a button), so the transition fires exactly once and only
+    // when the host is ready, rather than racing off whoever made the last pick.
+    function startPlayerDraftFromNations(code) {
+        return whenReady().then(function () {
+            return db.ref("rooms/" + code).get().then(function (snap) {
+                const room = snap.val();
+                if (!room) throw new Error("That room no longer exists.");
+                if ((room.meta || {}).status !== "nationdraft") return;
+                if ((room.meta || {}).hostUid !== uid) throw new Error("Only the host can start the draft.");
+                const nd = room.nationDraft || {};
+                const order = nd.order || [];
+                const picks = nd.picks || {};
+                if (order.length === 0 || !order.every(function (u) { return picks[u]; })) {
+                    throw new Error("Every user needs to pick a nation first.");
+                }
 
-            // Only the host performs the transition, so it happens once.
-            if ((room.meta || {}).hostUid !== uid) return;
+                const settings = room.settings || {};
+                const members = room.members || {};
+                const uids = Object.keys(members);
+                const competition = settings.competition || 1;
+                const seed = nd.seed || MPDraft.newSeed();
+                const tournament = settings.rwcTournament || "2023";
 
-            const settings = room.settings || {};
-            const members = room.members || {};
-            const uids = Object.keys(members);
-            const competition = settings.competition || 1;
-            const seed = nd.seed || MPDraft.newSeed();
-            const tournament = settings.rwcTournament || "2023";
+                const seat = {};
+                order.forEach(function (u) {
+                    seat[u] = { nation: picks[u], pool: MPRWC.poolOfNation(tournament, picks[u]) };
+                });
+                const rwcNode = {
+                    tournament: tournament, assign: "userdraft",
+                    pool: settings.rwcPool || "whole", seed: seed, seat: seat
+                };
 
-            // Build the rwc assignment from the users' chosen nations, working
-            // out each nation's pool from the tournament structure.
-            const seat = {};
-            order.forEach(function (u) {
-                seat[u] = { nation: picks[u], pool: MPRWC.poolOfNation(tournament, picks[u]) };
+                if (settings.rwcPool === "nation") {
+                    return startParallelDraft(code, room, uids, members, settings,
+                        competition, seed, rwcNode);
+                }
+                // Whole pool: the player draft snakes back from the nation order,
+                // so the first nation picker drafts last in the opening round.
+                const playerOrder = order.slice().reverse();
+                return startSnakeFromNations(code, room, uids, members, settings,
+                    competition, seed, rwcNode, playerOrder);
             });
-            const rwcNode = {
-                tournament: tournament, assign: "userdraft",
-                pool: settings.rwcPool || "whole", seed: seed, seat: seat
-            };
-
-            if (settings.rwcPool === "nation") {
-                return startParallelDraft(code, room, uids, members, settings,
-                    competition, seed, rwcNode);
-            }
-            // Whole pool: the player draft snakes back from the nation order.
-            // Round one of the player draft is the reverse of the nation order.
-            const playerOrder = order.slice().reverse();
-            return startSnakeFromNations(code, room, uids, members, settings,
-                competition, seed, rwcNode, playerOrder);
         });
     }
 
@@ -1313,6 +1314,7 @@ window.MPNet = (function () {
         sweepParallelDeadline: sweepParallelDeadline,
         pickNation: pickNation,
         sweepNationDeadline: sweepNationDeadline,
+        startPlayerDraftFromNations: startPlayerDraftFromNations,
         addAiSeats: addAiSeats,
         markMissed: markMissed,
         clearMissed: clearMissed,

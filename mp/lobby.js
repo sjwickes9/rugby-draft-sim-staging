@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607290855";
+    const VERSION = "v1.2607290940";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -686,6 +686,13 @@ on("typeCustom", "click", function () { setGameType("custom"); });
         on("tipClose", "click", function () { closeTip(tourQueue.length > 0); });
         on("tipOverlay", "click", function (e) {
             if (e.target === $("tipOverlay")) closeTip(tourQueue.length > 0);
+        });
+        on("nationStart", "click", function () {
+            $("nationStart").disabled = true;
+            MPNet.startPlayerDraftFromNations(currentCode).catch(function (err) {
+                $("nationStart").disabled = false;
+                showNotice(err.message);
+            });
         });
         // Picking a nation in the nation draft.
         document.addEventListener("click", function (e) {
@@ -2847,14 +2854,46 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
 
         const taken = {};
         Object.keys(picks).forEach(function (u) { taken[picks[u]] = nameOf(u); });
-        $("nationPool").innerHTML = (nd.nations || []).map(function (n) {
+        // Alphabetical, so the list is predictable and easy to scan.
+        const sortedNations = (nd.nations || []).slice().sort();
+        $("nationPool").innerHTML = sortedNations.map(function (n) {
             const gone = taken[n];
             const can = myTurn && !gone;
-            return "<button class='nation-chip" + (gone ? " taken" : "") + "'"
+            const cols = (typeof MPRWC !== "undefined" && MPRWC.nationColours)
+                ? MPRWC.nationColours(n) : ["#6E8CA6", "#2B3A4A"];
+            // Readable text on the primary colour: dark text on light kits.
+            const dark = isLightColour(cols[0]);
+            const style = "--nc1:" + cols[0] + ";--nc2:" + cols[1]
+                + ";--nctext:" + (dark ? "#0A0A0A" : "#FFFFFF");
+            return "<button class='nation-chip" + (gone ? " taken" : "") + "' style='" + style + "'"
                 + (can ? " data-nation='" + esc(n) + "'" : " disabled")
-                + ">" + esc(n) + (gone ? "<small>" + esc(taken[n]) + "</small>" : "") + "</button>";
+                + "><span class='nchip-name'>" + esc(n) + "</span>"
+                + (gone ? "<span class='nchip-by'>" + esc(taken[n]) + "</span>" : "")
+                + "</button>";
         }).join("");
         $("nationPicked").innerHTML = "";
+
+        // Once every nation is chosen, the host gets a button to start the
+        // player draft. Everyone else sees a waiting note. This is an explicit
+        // step so the transition fires once, cleanly.
+        const allPicked = order.length > 0 && order.every(function (u) { return picks[u]; });
+        const amHost = (room.meta || {}).hostUid === me;
+        const startBtn = $("nationStart");
+        const startHint = $("nationStartHint");
+        if (startBtn) {
+            if (allPicked && amHost) {
+                startBtn.classList.remove("hidden");
+                startBtn.disabled = false;
+                if (startHint) startHint.textContent = "";
+            } else {
+                startBtn.classList.add("hidden");
+                if (startHint) {
+                    startHint.textContent = allPicked
+                        ? "All nations chosen. Waiting for the host to start the draft."
+                        : "";
+                }
+            }
+        }
 
         paintNationClock(room);
         if (!nationClockTimer) {
@@ -4552,6 +4591,16 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
     }
 
     function setStatus(id, msg, isErr) { const el = $(id); el.textContent = msg; el.classList.toggle("err", !!isErr); }
+    // True when a hex colour is light enough to need dark text on top.
+    function isLightColour(hex) {
+        const m = /^#?([0-9a-f]{6})$/i.exec(hex || "");
+        if (!m) return false;
+        const n = parseInt(m[1], 16);
+        const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+        // Perceived luminance.
+        return (0.299 * r + 0.587 * g + 0.114 * b) > 150;
+    }
+
     function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
 
     // A small two-colour marker for a side's kit, split on the diagonal, to
