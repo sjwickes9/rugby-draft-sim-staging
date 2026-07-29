@@ -175,6 +175,10 @@
         },
         "rwc": {
           ".write": "auth != null && root.child('rooms/' + $code + '/meta/hostUid').val() === auth.uid"
+        },
+        "nationDraft": {
+          ".write": "auth != null && (root.child('rooms/' + $code + '/meta/status').val() === 'nationdraft' || (!data.exists() && root.child('rooms/' + $code + '/meta/hostUid').val() === auth.uid)) && root.child('rooms/' + $code + '/members/' + auth.uid).exists()",
+          ".read": "auth != null"
         }
       }
     }
