@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607291257";
+    const VERSION = "v1.2607291334";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -3871,9 +3871,6 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
     // ── Fixtures ────────────────────────────────────────────
     function renderFixtures(room, liveResults, liveRevealed, justPlayed) {
         let comp = room && room.comp;
-        if (window.MP_DEBUG_TYPE) console.log("[type] renderFixtures gameType",
-            (room.settings || {}).gameType, "comp.rwc", comp && comp.rwc,
-            "room.rwc", !!(room && room.rwc));
         if (comp && comp.rwc) { renderRwcComp(room, comp); return; }
         if (comp && liveFixtures) comp = Object.assign({}, comp, { fixtures: liveFixtures });
         if (!comp) return;
