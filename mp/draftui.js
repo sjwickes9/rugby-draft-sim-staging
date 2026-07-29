@@ -625,7 +625,18 @@ window.MPDraftUI = (function () {
         const parts = String(name).trim().split(/\s+/);
         return parts.length > 1 ? parts[parts.length - 1] : parts[0];
     }
-    function nameKey(p) { return p.country + "|" + p.name; }
+    // Group a player's tournament versions by identity. Country and name are
+    // not always unique: some countries have had two players of the same name,
+    // one a forward and one a back (England's two Richard Hills, a flanker and
+    // a scrum-half; Wales's two Gareth Thomas, a prop and a fullback). They are
+    // different men, so the forward/back split keeps their versions apart, the
+    // same rule used by personKey.
+    function nameKey(p) {
+        const forwards = ["front-row", "lock", "back-row"];
+        const groups = MPPicks.playerGroups(p);
+        const isForward = groups.some(function (g) { return forwards.indexOf(g) !== -1; });
+        return p.country + "|" + p.name + "|" + (isForward ? "fwd" : "back");
+    }
 
     // Position group order for the sub-headings inside a nation.
     const GROUP_ORDER = ["front-row", "lock", "back-row", "half-back", "centre", "wing", "fullback"];
