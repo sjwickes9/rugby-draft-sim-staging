@@ -1,34 +1,56 @@
-<!doctype html>
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<meta charset="utf-8">
+    <title>Rugby XV Draft – Carousel Selector</title>
 
-<link rel="stylesheet" href="year-carousel.css">
-
+    <link rel="stylesheet" href="https://raw.githubusercontent.com/sjwickes9/rugby-draft-sim-staging/287153233b54f9884aff5a2dd0cd978ad9e814ff/mp/lobby.css">
+    <link rel="stylesheet" href="carousel.css">
 </head>
 
 <body>
 
-<div class="year-carousel" id="yearPicker">
-    <button class="year-nav prev">‹</button>
+<header class="topbar">
+    <div class="bug">
+        RUGBY XV DRAFT
+    </div>
+</header>
 
-    <div class="year-window">
-        <div class="year-track"></div>
+<div class="rule-line"></div>
+
+
+<main class="block">
+
+    <div class="eyebrow">
+        World Cup Edition
     </div>
 
-    <button class="year-nav next">›</button>
-</div>
+    <h1>
+        Select Tournament Era
+    </h1>
 
-<script src="year-carousel.js"></script>
+    <p>
+        Build your ultimate XV from rugby history.
+    </p>
+
+
+    <div id="valuePicker" class="carousel-picker"></div>
+
+
+</main>
+
+
+<script src="carousel.js"></script>
 
 <script>
 
-const picker = new YearCarousel({
+const picker = new CarouselPicker({
 
-    element:"#yearPicker",
+    element:"#valuePicker",
 
-    years:[
+    values:[
         1987,
         1991,
         1995,
@@ -39,10 +61,16 @@ const picker = new YearCarousel({
         2015,
         2019,
         2023,
-        All Time
+        "All Time"
     ],
 
-    value:2023
+    value:2023,
+
+    onChange(value){
+
+        console.log("Selected:", value);
+
+    }
 
 });
 
