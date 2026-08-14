@@ -1152,6 +1152,49 @@ window.MPNet = (function () {
     // Archives the finished competition, clears the draft and commitments,
     // and starts a fresh draft in reverse standings order so the bottom of
     // the room tally picks first.
+    // Start a brand new tournament in the same room, keeping every member
+    // seated so nobody re-enters a code. The game state is wiped (draft,
+    // results, history, running tally, World Cup assignment) but members, their
+    // kits and their quiet hours are kept. The host is dropped back to a fresh
+    // lobby to configure the next tournament; the settings are rewritten when
+    // they confirm the setup. Human seats are fixed at this point, since the
+    // people are already here; the host can still adjust AI seats for a custom
+    // game during setup.
+    function newTournamentInRoom(code) {
+        return whenReady().then(function () {
+            return db.ref("rooms/" + code).get().then(function (snap) {
+                const room = snap.val();
+                if (!room) throw new Error("That room no longer exists.");
+                if ((room.meta || {}).hostUid !== uid) {
+                    throw new Error("Only the host can start a new tournament.");
+                }
+                const updates = {};
+                // Wipe the finished game entirely.
+                updates["rooms/" + code + "/draft"] = null;
+                updates["rooms/" + code + "/nationDraft"] = null;
+                updates["rooms/" + code + "/commit"] = null;
+                updates["rooms/" + code + "/comp"] = null;
+                updates["rooms/" + code + "/history"] = null;
+                updates["rooms/" + code + "/tally"] = null;
+                updates["rooms/" + code + "/rwc"] = null;
+                updates["rooms/" + code + "/ready"] = null;
+                updates["rooms/" + code + "/entered"] = null;
+                updates["rooms/" + code + "/pool"] = null;
+                updates["rooms/" + code + "/meta/announcedAt"] = null;
+                // Competition counter back to one; settings are rewritten by the
+                // host's setup confirmation, but reset the counter now so a
+                // half-read snapshot never shows "competition 3 of 3".
+                updates["rooms/" + code + "/settings/competition"] = 1;
+                // Back to the lobby so the host can reconfigure.
+                updates["rooms/" + code + "/meta/status"] = "lobby";
+                return db.ref().update(updates).catch(function (err) {
+                    throw new Error("Could not start a new tournament ("
+                        + (err.code || err.message) + "). Re-publish database.rules.json if this says permission denied.");
+                });
+            });
+        });
+    }
+
     function nextCompetition(code) {
         return whenReady().then(function () {
             return db.ref("rooms/" + code).get().then(function (snap) {
@@ -1347,6 +1390,7 @@ window.MPNet = (function () {
         roomExists: roomExists,
         leaveRoom: leaveRoom,
         closeRoom: closeRoom,
+        newTournamentInRoom: newTournamentInRoom,
         MAX_MEMBERS: MAX_MEMBERS
     };
 })();

@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607291558";
+    const VERSION = "v1.2607291924";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -1017,19 +1017,40 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         on("seasonBack", "click", function () { showOnly("compView"); });
         on("compBack", "click", function () { showOnly("roomView"); });
         on("newTournament", "click", function () {
+            const isHost = ((latestRoom || {}).meta || {}).hostUid === MPNet.currentUid();
+            if (!isHost) {
+                // A non-host can only leave; they cannot start a new tournament.
+                modal({
+                    title: "Leave the room?",
+                    body: "The season is finished. You can wait here for the host to start "
+                        + "another tournament, or leave the room."
+                        + "<span class='warn'>If you leave, you will need a new code to rejoin.</span>",
+                    ok: "Leave room", cancel: "Stay in the room"
+                }).then(function (yes) {
+                    if (!yes) return;
+                    MPNet.leaveRoom(currentCode).then(function () { backToLobby(); })
+                        .catch(function () { backToLobby(); });
+                });
+                return;
+            }
             modal({
-                title: "Create a new tournament?",
-                body: "This season is finished. <strong>This room will be closed</strong> "
-                    + "and you will go back to the start, where you can set up a new tournament "
-                    + "or join someone else's."
-                    + "<span class='warn'>The results above will no longer be available.</span>",
-                ok: "Create new tournament", cancel: "Stay here"
+                title: "New tournament, same room?",
+                body: "Everyone here stays in the room, so nobody re-enters a code. "
+                    + "You will set up a fresh tournament next, and the current users are "
+                    + "carried straight into it."
+                    + "<span class='warn'>This tournament's results will be cleared.</span>",
+                ok: "Set up new tournament", cancel: "Stay here"
             }).then(function (yes) {
                 if (!yes) return;
-                const isHost = ((latestRoom || {}).meta || {}).hostUid === MPNet.currentUid();
-                const done = function () { backToLobby(); };
-                if (isHost) MPNet.closeRoom(currentCode).then(done).catch(done);
-                else MPNet.leaveRoom(currentCode).then(done).catch(done);
+                MPNet.newTournamentInRoom(currentCode)
+                    .then(function () {
+                        // Back to the room lobby, exactly as a fresh room, where
+                        // the host can reconfigure and start the draft with the
+                        // proven first-draft flow. Members stay seated.
+                        setupShown = false;
+                        showOnly("roomView");
+                    })
+                    .catch(function (err) { showNotice(err.message); });
             });
         });
     }
@@ -2553,8 +2574,15 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         $("seatsBlock").classList.add("hidden");
 
         const st = room.settings || {};
-        $("setupSub").textContent = "competition " + (st.competition || 2)
-            + " of " + (st.seasonLength || 1);
+        // A new tournament in an existing room resets the competition counter
+        // to one and clears the game. Present it as a fresh setup rather than
+        // "competition 1 of N". Human seats stay fixed (everyone is already
+        // here); the host reconfigures the pool, rules and timers as normal.
+        const freshTournament = !room.comp && !room.history
+            && (st.competition || 1) === 1 && room.meta && room.meta.status === "lobby";
+        $("setupSub").textContent = freshTournament
+            ? "New tournament, same players"
+            : ("competition " + (st.competition || 2) + " of " + (st.seasonLength || 1));
         renderSetupStatus(room);
 
         // Load the room's current settings into the controls.
