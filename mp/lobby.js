@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2607291924";
+    const VERSION = "v1.2608141354";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -1019,7 +1019,6 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         on("newTournament", "click", function () {
             const isHost = ((latestRoom || {}).meta || {}).hostUid === MPNet.currentUid();
             if (!isHost) {
-                // A non-host can only leave; they cannot start a new tournament.
                 modal({
                     title: "Leave the room?",
                     body: "The season is finished. You can wait here for the host to start "
@@ -1036,19 +1035,17 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
             modal({
                 title: "New tournament, same room?",
                 body: "Everyone here stays in the room, so nobody re-enters a code. "
-                    + "You will set up a fresh tournament next, and the current users are "
-                    + "carried straight into it."
+                    + "You will set up a fresh tournament next, changing the pool, rules or "
+                    + "even the game type if you like, and the current users are carried "
+                    + "straight into it."
                     + "<span class='warn'>This tournament's results will be cleared.</span>",
                 ok: "Set up new tournament", cancel: "Stay here"
             }).then(function (yes) {
                 if (!yes) return;
                 MPNet.newTournamentInRoom(currentCode)
                     .then(function () {
-                        // Back to the room lobby, exactly as a fresh room, where
-                        // the host can reconfigure and start the draft with the
-                        // proven first-draft flow. Members stay seated.
-                        setupShown = false;
-                        showOnly("roomView");
+                        setupShown = true;
+                        showReconfigure(latestRoom || {});
                     })
                     .catch(function (err) { showNotice(err.message); });
             });
@@ -2566,6 +2563,51 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
                 : "Everyone has finished with the results.") + "</p>";
     }
 
+    // The full setup screen for a NEW in-room tournament. Unlike showSetup
+    // (which reconfigures the pool between competitions of one season), this
+    // brings the whole create control set into the setup view, so the host can
+    // change the game type, season length, AI seats, pool, rules and timers.
+    // Only the human seat count is locked, since those people are already here.
+    let reconfiguring = false;
+    function showReconfigure(room) {
+        reconfiguring = true;
+        const host = $("setupHost");
+        // Move the full create control set into the setup host slot, in order.
+        ["gameTypeBlock", "rwcBlock", "optionsBlock"].forEach(function (id) {
+            const el = $(id);
+            if (el && host && el.parentNode !== host) host.appendChild(el);
+        });
+        // Human seats are fixed; hide only that one stepper, keep AI and season.
+        const humanStepper = $("sizeNum") ? $("sizeNum").closest(".stepper") : null;
+        if (humanStepper) humanStepper.classList.add("hidden");
+        $("seatsBlock").classList.remove("hidden");
+
+        const st = room.settings || {};
+        $("setupSub").textContent = "New tournament, same players";
+        renderSetupStatus(room);
+
+        // Load current settings into the controls.
+        state.gameType = st.gameType === "worldcup" ? "worldcup" : "custom";
+        state.mode = st.mode === "career" ? "career" : "tournament";
+        if (st.yearMin) state.yMin = Math.max(0, YEARS.indexOf(st.yearMin));
+        if (st.yearMax) state.yMax = Math.max(0, YEARS.indexOf(st.yearMax));
+        state.geo = (st.geoLabel && GEO[st.geoLabel]) ? st.geoLabel : "";
+        state.rules = Object.assign({}, st.rules || {});
+        if (st.turnMs === 0 || st.turnMs) state.turnMs = st.turnMs;
+        if (st.hostIdleMs) state.hostIdleMs = st.hostIdleMs;
+        state.chemistry = st.chemistry !== false;
+        state.season = st.seasonLength || 1;
+        state.aiCount = st.aiCount || 0;
+        // Human seat count is the number of human members, fixed.
+        const mem = room.members || {};
+        state.size = Object.keys(mem).filter(function (u) { return !mem[u].ai; }).length || 2;
+        if ($("chemOn")) $("chemOn").checked = state.chemistry;
+        setGameType(state.gameType);
+        refresh();
+
+        showOnly("setupView");
+    }
+
     function showSetup(room) {
         const block = $("optionsBlock");
         const host = $("setupHost");
@@ -2574,15 +2616,8 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         $("seatsBlock").classList.add("hidden");
 
         const st = room.settings || {};
-        // A new tournament in an existing room resets the competition counter
-        // to one and clears the game. Present it as a fresh setup rather than
-        // "competition 1 of N". Human seats stay fixed (everyone is already
-        // here); the host reconfigures the pool, rules and timers as normal.
-        const freshTournament = !room.comp && !room.history
-            && (st.competition || 1) === 1 && room.meta && room.meta.status === "lobby";
-        $("setupSub").textContent = freshTournament
-            ? "New tournament, same players"
-            : ("competition " + (st.competition || 2) + " of " + (st.seasonLength || 1));
+        $("setupSub").textContent = "competition " + (st.competition || 2)
+            + " of " + (st.seasonLength || 1);
         renderSetupStatus(room);
 
         // Load the room's current settings into the controls.
@@ -2603,11 +2638,17 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
 
     // Put the controls back where they belong when leaving the setup view.
     function restoreOptions() {
-        const block = $("optionsBlock");
         const pane = $("createPane");
         const btn = $("create");
-        if (block && pane && block.parentNode !== pane) pane.insertBefore(block, btn);
+        // Return the blocks to the create pane in their original order.
+        ["gameTypeBlock", "rwcBlock", "optionsBlock"].forEach(function (id) {
+            const el = $(id);
+            if (el && pane && el.parentNode !== pane) pane.insertBefore(el, btn);
+        });
         $("seatsBlock").classList.remove("hidden");
+        const humanStepper = $("sizeNum") ? $("sizeNum").closest(".stepper") : null;
+        if (humanStepper) humanStepper.classList.remove("hidden");
+        reconfiguring = false;
     }
 
     function confirmSetup() {
@@ -2617,8 +2658,18 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         // could narrow the pool below what the room needs, and the draft
         // would run out of players part way through.
         const room = latestRoom || {};
-        const seats = (room.settings || {}).tableSize
-            || Object.keys(room.members || {}).length || 2;
+        const mem = room.members || {};
+        // For a new-tournament reconfigure the seat count is the fixed humans
+        // plus the newly chosen AI seats (World Cup has no AI). Otherwise it is
+        // the room's existing table size.
+        let seats;
+        if (reconfiguring) {
+            const humans = Object.keys(mem).filter(function (u) { return !mem[u].ai; }).length || 2;
+            seats = state.gameType === "worldcup" ? humans : (humans + (state.aiCount || 0));
+        } else {
+            seats = (room.settings || {}).tableSize
+                || Object.keys(mem).length || 2;
+        }
         const check = filters();
         const analysis = MPEngine.feasibility(allSquads, check, positionFamilyMap);
         const status = MPEngine.poolStatus(analysis, seats);
@@ -2633,10 +2684,46 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         }
 
         $("setupConfirm").disabled = true;
+        setStatus("setupStatus", "Saving settings...", false);
+        const f = filters();
+
+        if (reconfiguring) {
+            // A brand new in-room tournament: write the full settings block,
+            // then drop the host into the room lobby to start the draft with
+            // the normal first-draft flow. Human seats stay fixed.
+            const extra = {
+                gameType: state.gameType,
+                seasonLength: state.gameType === "worldcup" ? 1 : state.season,
+                aiCount: state.gameType === "worldcup" ? 0 : state.aiCount,
+                turnMs: state.turnMs,
+                hostIdleMs: state.hostIdleMs,
+                chemistry: state.chemistry,
+                wholeDraftMs: state.wholeDraftMs || null
+            };
+            if (state.gameType === "worldcup") {
+                extra.rwcTournament = state.rwcTournament;
+                extra.rwcAssign = state.rwcAssign || "app";
+                extra.rwcPool = state.rwcPool || "whole";
+            }
+            MPNet.reconfigureRoom(currentCode, f, rulesForCreate(), extra)
+                .then(function () {
+                    restoreOptions();
+                    setStatus("setupStatus", "", false);
+                    $("setupConfirm").disabled = false;
+                    setupShown = false;
+                    showOnly("roomView");
+                })
+                .catch(function (err) {
+                    showNotice("Could not save the new settings: " + err.message);
+                    setStatus("setupStatus", err.message, true);
+                    $("setupConfirm").disabled = false;
+                });
+            return;
+        }
+
         setStatus("setupStatus", "Rebuilding the pool...", false);
         // Use the same helpers the create path uses, so the settings written
         // here are identical in shape to those written at room creation.
-        const f = filters();
         const patch = {
             mode: f.mode,
             geoLabel: f.geoLabel,
