@@ -21,6 +21,7 @@ window.MP_FIREBASE_CONFIG = {
     messagingSenderId: "53116680658",
     appId: "1:53116680658:web:4909d713c1a3506bd9700b",
     measurementId: "G-LQR6YMMP80"
+    MP_VAPID_KEY: "BJkjErcqg_GtRhljqD8CRi1le7ZgK8favjXoYhT_T9u53qINg5WDE_8suKC3pp5hhlApDk31HhX_Q_6ksMYxqIg"
 };
 
 // A stamp recorded on each room so we can tell which data.js a room's
