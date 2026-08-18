@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2608141354";
+    const VERSION = "v1.2608180957";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -982,6 +982,12 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
             });
         });
         on("waitBoard", "click", function () {
+            const room = latestRoom || {};
+            if (!(room.pool || []).length) {
+                showNotice("The pool is not ready yet.");
+                return;
+            }
+            ensureDraftInit(room);
             showOnly("draftView");
             MPDraftUI.setLive(false);
         });
@@ -1911,7 +1917,10 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
                     showNotice(err.message); setStatus("forceHint", err.message, true);
                 });
             }
-            showOnly("waitView");
+            // Leave the user on the Big Board if they have deliberately opened
+            // it during this wait, rather than snapping them back on every
+            // snapshot. Otherwise show the wait view.
+            if (shownView !== "draftView") showOnly("waitView");
             return;
         }
         setupShown = false;

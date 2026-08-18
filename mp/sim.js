@@ -211,11 +211,14 @@
         aBase += kickerDelta(kickA == null ? 72 : kickA);
         bBase += kickerDelta(kickB == null ? 72 : kickB);
 
+        // Variance per side. Kept smaller than the rating gap effect so the
+        // better team usually tells, while close sides still produce genuine
+        // upsets. Tightens as the gap widens, so a big mismatch is decisive.
         var varRange;
-        if (absd <= 10) varRange = 10;
-        else if (absd <= 20) varRange = 8;
-        else if (absd <= 30) varRange = 6;
-        else varRange = 5;
+        if (absd <= 10) varRange = 7;
+        else if (absd <= 20) varRange = 6;
+        else if (absd <= 30) varRange = 5;
+        else varRange = 4;
 
         var v = function () { return Math.floor(rng() * (varRange * 2 + 1)) - varRange; };
         var aS = Math.max(3, Math.round(aBase + v()));
@@ -374,8 +377,13 @@
             addTries(r.bdA); addTries(r.bdB);
             addKicking(r.bdA, (kickerNameByUid || {})[r.home]);
             addKicking(r.bdB, (kickerNameByUid || {})[r.away]);
-            against[r.home] = (against[r.home] || 0) + r.b;
-            against[r.away] = (against[r.away] || 0) + r.a;
+            // Best defence reflects the league only. Finals and playoffs are a
+            // small, uneven sample (not every side reaches them), so folding
+            // them in would misrepresent who defended best over the season.
+            if (r.stage !== "final" && r.stage !== "playoff") {
+                against[r.home] = (against[r.home] || 0) + r.b;
+                against[r.away] = (against[r.away] || 0) + r.a;
+            }
         });
         return {
             topTries: leader(tries),
@@ -415,8 +423,10 @@
                     points[uid] = (points[uid] || 0) + t * 5
                         + (bd.conversions || 0) * 2 + (bd.penalties || 0) * 3;
                 });
-                against[r.home] = (against[r.home] || 0) + r.b;
-                against[r.away] = (against[r.away] || 0) + r.a;
+                if (r.stage !== "final" && r.stage !== "playoff") {
+                    against[r.home] = (against[r.home] || 0) + r.b;
+                    against[r.away] = (against[r.away] || 0) + r.a;
+                }
             });
         });
         return {
