@@ -1245,3 +1245,11 @@ button.rwc-match { cursor: pointer; }
 .nation-chip:disabled { cursor: default; }
 .nation-chip.taken { opacity: 0.5; }
 .nation-chip.taken .nchip-name { text-decoration: line-through; }
+
+/* Turn-notifications card on the lobby */
+.notify-card { border: 1px solid var(--line); }
+.notify-lead { color: var(--ink); margin: 4px 0 12px; line-height: 1.5; }
+.notify-steps { margin: 0 0 14px; padding-left: 22px; display: flex; flex-direction: column; gap: 8px; }
+.notify-steps li { color: var(--ink); line-height: 1.45; }
+.notify-steps strong { color: var(--teal); font-weight: 600; }
+.notify-state { color: var(--teal); font-family: var(--display); text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.8rem; margin: 8px 0 0; }

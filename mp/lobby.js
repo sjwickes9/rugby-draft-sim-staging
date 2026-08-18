@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2608180957";
+    const VERSION = "v1.2608181610";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -804,6 +804,19 @@ on("typeCustom", "click", function () { setGameType("custom"); });
         on("leave", "click", onLeave);
         on("closeRoom", "click", onCloseRoom);
         on("noticeClose", "click", function () { showNotice(""); });
+        on("notifyEnable", "click", function () {
+            if (!window.MPNotify) return;
+            $("notifyEnable").disabled = true;
+            MPNotify.enable().then(function () {
+                const uid = MPNet.currentUid && MPNet.currentUid();
+                if (uid) MPNotify.saveTokenFor(uid, currentCode || "_pending");
+                renderNotifyCard();
+            }).catch(function (err) {
+                $("notifyEnable").disabled = false;
+                if (err && err.message === "needs-install") { renderNotifyCard(); return; }
+                showNotice((err && err.message) || "Could not turn on notifications.");
+            });
+        });
         on("startDraft", "click", onStartDraft);
         on("backToRoom", "click", function () { showOnly("roomView"); });
         on("resumeDraft", "click", showDraft);
@@ -1398,6 +1411,12 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
     // ── Room view ───────────────────────────────────────────
     function enterRoom(code) {
         currentCode = code;
+        // If notifications are already on for this device, attach the token to
+        // this room so turns in it can notify the user.
+        if (window.MPNotify && MPNotify.hasToken && MPNotify.hasToken()) {
+            const uid = MPNet.currentUid && MPNet.currentUid();
+            if (uid) MPNotify.saveTokenFor(uid, code);
+        }
         commitShown = false;
         compShown = false;
         seenDrafting = false;
@@ -2073,7 +2092,9 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
             onExpire: function (slotId, poolIndex, forUid, done) {
                 const d = latestRoom && latestRoom.draft;
                 if (!d) { done(); return; }
-                MPNet.makePick(currentCode, slotId, poolIndex, d.order, d.pickIndex, forUid)
+                const pl = (latestRoom.pool || [])[poolIndex];
+                const key = pl ? MPPicks.playerKey(pl) : null;
+                MPNet.makePick(currentCode, slotId, poolIndex, d.order, d.pickIndex, forUid, key)
                     .then(function () { done(); })
                     .catch(function () { done(); });
             },
@@ -2087,7 +2108,9 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
                         .catch(done);
                     return;
                 }
-                MPNet.makePick(currentCode, slotId, poolIndex, d.order, d.pickIndex)
+                const pl = (latestRoom.pool || [])[poolIndex];
+                const key = pl ? MPPicks.playerKey(pl) : null;
+                MPNet.makePick(currentCode, slotId, poolIndex, d.order, d.pickIndex, undefined, key)
                     .then(function () { done(null); })
                     .catch(done);
             }
@@ -2238,7 +2261,7 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         const picks = draft.picks || {};
         Object.keys(picks).forEach(function (k) {
             const pk = picks[k];
-            const p = pool[pk.i];
+            const p = MPPicks.playerFromPick(pool, pk);
             if (p && squads[pk.by]) squads[pk.by][pk.slot] = p;
         });
 
@@ -3164,7 +3187,7 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
                 const taken = {};
                 Object.keys(draft.picks || {}).forEach(function (k) {
                     const pk = draft.picks[k];
-                    const p = pool[pk.i];
+                    const p = MPPicks.playerFromPick(pool, pk);
                     if (!p) return;
                     taken[MPPicks.personKey(p)] = true;
                     if (pk.by === picker) squad[pk.slot] = p;
@@ -3198,7 +3221,8 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
                 for (let i = 0; i < pool.length; i++) if (pool[i] === res.player) { idx = i; break; }
                 if (idx === -1) { aiBusy = false; return; }
 
-                MPNet.makePick(currentCode, res.slotId, idx, draft.order, draft.pickIndex, picker)
+                const aiKey = MPPicks.playerKey(res.player);
+                MPNet.makePick(currentCode, res.slotId, idx, draft.order, draft.pickIndex, picker, aiKey)
                     .catch(function (err) { showNotice("AI pick failed: " + err.message); })
                     .then(function () {
                         aiBusy = false;
@@ -4528,7 +4552,7 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         Object.keys(picks).forEach(function (k) {
             const pk = picks[k];
             if (pk.by !== uid) return;
-            const p = pool[pk.i];
+            const p = MPPicks.playerFromPick(pool, pk);
             if (p) sq[pk.slot] = p;
         });
         return sq;
@@ -4731,6 +4755,81 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         });
     }
 
+    // The turn-notifications card on the lobby. What it shows depends entirely
+    // on the device, because the steps differ: iOS must install to the home
+    // screen first, Android and desktop can turn them on in one tap. The copy
+    // is deliberately plain and step-by-step.
+    function renderNotifyCard() {
+        const card = $("notifyCard");
+        if (!card || !window.MPNotify) return;
+        if (!MPNotify.supported()) { card.classList.add("hidden"); return; }
+        card.classList.remove("hidden");
+
+        const steps = $("notifySteps");
+        const lead = $("notifyLead");
+        const btn = $("notifyEnable");
+        const done = $("notifyDone");
+        const st = MPNotify.state();
+
+        const setSteps = function (items) {
+            if (!items || !items.length) { steps.classList.add("hidden"); steps.innerHTML = ""; return; }
+            steps.innerHTML = items.map(function (t) { return "<li>" + t + "</li>"; }).join("");
+            steps.classList.remove("hidden");
+        };
+
+        if (st === "on") {
+            lead.textContent = "You will get a notification here when it is your turn to pick.";
+            setSteps(null);
+            btn.classList.add("hidden");
+            done.classList.remove("hidden");
+            return;
+        }
+        done.classList.add("hidden");
+        btn.classList.remove("hidden");
+        btn.disabled = false;
+
+        if (st === "denied") {
+            lead.textContent = "Notifications are currently blocked for this app.";
+            setSteps([
+                "Open your browser or phone settings for this site.",
+                "Allow notifications, then come back and tap the button below."
+            ]);
+            btn.querySelector("span").textContent = "Try again";
+            return;
+        }
+
+        if (st === "needs-install") {
+            // iOS in a normal Safari tab: must add to the home screen first.
+            lead.textContent = "To get turn notifications on iPhone or iPad, add this app to your home screen first. It only takes a moment.";
+            setSteps([
+                "Tap the <strong>Share</strong> button in Safari (the square with an arrow).",
+                "Scroll down and tap <strong>Add to Home Screen</strong>.",
+                "Tap <strong>Add</strong>, then open Rugby Draft from your new home-screen icon.",
+                "Come back to this card and tap <strong>Turn on notifications</strong>."
+            ]);
+            // The button can't do anything useful until they've installed, so
+            // hide it and let the steps lead.
+            btn.classList.add("hidden");
+            return;
+        }
+
+        // Ready: Android, desktop, or an installed iOS app.
+        if (MPNotify.isIos()) {
+            lead.textContent = "Turn on notifications to be told when it is your turn to pick.";
+            setSteps([
+                "Tap <strong>Turn on notifications</strong> below.",
+                "Tap <strong>Allow</strong> when your phone asks."
+            ]);
+        } else {
+            lead.textContent = "Get a notification when it is your turn to pick, so you do not have to keep the tab open.";
+            setSteps([
+                "Tap <strong>Turn on notifications</strong> below.",
+                "Choose <strong>Allow</strong> when your browser asks."
+            ]);
+        }
+        btn.querySelector("span").textContent = "Turn on notifications";
+    }
+
     function showNotice(msg) {
         if (!msg) { $("notice").classList.add("hidden"); return; }
         $("noticeText").textContent = msg;
@@ -4795,8 +4894,21 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         }
         refresh();
         setStatus("lobbyStatus", "Connecting...", false);
-        MPNet.init().then(function () { setStatus("lobbyStatus", "", false); })
-            .catch(function (err) { setStatus("lobbyStatus", err.message, true); });
+        MPNet.init().then(function () {
+            setStatus("lobbyStatus", "", false);
+            // Show the turn-notifications card, and if the user already enabled
+            // notifications before, quietly refresh the token so it stays valid.
+            renderNotifyCard();
+            if (window.MPNotify) {
+                MPNotify.refreshQuietly().then(function (token) {
+                    if (token) {
+                        const uid = MPNet.currentUid && MPNet.currentUid();
+                        if (uid) MPNotify.saveTokenFor(uid, currentCode || "_pending");
+                        renderNotifyCard();
+                    }
+                });
+            }
+        }).catch(function (err) { setStatus("lobbyStatus", err.message, true); });
     }
 
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);

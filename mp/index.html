@@ -4,6 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Rugby XV Draft: Multiplayer</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0B1622">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Rugby Draft">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -25,12 +32,20 @@
     <!-- ══ LOBBY VIEW ══ -->
     <div id="lobbyView">
 
-        <p class="version" id="version">v1.2608180957</p>
+        <p class="version" id="version">v1.2608181610</p>
 
         <div id="notice" class="notice hidden">
             <span id="noticeText"></span>
             <button id="noticeClose" aria-label="Dismiss">&times;</button>
         </div>
+
+        <section class="block notify-card hidden" id="notifyCard">
+            <p class="eyebrow">Turn notifications<button class="info-i" data-help="notifications" aria-label="About notifications">i</button></p>
+            <p class="notify-lead" id="notifyLead">Get a notification when it is your turn to pick, so you do not have to keep the tab open.</p>
+            <ol class="notify-steps hidden" id="notifySteps"></ol>
+            <button class="cta ghost" id="notifyEnable"><span>Turn on notifications</span></button>
+            <p class="notify-state hidden" id="notifyDone">Notifications are on for this device.</p>
+        </section>
 
         <section class="block">
             <p class="eyebrow">You</p>
@@ -581,6 +596,7 @@
 <script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-messaging-compat.js"></script>
 
 <!-- Data and logic. Order matters: data and engines before net and lobby. -->
 <script>window.MP_DATA_VERSION = "v1-mp-lobby";</script>
@@ -590,6 +606,7 @@
 <script src="draft.js"></script>
 <script src="picks.js"></script>
 <script src="firebase-config.js"></script>
+<script src="notify.js"></script>
 <script src="net.js"></script>
 <script src="lobby.js"></script>
 <script src="draftui.js"></script>

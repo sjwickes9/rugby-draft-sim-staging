@@ -88,6 +88,23 @@
                 + "because the newcomer still needs to enter a name and pick their colours.</p>"
         },
 
+        notifications: {
+            title: "Turn notifications",
+            icon: "\u{1F514}",
+            section: "Setting up",
+            short: "Be told when it is your turn to pick, without keeping the tab open.",
+            body: "<p>With notifications on, your device tells you when it becomes your "
+                + "turn to draft, so you can close the app and get on with your day. This is "
+                + "ideal for a slow draft played over hours or days.</p>"
+                + "<p>On Android or a computer you can turn them on in a single tap. On iPhone "
+                + "or iPad, Apple requires the app to be added to your home screen first: use "
+                + "Share, then Add to Home Screen, open the app from its new icon, and then turn "
+                + "notifications on. The card on the home screen walks you through it.</p>"
+                + "<p>You can turn them off again any time in your browser or phone settings. "
+                + "Delivery on iPhone is a little less reliable than on Android, so treat them "
+                + "as a helpful nudge rather than a guarantee.</p>"
+        },
+
         kit: {
             title: "Your kit colours",
             icon: "\u{1F3C9}",

@@ -1,0 +1,50 @@
+/* Firebase Cloud Messaging service worker.
+ *
+ * This runs in the background, separate from the page, so it can show a
+ * notification even when the app is closed. It must live at the app scope
+ * root (the /mp/ folder) and be named exactly firebase-messaging-sw.js.
+ *
+ * It reads the Firebase config from firebase-config.js, the same file the
+ * page uses, so there is one place to keep the keys.
+ */
+
+importScripts("https://www.gstatic.com/firebasejs/12.16.0/firebase-app-compat.js");
+importScripts("https://www.gstatic.com/firebasejs/12.16.0/firebase-messaging-compat.js");
+importScripts("firebase-config.js");
+
+if (self.MP_FIREBASE_CONFIG) {
+    firebase.initializeApp(self.MP_FIREBASE_CONFIG);
+    const messaging = firebase.messaging();
+
+    // A background message arrives while the app is closed or in another tab.
+    // The server sends a data-only message so we control exactly how it looks.
+    messaging.onBackgroundMessage(function (payload) {
+        const data = payload.data || {};
+        const title = data.title || "Rugby XV Draft";
+        const options = {
+            body: data.body || "",
+            icon: "icons/icon-192.png",
+            badge: "icons/icon-192.png",
+            tag: data.tag || "rugby-draft",
+            renotify: true,
+            data: { url: data.url || "./index.html" }
+        };
+        return self.registration.showNotification(title, options);
+    });
+}
+
+// Tapping a notification focuses an open app window if there is one, or opens
+// the app fresh. This lands the user straight back in their room.
+self.addEventListener("notificationclick", function (event) {
+    event.notification.close();
+    const target = (event.notification.data && event.notification.data.url) || "./index.html";
+    event.waitUntil(
+        clients.matchAll({ type: "window", includeUncontrolled: true }).then(function (list) {
+            for (let i = 0; i < list.length; i++) {
+                const c = list[i];
+                if ("focus" in c) { c.focus(); return; }
+            }
+            if (clients.openWindow) return clients.openWindow(target);
+        })
+    );
+});
