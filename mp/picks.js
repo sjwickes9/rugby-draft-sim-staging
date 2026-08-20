@@ -309,6 +309,21 @@
     // Stable identity for a pool entry. Tournament mode distinguishes
     // versions of the same player by year; career mode has no year.
     // Used for starring and for referring to a specific version.
+    // Resolve a stored pick to the player it refers to. The identity key is
+    // authoritative: it is matched against this client's pool so the pick means
+    // the same player everywhere, regardless of pool ordering or load timing.
+    // The stored index is only a fallback for a pick written before keys
+    // existed. This is what makes the draft immune to pool desync.
+    function playerFromPick(pool, pick) {
+        if (!pick || !pool) return null;
+        if (pick.key) {
+            for (let i = 0; i < pool.length; i++) {
+                if (playerKey(pool[i]) === pick.key) return pool[i];
+            }
+        }
+        return pool[pick.i];
+    }
+
     function playerKey(p) {
         return p.country + "|" + p.name + "|" + (p.year || "");
     }
@@ -550,7 +565,7 @@
         slotById, nodeToSlotId, playerGroups,
         isForbidden, oopPenalty, effectiveRating, placementNote, naturalSlots,
         emptySquad, filledSlots, emptySlots, squadPlayers, isComplete, frontRowStillNeeded,
-        playerKey, personKey, evaluate, candidatesForSlot, autoPick,
+        playerKey, playerFromPick, personKey, evaluate, candidatesForSlot, autoPick,
         anyLegalPick, relaxFor, coverageContext, wouldStrand, nationsStillForced
     };
 });

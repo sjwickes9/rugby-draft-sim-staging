@@ -270,6 +270,14 @@ window.MPDraftUI = (function () {
         const draft = room.draft || {};
         if (draft.parallel) { applyParallelRoom(room); return; }
         const pool = room.pool || [];
+        // Always resolve against the shared pool for this competition. A client
+        // that initialised its board on the previous competition's pool (for
+        // example a late joiner, or one that had the board open during the
+        // wait) would otherwise keep a stale local pool, and since picks are
+        // stored as an index into the pool, every pick would resolve to a
+        // different player than on other clients. Re-pointing state.pool at the
+        // shared pool on every snapshot keeps all clients in lockstep.
+        if (pool.length) state.pool = pool;
         state.order = draft.order || [];
         state.members = room.members || {};
         state.pickIndex = draft.pickIndex || 0;
@@ -294,7 +302,7 @@ window.MPDraftUI = (function () {
             .sort(function (a, b) { return a.idx - b.idx; });
         Object.keys(picks).forEach(function (k) {
             const pk = picks[k];
-            const p = pool[pk.i];
+            const p = MPPicks.playerFromPick(pool, pk);
             if (!p) return;
             const who = state.members[pk.by];
             state.taken[MPPicks.personKey(p)] = (pk.by === state.myUid)
@@ -740,7 +748,7 @@ window.MPDraftUI = (function () {
         const n = state.order.length || 1;
         el.innerHTML = state.picksList.slice().reverse().map(function (row) {
             const pk = row.pick;
-            const p = pool[pk.i];
+            const p = MPPicks.playerFromPick(pool, pk);
             if (!p) return "";
             const who = state.members[pk.by] || {};
             const mine = pk.by === state.myUid;

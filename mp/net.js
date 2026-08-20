@@ -990,7 +990,7 @@ window.MPNet = (function () {
     // onBehalfOf lets a watching client take an expired turn for an absent
     // user. The rules only permit it once the clock has actually run out,
     // and the pick is always recorded against whoever's turn it was.
-    function makePick(code, slotId, poolIndex, order, pickIndex, onBehalfOf) {
+    function makePick(code, slotId, poolIndex, order, pickIndex, onBehalfOf, playerKey) {
         return whenReady().then(function () {
             // Read the live draft state rather than trusting the client's
             // cached copy. A snapshot that is one pick behind targets the
@@ -1017,8 +1017,13 @@ window.MPNet = (function () {
 
                 const base = "rooms/" + code + "/draft/";
                 const updates = {};
+                // The identity key is the source of truth for which player was
+                // picked. The pool index is kept only as a fallback. Each client
+                // resolves the key against its own pool, so a pick always means
+                // the same player regardless of pool ordering or load timing.
                 updates[base + "picks/" + liveIndex] = {
                     by: livePicker, slot: slotId, i: poolIndex,
+                    key: playerKey || null,
                     auto: onBehalfOf ? true : null
                 };
                 updates[base + "turnStartedAt"] = firebase.database.ServerValue.TIMESTAMP;
