@@ -1,0 +1,66 @@
+name: Promote to production
+
+# This copies the /mp folder from this (staging) repo into the production repo.
+# It only runs when you press the button: go to the "Actions" tab of the staging
+# repo, pick "Promote to production" on the left, and click "Run workflow".
+# Nothing happens automatically on a normal commit, so staging stays a safe place
+# to work.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "promote" to confirm you want to push /mp to production'
+        required: true
+        default: ''
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Guard against an accidental run
+        if: ${{ github.event.inputs.confirm != 'promote' }}
+        run: |
+          echo "You must type 'promote' in the confirm box to run this. Nothing was copied."
+          exit 1
+
+      - name: Check out staging (this repo)
+        uses: actions/checkout@v4
+        with:
+          path: staging
+
+      - name: Check out production
+        uses: actions/checkout@v4
+        with:
+          # CHANGE THIS to your production repo, in the form owner/repo-name.
+          repository: sjwickes9/rugby-draft-sim
+          token: ${{ secrets.PRODUCTION_REPO_TOKEN }}
+          path: production
+
+      - name: Copy the mp folder across
+        run: |
+          # Remove the old mp folder in production, then copy the current one
+          # from staging. rsync mirrors it exactly, including deletions, so a
+          # file removed in staging is removed in production too.
+          rm -rf production/mp
+          mkdir -p production/mp
+          rsync -a --delete staging/mp/ production/mp/
+          # Also copy the database rules if you keep them at the repo root and
+          # want them promoted too. Comment this out if you manage rules only
+          # through the Firebase console.
+          if [ -f staging/database.rules.json ]; then
+            cp staging/database.rules.json production/database.rules.json
+          fi
+
+      - name: Commit and push to production
+        run: |
+          cd production
+          git config user.name "Promote bot"
+          git config user.email "promote@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to promote. Production already matches staging."
+          else
+            git commit -m "Promote /mp from staging ($(date -u +%Y-%m-%d\ %H:%M) UTC)"
+            git push
+          fi
