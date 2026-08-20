@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2608201929";
+    const VERSION = "v1.2608201936";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -2886,6 +2886,7 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
     // An AI has no client, so the host writes its picks. A short pause
     // keeps the draft watchable rather than turning it into a loading bar.
     let aiBusy = false;
+    let aiRerunQueued = false;
     // An AI picks its kicker by scoring data and its strategy from its pack
     // lean, so a forwards side plays like one. Done by the host, once.
     let aiCommitBusy = false;
@@ -3136,7 +3137,8 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
 
     function driveAi(room) {
         if (aiBusy) {
-            if (window.MP_DEBUG_AI) console.log("[AI] driveAi called but aiBusy is true, skipping");
+            if (window.MP_DEBUG_AI) console.log("[AI] driveAi called but aiBusy is true, queueing a re-run");
+            aiRerunQueued = true;
             return;
         }
         if ((room.meta || {}).hostUid !== MPNet.currentUid()) return;
@@ -3263,10 +3265,18 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
                 const aiKey = MPPicks.playerKey(res.player);
                 if (window.MP_DEBUG_AI) console.log("[AI] picking", res.player.name, "at", res.slotId);
                 MPNet.makePick(currentCode, res.slotId, idx, draft.order, draft.pickIndex, picker, aiKey)
-                    .catch(function (err) { showNotice("AI pick failed: " + err.message); })
+                    .catch(function (err) {
+                        if (window.MP_DEBUG_AI) console.log("[AI] makePick REJECTED:", err && err.message);
+                        showNotice("AI pick failed: " + err.message);
+                    })
                     .then(function () {
+                        if (window.MP_DEBUG_AI) console.log("[AI] makePick resolved, pick should have landed");
                         clearTimeout(aiBusyGuard);
                         aiBusy = false;
+                        // If a render tried to drive the AI while we were busy,
+                        // honour that now so the next AI turn is never dropped.
+                        const rerun = aiRerunQueued;
+                        aiRerunQueued = false;
                         // The render that would have started the next AI turn
                         // has already happened by now, so nothing else will
                         // trigger it. Carry on from here instead.
@@ -3277,7 +3287,7 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
                             if (latestRoom && (latestRoom.meta || {}).status === "drafting") {
                                 driveAi(latestRoom);
                             }
-                        }, 350);
+                        }, rerun ? 120 : 350);
                     });
             } catch (e) {
                 aiBusy = false;
