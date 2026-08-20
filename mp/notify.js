@@ -45,15 +45,24 @@
 
     // The overall situation, which drives what we show the user.
     function state() {
+        // iOS in a normal Safari tab cannot do push yet, and crucially it does
+        // not even expose PushManager until the app is installed to the home
+        // screen. So this case is checked BEFORE pushCapable(), otherwise an
+        // iPhone user would be told "unsupported" and never see the steps that
+        // tell them how to install it.
+        if (isIos() && !isStandalone()) return "needs-install";
         if (!pushCapable()) return "unsupported";
         if (Notification.permission === "denied") return "denied";
         if (Notification.permission === "granted" && currentToken) return "on";
-        // iOS must be installed to the home screen before push is available.
-        if (isIos() && !isStandalone()) return "needs-install";
         return "ready";
     }
 
-    function supported() { return pushCapable(); }
+    // Whether to show the notifications card at all. True if the device can do
+    // push now, OR it is an iOS device that could once installed (so we can
+    // show it the install steps). Only genuinely incapable devices hide it.
+    function supported() {
+        return pushCapable() || isIos();
+    }
 
     // ── Opt-in flow ─────────────────────────────────────────
     function ensureMessaging() {

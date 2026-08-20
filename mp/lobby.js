@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2608201523";
+    const VERSION = "v1.2608201557";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -4787,6 +4787,13 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         done.classList.add("hidden");
         btn.classList.remove("hidden");
         btn.disabled = false;
+
+        if (st === "unsupported") {
+            // A device that cannot do web push at all. Hide the card rather
+            // than offer a button that would fail.
+            card.classList.add("hidden");
+            return;
+        }
 
         if (st === "denied") {
             lead.textContent = "Notifications are currently blocked for this app.";
