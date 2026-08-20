@@ -58,7 +58,7 @@ main { max-width: 540px; margin: 0 auto; }
 
 /* ── Header ─────────────────────────────────────────────── */
 .topbar { display: flex; align-items: center; justify-content: space-between; }
-.bug { display: flex; align-items: baseline; gap: 10px; }
+.bug { display: flex; align-items: center; gap: 10px; }
 .bug h1 {
     font-family: var(--display); font-weight: 700; text-transform: uppercase;
     letter-spacing: 0.05em; font-size: clamp(1.7rem, 6vw, 2.3rem);
@@ -1253,3 +1253,18 @@ button.rwc-match { cursor: pointer; }
 .notify-steps li { color: var(--ink); line-height: 1.45; }
 .notify-steps strong { color: var(--teal); font-weight: 600; }
 .notify-state { color: var(--teal); font-family: var(--display); text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.8rem; margin: 8px 0 0; }
+
+/* Multiplayer logo in the top bar. Mirrors the single-player site: both logo
+   versions are in the page and CSS shows the right one for the theme. The app
+   is dark by default (no data-theme) and light under [data-theme="light"].
+   logo-mp-dark.png is light-coloured ink (for the dark theme); logo-mp-light.png
+   is dark ink (for the light theme). */
+.site-logo { display: flex; align-items: center; }
+.site-logo .logo-img { height: 40px; width: auto; display: block; }
+.site-logo .logo-mp-light { display: none; }          /* hidden in dark theme */
+.site-logo .logo-mp-dark { display: block; }          /* shown in dark theme */
+[data-theme="light"] .site-logo .logo-mp-dark { display: none; }
+[data-theme="light"] .site-logo .logo-mp-light { display: block; }
+@media (max-width: 480px) {
+    .site-logo .logo-img { height: 32px; }
+}
