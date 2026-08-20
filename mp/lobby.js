@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2608201625";
+    const VERSION = "v1.2608201929";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -1647,6 +1647,7 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         const hostUid = room.meta ? room.meta.hostUid : null;
         const isHost = (hostUid === MPNet.currentUid());
         const status = room.meta ? room.meta.status : "lobby";
+        if (window.MP_DEBUG_AI) console.log("[AI] render status =", status, "currentPicker =", (room.draft || {}).currentPicker);
         const count = Object.keys(members).length;
         const seats = s.tableSize || count;
 
@@ -1962,6 +1963,7 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         }
 
         if (status === "drafting") {
+            if (window.MP_DEBUG_AI) console.log("[AI] render reached drafting branch, calling driveAi");
             driveAi(room);
             sweepParallelIfHost(room);
             renderDraftCover(room);
@@ -3133,16 +3135,34 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
     }
 
     function driveAi(room) {
-        if (aiBusy) return;
+        if (aiBusy) {
+            if (window.MP_DEBUG_AI) console.log("[AI] driveAi called but aiBusy is true, skipping");
+            return;
+        }
         if ((room.meta || {}).hostUid !== MPNet.currentUid()) return;
         const draft = room.draft || {};
         const picker = draft.currentPicker;
         const seat = (room.members || {})[picker];
         // Drive both AI seats and human seats an AI is covering.
         const brain = seat && (seat.ai || (seat.cover && seat.cover.by === "ai" ? seat.cover : null));
-        if (!seat || !brain) return;
+        if (!seat || !brain) {
+            if (window.MP_DEBUG_AI) console.log("[AI] current picker is not an AI seat, nothing to do. picker=", picker, "seat=", seat);
+            return;
+        }
+        if (window.MP_DEBUG_AI) console.log("[AI] driving pick for", picker, "pickIndex=", draft.pickIndex);
 
         aiBusy = true;
+        // Safety net: if a pick cycle ever fails to reset the flag (an
+        // unexpected path or a dropped promise), clear it after a few seconds
+        // so it cannot permanently block every later AI turn. The normal reset
+        // happens well before this fires.
+        const aiBusyGuard = setTimeout(function () {
+            if (aiBusy) {
+                if (window.MP_DEBUG_AI) console.log("[AI] safety net cleared a stuck aiBusy flag");
+                aiBusy = false;
+                if (latestRoom && (latestRoom.meta || {}).status === "drafting") driveAi(latestRoom);
+            }
+        }, 8000);
         setTimeout(function () {
             try {
                 // Always take settings from the freshest snapshot. The driver
@@ -3245,6 +3265,7 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
                 MPNet.makePick(currentCode, res.slotId, idx, draft.order, draft.pickIndex, picker, aiKey)
                     .catch(function (err) { showNotice("AI pick failed: " + err.message); })
                     .then(function () {
+                        clearTimeout(aiBusyGuard);
                         aiBusy = false;
                         // The render that would have started the next AI turn
                         // has already happened by now, so nothing else will
