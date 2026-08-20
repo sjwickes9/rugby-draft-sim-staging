@@ -23,8 +23,8 @@ if (self.MP_FIREBASE_CONFIG) {
         const title = data.title || "Rugby XV Draft";
         const options = {
             body: data.body || "",
-            icon: "icons/icon-192.png",
-            badge: "icons/icon-192.png",
+            icon: "assets/icons/icon-192.png",
+            badge: "assets/icons/icon-192.png",
             tag: data.tag || "rugby-draft",
             renotify: true,
             data: { url: data.url || "./index.html" }

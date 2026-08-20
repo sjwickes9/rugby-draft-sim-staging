@@ -4,15 +4,22 @@
 // These are the same values from the Firebase console snippet. The
 // console gives you bundler-style `import` lines, which need a build
 // step. This site has no build step, so we load Firebase from its CDN
-// with plain script tags (see lobby-test.html) and just expose the
-// config object here for net.js to initialise.
+// with plain script tags and just expose the config object here for
+// net.js to initialise.
+//
+// IMPORTANT: everything is set on `self`, not `window`. In a normal page
+// `self` and `window` are the same object, so net.js/lobby.js reading
+// `window.MP_FIREBASE_CONFIG` still work. But the push service worker runs
+// with no `window` at all, only `self`, and it loads this same file via
+// importScripts. Using `window.` here would throw "window is not defined"
+// inside the service worker and stop notifications working. `self.` is safe
+// in both worlds.
 //
 // The apiKey is not a secret. It only identifies the project. Access is
 // controlled entirely by the database security rules, so this file is
 // safe to commit to the repo and safe to serve to clients.
 // ============================================================
-
-window.MP_FIREBASE_CONFIG = {
+self.MP_FIREBASE_CONFIG = {
     apiKey: "AIzaSyBUarrg9aAmvOts2VadkQaqhD84zsQPBHY",
     authDomain: "rugby-draft-rwc.firebaseapp.com",
     databaseURL: "https://rugby-draft-rwc-default-rtdb.europe-west1.firebasedatabase.app",
@@ -22,14 +29,8 @@ window.MP_FIREBASE_CONFIG = {
     appId: "1:53116680658:web:4909d713c1a3506bd9700b",
     measurementId: "G-LQR6YMMP80"
 };
-
-window.MP_VAPID_KEY = "BJkjErcqg_GtRhljqD8CRi1le7ZgK8favjXoYhT_T9u53qINg5WDE_8suKC3pp5hhlApDk31HhX_Q_6ksMYxqIg";
-
-// The service worker runs outside the page and reads from `self`, so mirror
-// both the config and the key onto it.
-self.MP_FIREBASE_CONFIG = window.MP_FIREBASE_CONFIG;
-self.MP_VAPID_KEY = window.MP_VAPID_KEY;
+self.MP_VAPID_KEY = "BJkjErcqg_GtRhljqD8CRi1le7ZgK8favjXoYhT_T9u53qINg5WDE_8suKC3pp5hhlApDk31HhX_Q_6ksMYxqIg";
 
 // A stamp recorded on each room so we can tell which data.js a room's
 // pool snapshot came from. Bump this when you change player data.
-window.MP_DATA_VERSION = window.MP_DATA_VERSION || "unset";
+self.MP_DATA_VERSION = self.MP_DATA_VERSION || "unset";
