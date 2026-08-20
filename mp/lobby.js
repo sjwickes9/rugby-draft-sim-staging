@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2608201936";
+    const VERSION = "v1.2608201942";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -3167,6 +3167,7 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
         }, 8000);
         setTimeout(function () {
             try {
+                if (window.MP_DEBUG_AI) console.log("[AI] pick timer fired, computing pick for", picker);
                 // Always take settings from the freshest snapshot. The driver
                 // can be invoked from the startDraft write callback, whose
                 // room object may carry the new draft node but not yet the
@@ -3209,6 +3210,7 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
                 }
 
                 // Rebuild this seat's squad and everything already taken.
+                if (window.MP_DEBUG_AI) console.log("[AI] rebuilding squad/taken from", Object.keys(draft.picks || {}).length, "existing picks");
                 const squad = MPPicks.emptySquad();
                 const taken = {};
                 Object.keys(draft.picks || {}).forEach(function (k) {
@@ -3227,8 +3229,10 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
                     years: Object.keys(years).sort()
                 };
 
+                if (window.MP_DEBUG_AI) console.log("[AI] calling MPAI.pick, pool size", pool.length, "taken", Object.keys(taken).length);
                 let res = MPAI.pick(MPPicks, MPRules, pool, squad, taken, active, ctx,
                     { traits: brain.traits, seed: brain.seed }, opts);
+                if (window.MP_DEBUG_AI) console.log("[AI] MPAI.pick returned", res && res.player ? res.player.name : res);
                 // Fall back to the ordinary engine rather than stalling the room.
                 if (!res) {
                     if (window.MP_DEBUG_AI) console.log("[AI] brain returned nothing, using autoPick");
@@ -3290,6 +3294,7 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
                         }, rerun ? 120 : 350);
                     });
             } catch (e) {
+                if (window.MP_DEBUG_AI) console.log("[AI] EXCEPTION in pick computation:", e && e.message, e && e.stack);
                 aiBusy = false;
                 showNotice("AI pick failed: " + (e && e.message ? e.message : "unknown"));
             }
