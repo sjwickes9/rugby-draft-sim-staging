@@ -324,8 +324,25 @@
         return pool[pick.i];
     }
 
+    // A stable identity for a specific player entry, used both to match a
+    // stored pick back to a pool entry and to keep picks meaning the same
+    // player across clients.
+    //
+    // It must be UNIQUE per distinct entry. The obvious key country|name|year
+    // is not enough: career-mode entries have no single `year` (they carry a
+    // `years` array instead), so two genuinely different men with the same
+    // name and country, for example England's scrum-half Richard Hill and
+    // England's flanker Richard Hill, both collapsed to "England|Richard Hill|"
+    // and became indistinguishable. That let the same slot be filled by "him"
+    // repeatedly and made the pick resolver return the wrong man. Including the
+    // forward/back split (which separates those two men) and the years array
+    // when present makes the key unique again.
     function playerKey(p) {
-        return p.country + "|" + p.name + "|" + (p.year || "");
+        const yr = p.year || (Array.isArray(p.years) ? p.years.join("-") : "");
+        const groups = playerGroups(p);
+        const forwards = ["front-row", "lock", "back-row"];
+        const fb = groups.some(function (g) { return forwards.indexOf(g) !== -1; }) ? "F" : "B";
+        return p.country + "|" + p.name + "|" + yr + "|" + fb;
     }
 
     // Identity of the person, ignoring which tournament version this is.
