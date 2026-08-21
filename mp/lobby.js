@@ -5,7 +5,7 @@
 
 (function () {
     // Bumped on every change. Format v1.YYMMDDHHMM in GMT.
-    const VERSION = "v1.2608201942";
+    const VERSION = "v1.2608211319";
 
     const $ = function (id) { return document.getElementById(id); };
 
@@ -3216,8 +3216,13 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
                 Object.keys(draft.picks || {}).forEach(function (k) {
                     const pk = draft.picks[k];
                     const p = MPPicks.playerFromPick(pool, pk);
-                    if (!p) return;
-                    taken[MPPicks.personKey(p)] = true;
+                    if (!p) {
+                        if (window.MP_DEBUG_AI) console.log("[AI] taken-rebuild: pick", k, "key=", pk.key, "i=", pk.i, "RESOLVED TO NOTHING");
+                        return;
+                    }
+                    const pkey = MPPicks.personKey(p);
+                    if (window.MP_DEBUG_AI) console.log("[AI] taken-rebuild: pick", k, "-> ", p.name, p.country, (p.positions||[])[0], "| personKey=", pkey, "| storedKey=", pk.key);
+                    taken[pkey] = true;
                     if (pk.by === picker) squad[pk.slot] = p;
                 });
 
@@ -3267,7 +3272,7 @@ on("chemOn", "change", function () { state.chemistry = $("chemOn").checked; });
                 }
 
                 const aiKey = MPPicks.playerKey(res.player);
-                if (window.MP_DEBUG_AI) console.log("[AI] picking", res.player.name, "at", res.slotId);
+                if (window.MP_DEBUG_AI) console.log("[AI] picking", res.player.name, res.player.country, (res.player.positions||[])[0], "at", res.slotId, "| personKey=", MPPicks.personKey(res.player), "| playerKey=", aiKey);
                 MPNet.makePick(currentCode, res.slotId, idx, draft.order, draft.pickIndex, picker, aiKey)
                     .catch(function (err) {
                         if (window.MP_DEBUG_AI) console.log("[AI] makePick REJECTED:", err && err.message);
