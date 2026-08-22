@@ -25,6 +25,7 @@ if (self.MP_FIREBASE_CONFIG) {
     // showNotification here yields exactly one notification on both iOS and
     // desktop Chrome.
     messaging.onBackgroundMessage(function (payload) {
+        console.log("[sw] onBackgroundMessage fired", payload);
         const data = payload.data || {};
         const title = data.title || "Rugby XV Draft";
         const options = {
@@ -35,7 +36,19 @@ if (self.MP_FIREBASE_CONFIG) {
             renotify: true,
             data: { url: data.url || "./index.html" }
         };
-        return self.registration.showNotification(title, options);
+        return self.registration.showNotification(title, options)
+            .then(function () { console.log("[sw] showNotification resolved"); })
+            .catch(function (e) { console.log("[sw] showNotification FAILED", e && e.message); });
+    });
+
+    // Also catch the raw push event directly. If FCM's onBackgroundMessage does
+    // not fire on this platform but a push genuinely arrives, this will still
+    // log it, telling us the message reached the SW even if the FCM wrapper did
+    // not hand it over.
+    self.addEventListener("push", function (event) {
+        let body = "";
+        try { body = event.data ? event.data.text() : "(no data)"; } catch (e) { body = "(unreadable)"; }
+        console.log("[sw] raw push event received:", body);
     });
 }
 
