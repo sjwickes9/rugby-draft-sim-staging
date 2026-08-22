@@ -16,19 +16,26 @@ if (self.MP_FIREBASE_CONFIG) {
     firebase.initializeApp(self.MP_FIREBASE_CONFIG);
     const messaging = firebase.messaging();
 
-    // IMPORTANT: we do NOT call showNotification here.
-    //
-    // The server sends a message that includes a `notification` payload (needed
-    // for iOS web push to display reliably). When such a message arrives, the
-    // browser/OS displays that notification itself. If we ALSO showed one from
-    // onBackgroundMessage, the user would get two notifications per event, which
-    // is exactly what happened on iOS. So we let the platform display the
-    // notification payload and do nothing extra here.
-    //
-    // We keep a no-op handler registered so the SDK still wires up messaging,
-    // but it must not create another notification.
-    messaging.onBackgroundMessage(function () {
-        // Intentionally empty: the notification payload is shown by the browser.
+    // The server sends a DATA-ONLY message (no `notification` payload) and we
+    // show the notification here. This is deliberate: if the message also
+    // carried a `notification` payload, the browser would auto-display it AND
+    // this handler would show another, giving two notifications per event on
+    // iOS, and on Chrome a data+notification message produces either a
+    // duplicate or a generic "site updated" notice. Data-only + one
+    // showNotification here yields exactly one notification on both iOS and
+    // desktop Chrome.
+    messaging.onBackgroundMessage(function (payload) {
+        const data = payload.data || {};
+        const title = data.title || "Rugby XV Draft";
+        const options = {
+            body: data.body || "",
+            icon: "assets/icons/icon-192.png",
+            badge: "assets/icons/icon-192.png",
+            tag: data.tag || "rugby-draft",
+            renotify: true,
+            data: { url: data.url || "./index.html" }
+        };
+        return self.registration.showNotification(title, options);
     });
 }
 
